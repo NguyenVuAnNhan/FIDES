@@ -13,6 +13,9 @@ class ShieldAnalyzeRequest(BaseModel):
     recipient_account: str
     active_call: bool = False
     caller_type: str = "unknown"
+    caller_number: str = ""
+    recipient_known: bool = False
+    remote_control_detected: bool = False
     transcript: str = ""
 
 
@@ -46,4 +49,3 @@ class GrowAnalyzeResponse(BaseModel):
     loan_readiness: str
     explanations: list[Explanation]
     recommended_action: str
-

@@ -278,6 +278,10 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
     amount = round_to_nearest(rng.randint(*template["amount_range"]), 100_000)
     transcript = render_template(rng.choice(template["transcripts"]), template.get("tokens", {}), rng)
     recipient_name = rng.choice(template["recipient_names"])
+    caller_type = rng.choice(template["caller_types"])
+    active_call = category != "legitimate_supplier"
+    recipient_known = category == "legitimate_supplier"
+    remote_control_detected = category == "remote_support"
 
     return {
         "id": f"synthetic-shield-{index:04d}",
@@ -290,8 +294,11 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
             "transaction_amount": amount,
             "recipient_name": recipient_name,
             "recipient_account": make_account(rng),
-            "active_call": category != "legitimate_supplier",
-            "caller_type": rng.choice(template["caller_types"]),
+            "active_call": active_call,
+            "caller_type": caller_type,
+            "caller_number": make_caller_number(rng, caller_type, category),
+            "recipient_known": recipient_known,
+            "remote_control_detected": remote_control_detected,
             "transcript": transcript,
         },
     }
@@ -348,15 +355,42 @@ def make_account(rng: random.Random) -> str:
     return f"9704 {rng.randint(1000, 9999)} {rng.randint(1000, 9999)}"
 
 
+def make_caller_number(rng: random.Random, caller_type: str, category: str) -> str:
+    if caller_type == "trusted":
+        return f"+84 {rng.randint(900, 989)} {rng.randint(100, 999)} {rng.randint(100, 999)}"
+    if caller_type == "international":
+        return rng.choice(
+            [
+                f"+65 {rng.randint(6000, 9999)} {rng.randint(1000, 9999)}",
+                f"+855 {rng.randint(10, 99)} {rng.randint(100, 999)} {rng.randint(100, 999)}",
+                f"+882 {rng.randint(10, 99)} {rng.randint(100, 999)} {rng.randint(100, 999)}",
+            ]
+        )
+    if caller_type == "voip":
+        return rng.choice(
+            [
+                f"+882 {rng.randint(10, 99)} {rng.randint(100, 999)} {rng.randint(100, 999)}",
+                f"+883 {rng.randint(10, 99)} {rng.randint(100, 999)} {rng.randint(100, 999)}",
+                f"1900 {rng.randint(100, 999)} {rng.randint(100, 999)}",
+            ]
+        )
+    if category in {"fake_authority", "remote_support"}:
+        return rng.choice(
+            [
+                f"+882 {rng.randint(10, 99)} {rng.randint(100, 999)} {rng.randint(100, 999)}",
+                f"1900 {rng.randint(100, 999)} {rng.randint(100, 999)}",
+            ]
+        )
+    return f"+84 {rng.randint(700, 899)} {rng.randint(100, 999)} {rng.randint(100, 999)}"
+
+
 def round_to_nearest(value: int, unit: int) -> int:
     return round(value / unit) * unit
 
 
 def expected_shield_band(category: str) -> str:
-    if category in {"fake_authority", "otp_theft", "investment"}:
+    if category in {"fake_authority", "otp_theft", "investment", "remote_support"}:
         return "critical"
-    if category == "remote_support":
-        return "elevated"
     return "low"
 
 

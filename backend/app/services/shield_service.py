@@ -15,7 +15,19 @@ SCAM_PATTERNS = {
     ],
     "otp_theft": ["otp", "ma xac thuc", "mã xác thực", "doc ma", "đọc mã"],
     "investment": ["loi nhuan", "lợi nhuận", "cam ket", "cam kết", "dau tu", "đầu tư"],
+    "remote_support": [
+        "dieu khien man hinh",
+        "điều khiển màn hình",
+        "chia se man hinh",
+        "chia sẻ màn hình",
+        "ho tro tu xa",
+        "hỗ trợ từ xa",
+        "ung dung la",
+        "ứng dụng lạ",
+    ],
 }
+
+SUSPICIOUS_CALL_PREFIXES = ("+882", "+883", "+870", "+979", "1900")
 
 
 def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
@@ -51,6 +63,46 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
                 label="Caller context",
                 detail=f"The caller type is marked as {request.caller_type}.",
                 weight=10,
+            )
+        )
+
+    if request.caller_number and _is_international_number(request.caller_number):
+        score += 10
+        explanations.append(
+            Explanation(
+                label="International caller number",
+                detail=f"The caller number {request.caller_number} is outside the local +84 numbering context.",
+                weight=10,
+            )
+        )
+
+    if request.caller_number and _has_suspicious_prefix(request.caller_number):
+        score += 10
+        explanations.append(
+            Explanation(
+                label="Suspicious caller prefix",
+                detail=f"The caller number {request.caller_number} matches a high-risk demo prefix rule.",
+                weight=10,
+            )
+        )
+
+    if not request.recipient_known:
+        score += 10
+        explanations.append(
+            Explanation(
+                label="Unknown recipient",
+                detail="The recipient is not in the user's trusted payee or recent invoice history.",
+                weight=10,
+            )
+        )
+
+    if request.remote_control_detected:
+        score += 20
+        explanations.append(
+            Explanation(
+                label="Remote-control signal",
+                detail="A remote-support or screen-control signal is active during the transfer.",
+                weight=20,
             )
         )
 
@@ -103,3 +155,16 @@ def _build_intervention_message(risk_level: str, recipient_name: str) -> str:
         )
     return "No strong manipulation pattern was detected, but continue only if you trust the recipient."
 
+
+def _is_international_number(caller_number: str) -> bool:
+    normalized = _normalize_phone(caller_number)
+    return normalized.startswith("+") and not normalized.startswith("+84")
+
+
+def _has_suspicious_prefix(caller_number: str) -> bool:
+    normalized = _normalize_phone(caller_number)
+    return any(normalized.startswith(prefix) for prefix in SUSPICIOUS_CALL_PREFIXES)
+
+
+def _normalize_phone(caller_number: str) -> str:
+    return caller_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")

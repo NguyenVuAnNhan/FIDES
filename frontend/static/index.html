@@ -51,9 +51,21 @@
               <option value="trusted">Trusted</option>
             </select>
           </label>
+          <label>
+            Caller Number
+            <input name="caller_number" value="+882 13 456 789" />
+          </label>
           <label class="checkbox-row">
             <input name="active_call" type="checkbox" checked />
             Active call while transferring
+          </label>
+          <label class="checkbox-row">
+            <input name="recipient_known" type="checkbox" />
+            Recipient known/trusted
+          </label>
+          <label class="checkbox-row">
+            <input name="remote_control_detected" type="checkbox" />
+            Remote-control app detected
           </label>
           <label class="wide">
             Transcript

@@ -34,6 +34,9 @@ shieldForm.addEventListener("submit", async (event) => {
     recipient_account: String(form.get("recipient_account")),
     active_call: form.get("active_call") === "on",
     caller_type: String(form.get("caller_type")),
+    caller_number: String(form.get("caller_number")),
+    recipient_known: form.get("recipient_known") === "on",
+    remote_control_detected: form.get("remote_control_detected") === "on",
     transcript: String(form.get("transcript")),
   };
 

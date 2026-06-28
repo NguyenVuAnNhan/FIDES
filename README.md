@@ -33,9 +33,11 @@ Synthetic demo fixtures live in `backend/app/data/demo_dataset.json`.
 
 The current dataset includes:
 
-- Four Shield scenarios: fake police scam, OTP theft, guaranteed-investment scam, and a legitimate supplier payment.
+- Five Shield scenarios: fake police scam, OTP theft, guaranteed-investment scam, remote-control support scam, and a legitimate supplier payment.
 - Four Grow invoice cases: strong coffee-shop profile, emerging food-stall profile, late-payment retailer, and high-volume electronics reseller.
 - Shared trust profiles for the demo dashboard and future trust-graph work.
+
+The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.
 
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 

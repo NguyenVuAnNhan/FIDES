@@ -12,6 +12,9 @@
         "recipient_account": "9704 0000 1234",
         "active_call": true,
         "caller_type": "unknown",
+        "caller_number": "+882 13 456 789",
+        "recipient_known": false,
+        "remote_control_detected": false,
         "transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat."
       }
     },
@@ -26,21 +29,44 @@
         "recipient_account": "9704 8888 6622",
         "active_call": true,
         "caller_type": "voip",
+        "caller_number": "1900 999 888",
+        "recipient_known": false,
+        "remote_control_detected": false,
         "transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan."
       }
     },
     {
-      "id": "shield-investment-elevated",
+      "id": "shield-investment-critical",
       "title": "Guaranteed investment return",
       "persona": "Young investor",
-      "demo_goal": "Show an elevated-risk warning for a classic high-return investment script.",
+      "demo_goal": "Show a critical warning for a classic high-return investment script with an unknown recipient.",
       "payload": {
         "transaction_amount": 30000000,
         "recipient_name": "Cong ty Dau Tu Sao Viet",
         "recipient_account": "9704 3456 7810",
         "active_call": true,
         "caller_type": "unknown",
+        "caller_number": "+84 901 456 222",
+        "recipient_known": false,
+        "remote_control_detected": false,
         "transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao."
+      }
+    },
+    {
+      "id": "shield-remote-support-critical",
+      "title": "Remote screen-control payment",
+      "persona": "Mobile banking user",
+      "demo_goal": "Show the circuit breaker reacting when a transfer happens during a call with remote-control app signals.",
+      "payload": {
+        "transaction_amount": 42000000,
+        "recipient_name": "Trung Tam Ho Tro Thiet Bi",
+        "recipient_account": "9704 9000 7744",
+        "active_call": true,
+        "caller_type": "voip",
+        "caller_number": "+883 77 900 112",
+        "recipient_known": false,
+        "remote_control_detected": true,
+        "transcript": "Anh chi mo ung dung dieu khien man hinh de toi sua loi. Sau do chuyen tien kiem tra va toi se hoan lai."
       }
     },
     {
@@ -54,6 +80,9 @@
         "recipient_account": "9704 1122 3344",
         "active_call": false,
         "caller_type": "trusted",
+        "caller_number": "+84 902 222 111",
+        "recipient_known": true,
+        "remote_control_detected": false,
         "transcript": "Thanh toan hoa don bao bi thang 6 theo hop dong da doi soat."
       }
     }
