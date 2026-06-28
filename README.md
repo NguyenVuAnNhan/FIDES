@@ -27,6 +27,13 @@ Open http://127.0.0.1:8000.
 - `POST /api/shield/analyze`
 - `POST /api/grow/analyze-invoice`
 
+## SDK Scaffolds
+
+- Web SDK scaffold: `sdks/web`
+- Mobile SDK scaffold: `sdks/mobile`
+
+The SDK design and platform boundaries are documented in `docs/sdk_scaffold.md`.
+
 ## Demo Dataset
 
 Synthetic demo fixtures live in `backend/app/data/demo_dataset.json`.

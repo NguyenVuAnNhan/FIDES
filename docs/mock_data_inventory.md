@@ -16,6 +16,8 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `frontend/static/fixtures/receipts/` | Fake receipt PNGs for Grow OCR demos. |
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
 | `docs/graph_database_schema.md` | Future graph database design. |
+| `sdks/web/` | Web SDK scaffold for in-page telemetry and Shield/Grow calls. |
+| `sdks/mobile/` | Android/iOS SDK scaffold for host-app telemetry and Shield/Grow calls. |
 
 ## Must Mock For MVP
 

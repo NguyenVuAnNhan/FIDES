@@ -1,0 +1,20 @@
+{
+  "name": "@fides/web-sdk",
+  "version": "0.1.0",
+  "description": "FIDES Web SDK scaffold for browser telemetry and Shield/Grow API calls.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "src/types.d.ts",
+  "scripts": {
+    "check": "node --check src/index.js"
+  },
+  "keywords": [
+    "fides",
+    "fraud",
+    "telemetry",
+    "shield",
+    "grow"
+  ],
+  "license": "UNLICENSED"
+}
+
