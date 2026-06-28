@@ -96,6 +96,39 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
+    vn_social_weight = _vn_social_weight(request.vn_social_report_count)
+    if vn_social_weight:
+        score += vn_social_weight
+        explanations.append(
+            Explanation(
+                label="vnSocial scam reports",
+                detail=_build_vn_social_detail(request),
+                weight=vn_social_weight,
+            )
+        )
+
+    simo_weight = _simo_weight(request.simo_status)
+    if simo_weight:
+        score += simo_weight
+        explanations.append(
+            Explanation(
+                label="SIMO recipient status",
+                detail=_build_simo_detail(request),
+                weight=simo_weight,
+            )
+        )
+
+    graph_weight = _recipient_graph_weight(request)
+    if graph_weight:
+        score += graph_weight
+        explanations.append(
+            Explanation(
+                label="Recipient graph risk",
+                detail=_build_recipient_graph_detail(request),
+                weight=graph_weight,
+            )
+        )
+
     if request.remote_control_detected:
         score += 20
         explanations.append(
@@ -293,3 +326,74 @@ def _build_coercion_detail(request: ShieldAnalyzeRequest) -> str:
 def _signal_detail(label: str, score: float, labels: list[str]) -> str:
     label_text = f" Labels: {', '.join(labels)}." if labels else ""
     return f"{label}: {score:.2f}.{label_text}"
+
+
+def _vn_social_weight(report_count: int) -> int:
+    if report_count >= 20:
+        return 20
+    if report_count >= 5:
+        return 12
+    if report_count > 0:
+        return 6
+    return 0
+
+
+def _build_vn_social_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = [f"{request.vn_social_report_count} recent report(s) reference this recipient."]
+    if request.vn_social_recent_keywords:
+        pieces.append(f"Keywords: {', '.join(request.vn_social_recent_keywords)}.")
+    if request.recipient_phone:
+        pieces.append(f"Recipient phone: {request.recipient_phone}.")
+    return " ".join(pieces)
+
+
+def _simo_weight(status: str) -> int:
+    normalized = status.lower()
+    if normalized == "listed":
+        return 25
+    if normalized == "watchlisted":
+        return 15
+    if normalized == "not_listed":
+        return 0
+    return 0
+
+
+def _build_simo_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = [f"SIMO status is {request.simo_status}."]
+    if request.simo_last_checked_at:
+        pieces.append(f"Last checked at {request.simo_last_checked_at}.")
+    return " ".join(pieces)
+
+
+def _recipient_graph_weight(request: ShieldAnalyzeRequest) -> int:
+    if request.graph_risk_score is not None:
+        if request.graph_risk_score >= 0.85:
+            return 25
+        if request.graph_risk_score >= 0.65:
+            return 16
+        if request.graph_risk_score >= 0.45:
+            return 8
+    if request.funds_moved_within_minutes and request.inbound_sender_count_10m >= 5:
+        return 12
+    return 0
+
+
+def _build_recipient_graph_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = []
+    if request.graph_risk_score is not None:
+        pieces.append(f"Graph risk score: {request.graph_risk_score:.2f}.")
+    if request.graph_pattern:
+        pieces.append(f"Pattern: {request.graph_pattern}.")
+    if request.recipient_risk_level != "unknown":
+        pieces.append(f"Recipient risk level: {request.recipient_risk_level}.")
+    pieces.append(f"Inbound senders in 10m: {request.inbound_sender_count_10m}.")
+    pieces.append(f"Outbound accounts in 10m: {request.outbound_account_count_10m}.")
+    if request.median_pass_through_minutes is not None:
+        pieces.append(f"Median pass-through: {request.median_pass_through_minutes:.1f} min.")
+    if request.account_age_days is not None:
+        pieces.append(f"Account age: {request.account_age_days} day(s).")
+    if request.shared_device_cluster_size:
+        pieces.append(f"Shared-device cluster size: {request.shared_device_cluster_size}.")
+    if request.funds_moved_within_minutes:
+        pieces.append("Funds moved onward within minutes.")
+    return " ".join(pieces)

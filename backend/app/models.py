@@ -15,6 +15,20 @@ class ShieldAnalyzeRequest(BaseModel):
     caller_type: str = "unknown"
     caller_number: str = ""
     recipient_known: bool = False
+    recipient_phone: str = ""
+    vn_social_report_count: int = Field(default=0, ge=0)
+    vn_social_recent_keywords: list[str] = Field(default_factory=list)
+    simo_status: str = "not_checked"
+    simo_last_checked_at: str | None = None
+    graph_risk_score: float | None = Field(default=None, ge=0, le=1)
+    graph_pattern: str | None = None
+    inbound_sender_count_10m: int = Field(default=0, ge=0)
+    outbound_account_count_10m: int = Field(default=0, ge=0)
+    median_pass_through_minutes: float | None = Field(default=None, ge=0)
+    account_age_days: int | None = Field(default=None, ge=0)
+    shared_device_cluster_size: int = Field(default=0, ge=0)
+    funds_moved_within_minutes: bool = False
+    recipient_risk_level: str = "unknown"
     remote_control_detected: bool = False
     consent_granted: bool = True
     audio_source: str | None = None

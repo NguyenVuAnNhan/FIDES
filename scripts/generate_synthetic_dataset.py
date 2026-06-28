@@ -301,6 +301,8 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
             "caller_type": caller_type,
             "caller_number": make_caller_number(rng, caller_type, category),
             "recipient_known": recipient_known,
+            "recipient_phone": make_recipient_phone(rng),
+            **make_recipient_intelligence(rng, category),
             "remote_control_detected": remote_control_detected,
             "consent_granted": consent_granted,
             "audio_source": make_audio_source(category, index) if consent_granted else None,
@@ -393,6 +395,104 @@ def make_caller_number(rng: random.Random, caller_type: str, category: str) -> s
             ]
         )
     return f"+84 {rng.randint(700, 899)} {rng.randint(100, 999)} {rng.randint(100, 999)}"
+
+
+def make_recipient_phone(rng: random.Random) -> str:
+    return f"+84 {rng.randint(900, 989)} {rng.randint(100, 999)} {rng.randint(100, 999)}"
+
+
+def make_recipient_intelligence(rng: random.Random, category: str) -> dict[str, Any]:
+    specs = {
+        "fake_authority": {
+            "reports": (18, 45),
+            "keywords": ["cong an", "xac minh tai khoan", "chuyen tien", "vu an"],
+            "simo": ["not_listed", "watchlisted"],
+            "graph": (0.78, 0.96),
+            "patterns": ["fan_in_fan_out", "rapid_pass_through"],
+            "inbound": (9, 22),
+            "outbound": (5, 15),
+            "pass_through": (1.5, 6.0),
+            "age": (1, 14),
+            "cluster": (2, 9),
+            "risk_level": "critical",
+            "moved": True,
+        },
+        "otp_theft": {
+            "reports": (5, 18),
+            "keywords": ["otp", "ma xac thuc", "khoa giao dich"],
+            "simo": ["not_listed", "watchlisted"],
+            "graph": (0.62, 0.86),
+            "patterns": ["rapid_pass_through", "fan_in"],
+            "inbound": (5, 13),
+            "outbound": (3, 9),
+            "pass_through": (3.0, 10.0),
+            "age": (3, 30),
+            "cluster": (1, 6),
+            "risk_level": "elevated",
+            "moved": True,
+        },
+        "investment": {
+            "reports": (1, 9),
+            "keywords": ["dau tu", "loi nhuan cao", "cam ket"],
+            "simo": ["not_listed"],
+            "graph": (0.35, 0.68),
+            "patterns": ["new_account_high_activity", "fan_in"],
+            "inbound": (2, 8),
+            "outbound": (0, 4),
+            "pass_through": (8.0, 40.0),
+            "age": (7, 90),
+            "cluster": (0, 3),
+            "risk_level": "elevated",
+            "moved": False,
+        },
+        "remote_support": {
+            "reports": (10, 28),
+            "keywords": ["ho tro tu xa", "chia se man hinh", "hoan tien"],
+            "simo": ["not_listed", "watchlisted"],
+            "graph": (0.7, 0.92),
+            "patterns": ["fan_in_fan_out", "rapid_pass_through"],
+            "inbound": (7, 18),
+            "outbound": (5, 13),
+            "pass_through": (2.0, 8.0),
+            "age": (1, 21),
+            "cluster": (2, 8),
+            "risk_level": "critical",
+            "moved": True,
+        },
+        "legitimate_supplier": {
+            "reports": (0, 0),
+            "keywords": [],
+            "simo": ["not_listed"],
+            "graph": (0.02, 0.18),
+            "patterns": ["trusted_supplier_history"],
+            "inbound": (0, 2),
+            "outbound": (0, 2),
+            "pass_through": None,
+            "age": (180, 1400),
+            "cluster": (0, 1),
+            "risk_level": "low",
+            "moved": False,
+        },
+    }
+    spec = specs[category]
+    pass_through = None
+    if spec["pass_through"]:
+        pass_through = make_confidence(rng, *spec["pass_through"])
+    return {
+        "vn_social_report_count": rng.randint(*spec["reports"]),
+        "vn_social_recent_keywords": sample_labels(rng, spec["keywords"]) if spec["keywords"] else [],
+        "simo_status": rng.choice(spec["simo"]),
+        "simo_last_checked_at": "2026-06-28T10:00:00Z",
+        "graph_risk_score": make_confidence(rng, *spec["graph"]),
+        "graph_pattern": rng.choice(spec["patterns"]),
+        "inbound_sender_count_10m": rng.randint(*spec["inbound"]),
+        "outbound_account_count_10m": rng.randint(*spec["outbound"]),
+        "median_pass_through_minutes": pass_through,
+        "account_age_days": rng.randint(*spec["age"]),
+        "shared_device_cluster_size": rng.randint(*spec["cluster"]),
+        "funds_moved_within_minutes": spec["moved"],
+        "recipient_risk_level": spec["risk_level"],
+    }
 
 
 def make_audio_source(category: str, index: int) -> str:

@@ -41,6 +41,8 @@ The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_t
 
 The Shield dataset also includes the mocked SmartVoice/Smartbot pipeline fields: `consent_granted`, `audio_source`, `stt_transcript`, `stt_confidence`, `detected_patterns`, `llm_scam_type`, and `llm_confidence`. It also includes derived coercion-signal fields: `voice_stress_score`, `face_emotion_score`, `scripted_behavior_score`, `coercion_score`, and their explanation labels/confidence values. The schema is documented in `docs/shield_audio_nlp_schema.md`.
 
+Recipient-risk mock fields cover vnSocial reports, SIMO status, and graph-derived suspected mule-account features. The flat Shield payload schema is documented in `docs/shield_recipient_risk_schema.md`; the backend graph database design is documented in `docs/graph_database_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash

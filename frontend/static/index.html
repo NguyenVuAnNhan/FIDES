@@ -63,6 +63,72 @@
             <input name="recipient_known" type="checkbox" />
             Recipient known/trusted
           </label>
+          <label>
+            Recipient Phone
+            <input name="recipient_phone" value="+84 903 777 888" />
+          </label>
+          <label>
+            vnSocial Reports
+            <input name="vn_social_report_count" type="number" value="27" min="0" />
+          </label>
+          <label>
+            vnSocial Keywords
+            <input name="vn_social_recent_keywords" value="cong an, xac minh tai khoan, chuyen tien" />
+          </label>
+          <label>
+            SIMO Status
+            <select name="simo_status">
+              <option value="not_checked">Not checked</option>
+              <option value="not_listed">Not listed</option>
+              <option value="watchlisted">Watchlisted</option>
+              <option value="listed">Listed</option>
+            </select>
+          </label>
+          <label>
+            SIMO Last Checked
+            <input name="simo_last_checked_at" value="2026-06-28T10:00:00Z" />
+          </label>
+          <label>
+            Graph Risk Score
+            <input name="graph_risk_score" type="number" value="0.88" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Graph Pattern
+            <input name="graph_pattern" value="fan_in_fan_out" />
+          </label>
+          <label>
+            Inbound Senders 10m
+            <input name="inbound_sender_count_10m" type="number" value="14" min="0" />
+          </label>
+          <label>
+            Outbound Accounts 10m
+            <input name="outbound_account_count_10m" type="number" value="9" min="0" />
+          </label>
+          <label>
+            Pass-through Minutes
+            <input name="median_pass_through_minutes" type="number" value="3" min="0" step="0.1" />
+          </label>
+          <label>
+            Account Age Days
+            <input name="account_age_days" type="number" value="4" min="0" />
+          </label>
+          <label>
+            Shared Device Cluster
+            <input name="shared_device_cluster_size" type="number" value="6" min="0" />
+          </label>
+          <label>
+            Recipient Risk Level
+            <select name="recipient_risk_level">
+              <option value="unknown">Unknown</option>
+              <option value="low">Low</option>
+              <option value="elevated">Elevated</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label class="checkbox-row">
+            <input name="funds_moved_within_minutes" type="checkbox" checked />
+            Funds moved onward within minutes
+          </label>
           <label class="checkbox-row">
             <input name="remote_control_detected" type="checkbox" />
             Remote-control app detected
