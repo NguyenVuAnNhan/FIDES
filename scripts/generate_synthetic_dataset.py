@@ -365,6 +365,7 @@ def build_grow_invoice(rng: random.Random, index: int, category: str) -> dict[st
             **make_compliance_outputs(invoice_id, customer_name, total, category, template["paid_on_time"]),
             **make_cashflow_forecast(rng, total, category, template["paid_on_time"]),
             **make_alternative_credit_profile(rng, category, total, template["paid_on_time"], len(items)),
+            **make_capital_connection(rng, total, category, template["paid_on_time"]),
         },
     }
 
@@ -611,6 +612,115 @@ def make_cashflow_forecast(
             "confidence": make_confidence(rng, *spec["confidence"]),
         }
     }
+
+
+def make_capital_connection(
+    rng: random.Random,
+    total: int,
+    category: str,
+    paid_on_time: bool,
+) -> dict[str, Any]:
+    recommended_amounts = {
+        "strong_business": min(total, 35_000_000),
+        "emerging_thin_file": round_to_nearest(round(total * 0.5), 1_000_000),
+        "late_payment": round_to_nearest(round(total * 1.9), 1_000_000),
+        "seasonal_cashflow": round_to_nearest(round(total * 0.9), 1_000_000),
+        "high_volume": min(round_to_nearest(round(total * 0.7), 1_000_000), 80_000_000),
+    }
+    amount = max(3_000_000, recommended_amounts[category])
+    loan_status = "prequalified" if paid_on_time and category != "emerging_thin_file" else "eligible"
+    if category == "late_payment":
+        loan_status = "needs_review"
+    loan_fit = {
+        "strong_business": (0.78, 0.9),
+        "emerging_thin_file": (0.58, 0.72),
+        "late_payment": (0.44, 0.62),
+        "seasonal_cashflow": (0.68, 0.82),
+        "high_volume": (0.82, 0.94),
+    }
+    insurance_fit = {
+        "strong_business": (0.48, 0.62),
+        "emerging_thin_file": (0.5, 0.64),
+        "late_payment": (0.54, 0.68),
+        "seasonal_cashflow": (0.7, 0.86),
+        "high_volume": (0.64, 0.78),
+    }
+    working_capital_offer = {
+        "offer_id": f"mock_wc_{amount}_6mo",
+        "partner_name": "Mock Partner Bank A",
+        "product_type": "working_capital_loan",
+        "max_amount": amount,
+        "term_months": 6,
+        "monthly_payment_estimate": round((amount * 1.06) / 6),
+        "premium_estimate": None,
+        "eligibility_status": loan_status,
+        "fit_score": make_confidence(rng, *loan_fit[category]),
+        "required_documents": ["recent_invoices", "bank_statement_snapshot"],
+        "reason": capital_offer_reason(category),
+        "next_step": "show_prequalified_terms" if loan_status == "prequalified" else "request_partner_review",
+    }
+    insurance_offer = {
+        "offer_id": "mock_inventory_cover_basic",
+        "partner_name": "Mock Insurance Partner B",
+        "product_type": "inventory_insurance",
+        "max_amount": round(total * 1.5),
+        "term_months": 12,
+        "monthly_payment_estimate": None,
+        "premium_estimate": max(250_000, round(total * 0.018)),
+        "eligibility_status": "eligible",
+        "fit_score": make_confidence(rng, *insurance_fit[category]),
+        "required_documents": ["inventory_photo", "recent_invoice"],
+        "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+        "next_step": "show_insurance_summary",
+    }
+    smartbot_message = smartbot_capital_message(category, amount)
+    return {
+        "capital_connection": {
+            "status": "matched",
+            "recommended_offer_id": working_capital_offer["offer_id"],
+            "partner_offers": [working_capital_offer, insurance_offer],
+            "smartbot_advice": {
+                "provider": "Smartbot",
+                "message": smartbot_message,
+                "confidence": make_confidence(rng, 0.62, 0.82),
+                "disclaimer": "Demo advisory output, not a binding credit decision.",
+            },
+            "data_sharing_scope": ["business_profile", "cashflow_forecast", "recent_invoices"],
+            "consent_required": True,
+        }
+    }
+
+
+def capital_offer_reason(category: str) -> str:
+    reasons = {
+        "strong_business": "Optional growth line for a merchant with stable cashflow.",
+        "emerging_thin_file": "Small working-capital line can cover the projected starter cash-buffer gap.",
+        "late_payment": "Partner review required because delayed receivables weaken affordability.",
+        "seasonal_cashflow": "Matches seasonal inventory timing before expected revenue arrives.",
+        "high_volume": "Supports larger repeat-buyer orders without over-borrowing.",
+    }
+    return reasons[category]
+
+
+def smartbot_capital_message(category: str, amount: int) -> str:
+    messages = {
+        "strong_business": (
+            "No urgent borrowing is required, but a small prequalified line can support planned inventory growth."
+        ),
+        "emerging_thin_file": (
+            f"A modest {amount:,} VND working-capital offer may help cover the projected cash-buffer gap."
+        ),
+        "late_payment": (
+            "Wait for partner review before borrowing; focus on collecting late receivables and avoid over-borrowing."
+        ),
+        "seasonal_cashflow": (
+            f"A short working-capital offer around the forecast window may cover seasonal inventory needs up to {amount:,} VND."
+        ),
+        "high_volume": (
+            f"A prequalified {amount:,} VND line can support larger repeat-buyer orders while preserving cash buffer."
+        ),
+    }
+    return messages[category]
 
 
 def make_alternative_credit_profile(

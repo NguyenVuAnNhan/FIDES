@@ -59,6 +59,8 @@ Grow cashflow forecast mocks cover liquidity early warning, projected shortfalls
 
 Grow alternative-credit mocks combine trust graph evidence and vnSocial reputation into a derived profile, including gradient-boosted-tree and SHAP-style explainability metadata. The schema, mock rules, and real-life capability boundaries are documented in `docs/grow_alternative_credit_schema.md`.
 
+Grow capital-connection mocks match partner-bank loan offers, insurance offers, and Smartbot advisory text. The schema and real-life integration boundaries are documented in `docs/grow_capital_connection_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash

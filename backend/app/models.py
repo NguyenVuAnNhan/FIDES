@@ -166,6 +166,37 @@ class EInvoiceStatus(BaseModel):
     compliance_notes: list[str] = Field(default_factory=list)
 
 
+class PartnerCapitalOffer(BaseModel):
+    offer_id: str
+    partner_name: str
+    product_type: str
+    max_amount: int = Field(default=0, ge=0)
+    term_months: int | None = Field(default=None, ge=0)
+    monthly_payment_estimate: int | None = Field(default=None, ge=0)
+    premium_estimate: int | None = Field(default=None, ge=0)
+    eligibility_status: str = "unknown"
+    fit_score: float | None = Field(default=None, ge=0, le=1)
+    required_documents: list[str] = Field(default_factory=list)
+    reason: str = ""
+    next_step: str = ""
+
+
+class SmartbotCapitalAdvice(BaseModel):
+    provider: str = "Smartbot"
+    message: str = ""
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    disclaimer: str = "Demo advisory output, not a binding credit decision."
+
+
+class CapitalConnection(BaseModel):
+    status: str = "not_matched"
+    recommended_offer_id: str = ""
+    partner_offers: list[PartnerCapitalOffer] = Field(default_factory=list)
+    smartbot_advice: SmartbotCapitalAdvice = Field(default_factory=SmartbotCapitalAdvice)
+    data_sharing_scope: list[str] = Field(default_factory=list)
+    consent_required: bool = True
+
+
 class CreditFeatureContribution(BaseModel):
     feature: str
     value: str | int | float | bool | None = None
@@ -212,6 +243,7 @@ class GrowAnalyzeRequest(BaseModel):
     tax_summary: TaxSummary | None = None
     einvoice_status: EInvoiceStatus | None = None
     alternative_credit_profile: AlternativeCreditProfile | None = None
+    capital_connection: CapitalConnection | None = None
     invoice_id: str
     customer_name: str
     invoice_total: int = Field(ge=0)

@@ -582,6 +582,58 @@
               }
             ]
           }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_30000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_30000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 30000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 5300000,
+              "premium_estimate": null,
+              "eligibility_status": "prequalified",
+              "fit_score": 0.86,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot"
+              ],
+              "reason": "Optional growth line for a merchant with stable cashflow.",
+              "next_step": "show_prequalified_terms"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 48000000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 576000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.56,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "No urgent borrowing is required, but a small prequalified line can support planned inventory growth.",
+            "confidence": 0.78,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices"
+          ],
+          "consent_required": true
         }
       }
     },
@@ -772,6 +824,58 @@
               }
             ]
           }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_6000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_6000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 6000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 1060000,
+              "premium_estimate": null,
+              "eligibility_status": "eligible",
+              "fit_score": 0.68,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot"
+              ],
+              "reason": "Small working-capital line can cover the projected starter cash-buffer gap.",
+              "next_step": "request_partner_review"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 18750000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 250000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.61,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "A modest 6,000,000 VND working-capital offer may help cover the projected cash-buffer gap.",
+            "confidence": 0.66,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices"
+          ],
+          "consent_required": true
         }
       }
     },
@@ -964,6 +1068,60 @@
               }
             ]
           }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_44000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_44000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 44000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 7773333,
+              "premium_estimate": null,
+              "eligibility_status": "needs_review",
+              "fit_score": 0.52,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot",
+                "receivables_aging"
+              ],
+              "reason": "Partner review required because delayed receivables weaken affordability.",
+              "next_step": "request_partner_review"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 34500000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 414000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.63,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "Wait for partner review before borrowing; focus on collecting late receivables and avoid over-borrowing.",
+            "confidence": 0.64,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices",
+            "receivables_aging"
+          ],
+          "consent_required": true
         }
       }
     },
@@ -1179,6 +1337,58 @@
               }
             ]
           }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_60000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_60000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 60000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 10600000,
+              "premium_estimate": null,
+              "eligibility_status": "prequalified",
+              "fit_score": 0.91,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot"
+              ],
+              "reason": "Supports larger repeat-buyer orders without over-borrowing.",
+              "next_step": "show_prequalified_terms"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 129000000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 1548000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.72,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "A prequalified 60,000,000 VND line can support larger repeat-buyer orders while preserving cash buffer.",
+            "confidence": 0.81,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices"
+          ],
+          "consent_required": true
         }
       }
     }

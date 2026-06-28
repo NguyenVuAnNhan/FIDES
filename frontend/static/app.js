@@ -108,6 +108,7 @@ growForm.addEventListener("submit", async (event) => {
     tax_summary: buildTaxSummary(form),
     einvoice_status: buildEInvoiceStatus(form),
     alternative_credit_profile: buildAlternativeCreditProfile(form),
+    capital_connection: buildCapitalConnection(form),
     invoice_id: String(form.get("invoice_id")),
     customer_name: String(form.get("customer_name")),
     invoice_total: Number(form.get("invoice_total")),
@@ -420,6 +421,60 @@ function buildAlternativeCreditProfile(form) {
       complaints,
       paidOnTime,
     }),
+  };
+}
+
+function buildCapitalConnection(form) {
+  const invoiceTotal = Number(form.get("invoice_total"));
+  const paidOnTime = form.get("paid_on_time") === "on";
+  const forecast = buildCashflowForecast(form);
+  const recommendedAmount = forecast.recommended_credit_amount || Math.min(invoiceTotal, 30_000_000);
+  const eligibilityStatus = paidOnTime && forecast.liquidity_risk_level !== "high" ? "prequalified" : "needs_review";
+  const workingCapitalOffer = {
+    offer_id: `mock_wc_${recommendedAmount}_6mo`,
+    partner_name: "Mock Partner Bank A",
+    product_type: "working_capital_loan",
+    max_amount: recommendedAmount,
+    term_months: 6,
+    monthly_payment_estimate: Math.round((recommendedAmount * 1.06) / 6),
+    premium_estimate: null,
+    eligibility_status: eligibilityStatus,
+    fit_score: paidOnTime ? 0.84 : 0.58,
+    required_documents: ["recent_invoices", "bank_statement_snapshot"],
+    reason: forecast.shortfall_amount
+      ? "Matches the projected cash-buffer gap."
+      : "Optional working-capital line for growth inventory.",
+    next_step: paidOnTime ? "show_prequalified_terms" : "request_partner_review",
+  };
+  const insuranceOffer = {
+    offer_id: "mock_inventory_cover_basic",
+    partner_name: "Mock Insurance Partner B",
+    product_type: "inventory_insurance",
+    max_amount: Math.round(invoiceTotal * 1.5),
+    term_months: 12,
+    monthly_payment_estimate: null,
+    premium_estimate: Math.max(250000, Math.round(invoiceTotal * 0.018)),
+    eligibility_status: "eligible",
+    fit_score: forecast.drivers.includes("positive_cash_buffer") ? 0.56 : 0.7,
+    required_documents: ["inventory_photo", "recent_invoice"],
+    reason: "Protects stock or seasonal inventory tied to upcoming sales.",
+    next_step: "show_insurance_summary",
+  };
+
+  return {
+    status: "matched",
+    recommended_offer_id: workingCapitalOffer.offer_id,
+    partner_offers: [workingCapitalOffer, insuranceOffer],
+    smartbot_advice: {
+      provider: "Smartbot",
+      message: forecast.shortfall_amount
+        ? `A short working-capital offer before ${forecast.shortfall_expected_date} may cover the projected cash gap without over-borrowing.`
+        : "No urgent borrowing is required, but a small prequalified line can support planned inventory growth.",
+      confidence: forecast.confidence,
+      disclaimer: "Demo advisory output, not a binding credit decision.",
+    },
+    data_sharing_scope: ["business_profile", "cashflow_forecast", "recent_invoices"],
+    consent_required: true,
   };
 }
 

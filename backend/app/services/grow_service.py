@@ -152,6 +152,29 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
                 )
             )
 
+    if request.capital_connection:
+        offers = request.capital_connection.partner_offers
+        recommended = next(
+            (offer for offer in offers if offer.offer_id == request.capital_connection.recommended_offer_id),
+            offers[0] if offers else None,
+        )
+        offer_detail = "no partner offer selected"
+        if recommended:
+            offer_detail = (
+                f"{recommended.partner_name} {recommended.product_type} "
+                f"up to {recommended.max_amount:,} VND; eligibility {recommended.eligibility_status}"
+            )
+        explanations.append(
+            Explanation(
+                label="Partner capital connection",
+                detail=(
+                    f"Status {request.capital_connection.status}; {offer_detail}. "
+                    f"Smartbot advice: {request.capital_connection.smartbot_advice.message}"
+                ),
+                weight=0,
+            )
+        )
+
     if request.invoice_total >= 20_000_000:
         score += 18
         explanations.append(
