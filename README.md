@@ -51,6 +51,8 @@ Post-intervention learning is intentionally separate from the Shield transaction
 
 Behavioral-science intervention is also separate from the Shield input schema. Assistant/TTS cool-down, reflection questions, trusted-contact confirmation, and intervention levels are documented in `docs/shield_intervention_orchestration.md`.
 
+For a full explanation of the Grow schema and how input, bookkeeping, forecast, alternative-credit, and capital-connection blocks fit together, see `docs/grow_schema_explained.md`.
+
 Grow input mocks cover invoice-photo OCR, Vietnamese voice bookkeeping, and normalized ledger entries. The schema and receipt fixture generation flow are documented in `docs/grow_input_schema.md`.
 
 Grow compliance mocks cover derived cashflow, tax-draft, and e-invoice workflow state. The MVP decision, mock formulas, and real-life integration limits are documented in `docs/grow_compliance_schema.md`.

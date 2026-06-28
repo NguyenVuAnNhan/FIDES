@@ -4,6 +4,8 @@
 
 Grow accepts low-friction business input and turns it into structured bookkeeping data.
 
+For a full end-to-end explanation of the Grow schema and how the field families fit together, see `docs/grow_schema_explained.md`.
+
 The MVP supports three input modes:
 
 - `invoice_photo`: a receipt or invoice image processed by SmartReader OCR.
