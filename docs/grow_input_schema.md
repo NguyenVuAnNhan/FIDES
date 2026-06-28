@@ -95,6 +95,16 @@ For `invoice_photo` cases, `voice_entry.status` is usually `not_used`.
 
 This is the stable bookkeeping object Grow should use for cashflow summaries, tax workflows, and alternative credit scoring.
 
+### Derived Compliance Outputs
+
+Grow also accepts mocked post-processing outputs:
+
+- `cashflow_summary`
+- `tax_summary`
+- `einvoice_status`
+
+These blocks model automatic bookkeeping, tax draft, and e-invoice workflow state after the normalized ledger entry exists. They are documented in `docs/grow_compliance_schema.md`.
+
 ## Receipt Fixtures
 
 Curated receipt images are generated from the Grow dataset by:
@@ -110,4 +120,3 @@ frontend/static/fixtures/receipts/
 ```
 
 These fixtures are synthetic and deterministic. They are intended for OCR demos and UI preview, not for model training claims.
-

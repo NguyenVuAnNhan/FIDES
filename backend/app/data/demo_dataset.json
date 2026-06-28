@@ -457,6 +457,33 @@
           "transaction_date": "2026-06-21",
           "category": "sales_revenue",
           "confidence": 0.93
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 128000000,
+          "total_outflow": 74240000,
+          "net_cashflow": 53760000,
+          "largest_customer": "Office Pantry Co.",
+          "revenue_confidence": 0.93
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 11636364,
+          "taxable_revenue": 128000000,
+          "deductible_expenses": 40832000,
+          "estimated_tax_due": 4358400,
+          "filing_status": "draft_ready"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "draft_ready",
+          "invoice_id": "INV-2026-001",
+          "validation_errors": [],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
         }
       }
     },
@@ -523,6 +550,33 @@
           "transaction_date": "2026-06-24",
           "category": "food_sales",
           "confidence": 0.89
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 50000000,
+          "total_outflow": 29000000,
+          "net_cashflow": 21000000,
+          "largest_customer": "Co-working Lunch Club",
+          "revenue_confidence": 0.89
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 4545455,
+          "taxable_revenue": 50000000,
+          "deductible_expenses": 15950000,
+          "estimated_tax_due": 1702500,
+          "filing_status": "draft_ready"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "draft_ready",
+          "invoice_id": "INV-2026-017",
+          "validation_errors": [],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
         }
       }
     },
@@ -589,6 +643,35 @@
           "transaction_date": "2026-06-10",
           "category": "retail_sales",
           "confidence": 0.87
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 92000000,
+          "total_outflow": 53360000,
+          "net_cashflow": 38640000,
+          "largest_customer": "Local Wholesale Buyer",
+          "revenue_confidence": 0.87
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 8363636,
+          "taxable_revenue": 92000000,
+          "deductible_expenses": 29348000,
+          "estimated_tax_due": 3132600,
+          "filing_status": "needs_review"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "needs_review",
+          "invoice_id": "INV-2026-042",
+          "validation_errors": [
+            "payment_status_late"
+          ],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
         }
       }
     },
@@ -679,6 +762,33 @@
           "transaction_date": "2026-06-26",
           "category": "electronics_sales",
           "confidence": 0.95
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 344000000,
+          "total_outflow": 199520000,
+          "net_cashflow": 144480000,
+          "largest_customer": "District Repair Network",
+          "revenue_confidence": 0.95
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 31272727,
+          "taxable_revenue": 344000000,
+          "deductible_expenses": 109736000,
+          "estimated_tax_due": 11713200,
+          "filing_status": "draft_ready"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "draft_ready",
+          "invoice_id": "INV-2026-108",
+          "validation_errors": [],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
         }
       }
     }

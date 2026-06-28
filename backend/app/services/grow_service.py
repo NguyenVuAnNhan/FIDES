@@ -38,6 +38,57 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
             )
         )
 
+    if request.normalized_ledger_entry:
+        explanations.append(
+            Explanation(
+                label="Ledger entry normalized",
+                detail=(
+                    f"Entry {request.normalized_ledger_entry.entry_id} records "
+                    f"{request.normalized_ledger_entry.amount:,} {request.normalized_ledger_entry.currency} "
+                    f"as {request.normalized_ledger_entry.category}."
+                ),
+                weight=0,
+            )
+        )
+
+    if request.cashflow_summary:
+        explanations.append(
+            Explanation(
+                label="Cashflow summary generated",
+                detail=(
+                    f"{request.cashflow_summary.period}: inflow {request.cashflow_summary.total_inflow:,} VND, "
+                    f"outflow {request.cashflow_summary.total_outflow:,} VND, "
+                    f"net {request.cashflow_summary.net_cashflow:,} VND."
+                ),
+                weight=0,
+            )
+        )
+
+    if request.tax_summary:
+        explanations.append(
+            Explanation(
+                label="Tax draft prepared",
+                detail=(
+                    f"{request.tax_summary.period}: taxable revenue {request.tax_summary.taxable_revenue:,} VND, "
+                    f"VAT estimate {request.tax_summary.vat_estimate:,} VND, "
+                    f"filing status {request.tax_summary.filing_status}."
+                ),
+                weight=0,
+            )
+        )
+
+    if request.einvoice_status:
+        status_detail = f"e-invoice status {request.einvoice_status.status}"
+        if request.einvoice_status.validation_errors:
+            status_detail += f"; errors: {', '.join(request.einvoice_status.validation_errors)}"
+        explanations.append(
+            Explanation(
+                label="E-invoice compliance status",
+                detail=status_detail + ".",
+                weight=0,
+            )
+        )
+
     if request.invoice_total >= 20_000_000:
         score += 18
         explanations.append(

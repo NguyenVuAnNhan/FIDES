@@ -53,6 +53,8 @@ Behavioral-science intervention is also separate from the Shield input schema. A
 
 Grow input mocks cover invoice-photo OCR, Vietnamese voice bookkeeping, and normalized ledger entries. The schema and receipt fixture generation flow are documented in `docs/grow_input_schema.md`.
 
+Grow compliance mocks cover derived cashflow, tax-draft, and e-invoice workflow state. The MVP decision, mock formulas, and real-life integration limits are documented in `docs/grow_compliance_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash

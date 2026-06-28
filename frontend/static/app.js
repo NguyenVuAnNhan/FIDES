@@ -103,6 +103,9 @@ growForm.addEventListener("submit", async (event) => {
     ocr: buildOcrPayload(form),
     voice_entry: buildVoicePayload(form),
     normalized_ledger_entry: buildLedgerPayload(form),
+    cashflow_summary: buildCashflowSummary(form),
+    tax_summary: buildTaxSummary(form),
+    einvoice_status: buildEInvoiceStatus(form),
     invoice_id: String(form.get("invoice_id")),
     customer_name: String(form.get("customer_name")),
     invoice_total: Number(form.get("invoice_total")),
@@ -297,6 +300,48 @@ function buildLedgerPayload(form) {
     transaction_date: "2026-06-28",
     category: "sales_revenue",
     confidence: numberOrNull(form.get("ocr_confidence")) ?? numberOrNull(form.get("voice_confidence")),
+  };
+}
+
+function buildCashflowSummary(form) {
+  const monthlyRevenue = Number(form.get("invoice_total")) * 4;
+  const totalOutflow = Math.round(monthlyRevenue * 0.58);
+  return {
+    period: "2026-06",
+    total_inflow: monthlyRevenue,
+    total_outflow: totalOutflow,
+    net_cashflow: monthlyRevenue - totalOutflow,
+    largest_customer: String(form.get("customer_name")),
+    revenue_confidence: numberOrNull(form.get("ocr_confidence")) ?? numberOrNull(form.get("voice_confidence")),
+  };
+}
+
+function buildTaxSummary(form) {
+  const monthlyRevenue = Number(form.get("invoice_total")) * 4;
+  const totalOutflow = Math.round(monthlyRevenue * 0.58);
+  const deductibleExpenses = Math.round(totalOutflow * 0.55);
+  return {
+    period: "2026-06",
+    vat_estimate: Math.round(monthlyRevenue / 11),
+    taxable_revenue: monthlyRevenue,
+    deductible_expenses: deductibleExpenses,
+    estimated_tax_due: Math.max(0, Math.round((monthlyRevenue - deductibleExpenses) * 0.05)),
+    filing_status: form.get("paid_on_time") === "on" ? "draft_ready" : "needs_review",
+  };
+}
+
+function buildEInvoiceStatus(form) {
+  const paidOnTime = form.get("paid_on_time") === "on";
+  return {
+    provider: "mock_einvoice",
+    status: paidOnTime ? "draft_ready" : "needs_review",
+    invoice_id: String(form.get("invoice_id")),
+    validation_errors: paidOnTime ? [] : ["payment_status_late"],
+    compliance_notes: [
+      "Required buyer and seller fields present",
+      "VAT estimate generated",
+      "Ledger entry linked to source document",
+    ],
   };
 }
 

@@ -125,6 +125,32 @@ class NormalizedLedgerEntry(BaseModel):
     confidence: float | None = Field(default=None, ge=0, le=1)
 
 
+class CashflowSummary(BaseModel):
+    period: str = ""
+    total_inflow: int = Field(default=0, ge=0)
+    total_outflow: int = Field(default=0, ge=0)
+    net_cashflow: int = 0
+    largest_customer: str = ""
+    revenue_confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TaxSummary(BaseModel):
+    period: str = ""
+    vat_estimate: int = Field(default=0, ge=0)
+    taxable_revenue: int = Field(default=0, ge=0)
+    deductible_expenses: int = Field(default=0, ge=0)
+    estimated_tax_due: int = Field(default=0, ge=0)
+    filing_status: str = "not_ready"
+
+
+class EInvoiceStatus(BaseModel):
+    provider: str = "mock_einvoice"
+    status: str = "not_started"
+    invoice_id: str = ""
+    validation_errors: list[str] = Field(default_factory=list)
+    compliance_notes: list[str] = Field(default_factory=list)
+
+
 class GrowAnalyzeRequest(BaseModel):
     business_id: str = ""
     business_name: str
@@ -133,6 +159,9 @@ class GrowAnalyzeRequest(BaseModel):
     ocr: GrowOcrInput = Field(default_factory=GrowOcrInput)
     voice_entry: GrowVoiceEntry = Field(default_factory=GrowVoiceEntry)
     normalized_ledger_entry: NormalizedLedgerEntry | None = None
+    cashflow_summary: CashflowSummary | None = None
+    tax_summary: TaxSummary | None = None
+    einvoice_status: EInvoiceStatus | None = None
     invoice_id: str
     customer_name: str
     invoice_total: int = Field(ge=0)

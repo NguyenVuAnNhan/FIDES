@@ -362,6 +362,7 @@ def build_grow_invoice(rng: random.Random, index: int, category: str) -> dict[st
                 category,
                 confidence=0.9 if input_mode == "invoice_photo" else 0.86,
             ),
+            **make_compliance_outputs(invoice_id, customer_name, total, category, template["paid_on_time"]),
         },
     }
 
@@ -483,6 +484,50 @@ def make_ledger_entry(
         "transaction_date": issue_date,
         "category": category,
         "confidence": confidence,
+    }
+
+
+def make_compliance_outputs(
+    invoice_id: str,
+    customer_name: str,
+    total: int,
+    category: str,
+    paid_on_time: bool,
+) -> dict[str, Any]:
+    period = "2026-06"
+    total_inflow = total * 4
+    total_outflow = round(total_inflow * 0.58)
+    vat_estimate = round(total_inflow / 11)
+    deductible_expenses = round(total_outflow * 0.55)
+    validation_errors = [] if paid_on_time else ["payment_status_late"]
+    return {
+        "cashflow_summary": {
+            "period": period,
+            "total_inflow": total_inflow,
+            "total_outflow": total_outflow,
+            "net_cashflow": total_inflow - total_outflow,
+            "largest_customer": customer_name,
+            "revenue_confidence": 0.9 if category != "emerging_thin_file" else 0.78,
+        },
+        "tax_summary": {
+            "period": period,
+            "vat_estimate": vat_estimate,
+            "taxable_revenue": total_inflow,
+            "deductible_expenses": deductible_expenses,
+            "estimated_tax_due": max(0, round((total_inflow - deductible_expenses) * 0.05)),
+            "filing_status": "draft_ready" if paid_on_time else "needs_review",
+        },
+        "einvoice_status": {
+            "provider": "mock_einvoice",
+            "status": "draft_ready" if not validation_errors else "needs_review",
+            "invoice_id": invoice_id,
+            "validation_errors": validation_errors,
+            "compliance_notes": [
+                "Required buyer and seller fields present",
+                "VAT estimate generated",
+                "Ledger entry linked to source document",
+            ],
+        },
     }
 
 
