@@ -1,0 +1,223 @@
+{
+  "generated_at": "2026-06-28",
+  "scope": "Public unauthenticated VNPT documentation and frontend bundles only. This file stores extracted integration facts, not a verbatim documentation mirror.",
+  "common_auth_headers": [
+    "Authorization: Bearer ${access_token}",
+    "Token-id: ${token_id}",
+    "Token-key: ${token_key}",
+    "Content-Type: application/json"
+  ],
+  "products": [
+    {
+      "name": "VNPT eKYC",
+      "status": "public_endpoint_inventory_found",
+      "base_url": "https://api.idg.vnpt.vn",
+      "sources": [
+        "https://ekyc.vnpt.vn/admin-dashboard/en/documents/api",
+        "https://vnptai.io/ekyc/en"
+      ],
+      "endpoints": [
+        {"method": "POST", "path": "/file-service/v1/addFile", "purpose": "Upload image/file and receive hash for downstream APIs."},
+        {"method": "POST", "path": "/ai/v1/classify/id", "purpose": "Classify ID document type."},
+        {"method": "POST", "path": "/ai/v1/card/liveness", "purpose": "Check document/card liveness."},
+        {"method": "POST", "path": "/ai/v1/ocr/id/front", "purpose": "OCR ID front side."},
+        {"method": "POST", "path": "/ai/v1/ocr/id/back", "purpose": "OCR ID back side."},
+        {"method": "POST", "path": "/ai/v1/ocr/id", "purpose": "OCR full ID flow."},
+        {"method": "POST", "path": "/ai/v1/face/compare", "purpose": "Compare document portrait and face image."},
+        {"method": "POST", "path": "/ai/v1/face/liveness", "purpose": "Face liveness check."},
+        {"method": "POST", "path": "/ai/v1/face/mask", "purpose": "Masked-face detection."},
+        {"method": "POST", "path": "/face-service/face/add", "purpose": "Register face."},
+        {"method": "POST", "path": "/face-service/face/verify", "purpose": "Verify face."},
+        {"method": "POST", "path": "/face-service/face/search", "purpose": "Search faces."},
+        {"method": "POST", "path": "/face-service/face/search-k", "purpose": "K-nearest face search."},
+        {"method": "POST", "path": "/aicommon-service/cic/v1/verify_face", "purpose": "CIC face verification."},
+        {"method": "POST", "path": "/aicommon-service/cic/v1/verify_customer", "purpose": "CIC customer verification."}
+      ],
+      "sdk_notes": ["Android SDK docs found", "iOS SDK docs found", "Web SDK docs found", "Web SDK docs recommend backend-mediated token handling."],
+      "listed_vendor_documents": [
+        "VNPTeKYC_Mo ta_API_v1.6_2025_guiKH (2).xlsx",
+        "[VNPT][Android] Huong dan tich hop SDK eKYC v3.6.9.docx",
+        "[VNPT][iOS] Huong dan tich hop SDK eKYC v3.6.7.docx",
+        "API he thong ID Check identify-service RAR 10032026.docx",
+        "eKYC_Tu dien ma loi_SPDV.xlsx"
+      ]
+    },
+    {
+      "name": "VNPT SmartVoice",
+      "status": "public_endpoint_inventory_found",
+      "base_url": "https://api.idg.vnpt.vn",
+      "sources": [
+        "https://smartvoice.vnpt.vn/documents/api",
+        "https://smartvoice.vnpt.vn/en/sdk",
+        "https://vnptai.io/smartvoice/en/documents/api"
+      ],
+      "endpoints": [
+        {"method": "POST", "path": "/auth-service/oauth/token", "purpose": "OAuth/token flow. Vendor text has spacing typo in one place."},
+        {"method": "POST", "path": "/ai/api/v1/text-to-speech", "purpose": "Advanced TTS request."},
+        {"method": "VERIFY", "path": "/ai/api/v1/text-to-speech/check-status", "purpose": "Check TTS processing status."},
+        {"method": "VERIFY", "path": "/ai/api/v1/text-to-speech/download", "purpose": "Download generated TTS audio."},
+        {"method": "POST", "path": "/tts-service/v1/standard", "purpose": "Standard TTS REST flow."},
+        {"method": "VERIFY", "path": "/tts-service/v1/check-status", "purpose": "Check standard TTS status."},
+        {"method": "POST", "path": "/tts-service/v2/standard", "purpose": "TTS v2 REST flow."},
+        {"method": "POST", "path": "/tts-service/v2/grpc", "purpose": "TTS over REST wrapper for gRPC model."},
+        {"method": "POST", "path": "/stt-service/v1/grpc/standard", "purpose": "Speech-to-text using gRPC model through API."},
+        {"method": "POST", "path": "/stt-service/v1/grpc/async/standard", "purpose": "Async gRPC STT flow."},
+        {"method": "POST", "path": "/stt-service/v3/standard", "purpose": "STT standard REST flow."},
+        {"method": "VERIFY", "path": "/stt-service/v1/async/status", "purpose": "Check async STT status."},
+        {"method": "POST", "path": "/stt-service/v1/async/vn", "purpose": "Async Vietnamese STT flow."},
+        {"method": "WEBSOCKET", "path": "wss://websocket.vnpt.vn/v1/streaming-recognize?authorization=<accessToken>&token-id=<token-id>&token-key=<token-key>", "purpose": "Streaming speech recognition."},
+        {"method": "POST", "base_url": "https://api.idg.vnpt.vn/voice-service", "path": "/v1/voice-id/audio/upload", "purpose": "Upload voice/audio sample."},
+        {"method": "POST", "base_url": "https://api.idg.vnpt.vn/voice-service", "path": "/v1/voice-id/audio/encode", "purpose": "Encode/register voice audio."},
+        {"method": "GET", "base_url": "https://api.idg.vnpt.vn/voice-service", "path": "/v1/voice-id/audio/unregister?email=<email>", "purpose": "Unregister voice by email."},
+        {"method": "POST", "base_url": "https://api.idg.vnpt.vn/voice-service", "path": "/v1/voice-id/audio/search-by-upload", "purpose": "Search by uploaded audio."},
+        {"method": "GET", "base_url": "https://api.idg.vnpt.vn/voice-service", "path": "/v1/voice-id/audio/info-by-email?email=<email>", "purpose": "Get voice enrollment info by email."},
+        {"method": "VERIFY", "base_url": "https://api.idg.vnpt.vn/voice-service", "path": "/voiceid/api/v1/audio/verify", "purpose": "Verify audio samples or IDs."}
+      ],
+      "grpc_services": [
+        "SynthesizeSpeechResponse Synthesize(SynthesizeSpeechRequest)",
+        "stream SynthesizeSpeechResponse SynthesizeOnline(SynthesizeSpeechRequest)",
+        "Recognize(RecognizeRequest)",
+        "StreamingRecognize(stream StreamingRecognizeRequest)"
+      ],
+      "sdk_downloads": [
+        "https://smartvoice.vnpt.vn/sdk-download/VNPTSmartVoice_SDK_IOS_STT_RestAPI.zip",
+        "https://smartvoice.vnpt.vn/sdk-download/VNPTSmartVoice_SDK_Android_STT_RestAPI.zip",
+        "https://smartvoice.vnpt.vn/sdk-download/VNPTSmartVoice_SDK_Web_STT_RestAPI.zip",
+        "https://smartvoice.vnpt.vn/sdk-download/VNPTSmartVoice_SDK_IOS_STT_gRPC.zip",
+        "https://smartvoice.vnpt.vn/sdk-download/VNPTSmartVoice_SDK_Android_STT_gRPC.zip",
+        "https://smartvoice.vnpt.vn/sdk-download/VNPTSmartVoice_SDK_Web_TTS_RestAPI.zip"
+      ]
+    },
+    {
+      "name": "VNPT SmartReader",
+      "status": "public_endpoint_inventory_found",
+      "base_url": "https://api.idg.vnpt.vn",
+      "sources": [
+        "https://console-smartreader.vnpt.vn/docs",
+        "https://console-smartreader.vnpt.vn/assets/docs/danh-sach-api/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/chuan-bi/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tich-hop-api-upload-file/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tich-hop-api-ocr/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tich-hop-api-kie/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tu-xay-dung-mau-boc-tach-vb/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/cac-loi-thuong-gap/vi.md"
+      ],
+      "endpoints": [
+        {"method": "POST", "path": "/file-service/v1/addFile", "purpose": "Upload file and receive hash/token for OCR/KIE APIs."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/ocr/scan", "purpose": "Basic OCR."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/ocr/scan-table", "purpose": "Advanced OCR/table reconstruction."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan", "purpose": "Start async basic OCR session."},
+        {"method": "VERIFY", "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan/result", "purpose": "Check async basic OCR session result."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan/cancel", "purpose": "Cancel async basic OCR session."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan-table", "purpose": "Start async advanced OCR session."},
+        {"method": "VERIFY", "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan-table/result", "purpose": "Check async advanced OCR result."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan-table/cancel", "purpose": "Cancel async advanced OCR session."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/ocr/van-ban-hanh-chinh", "purpose": "Extract administrative document fields."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v2/ocr/van-ban-hanh-chinh", "purpose": "Extract administrative document fields with extended fields."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/ocr/dang-ky-kinh-doanh", "purpose": "Extract business registration fields."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/ocr/hoa-don-gtgt", "purpose": "Extract VAT invoice fields."},
+        {"method": "CRUD", "path": "/template/config", "purpose": "Template create/read/update/delete in detailed docs."},
+        {"method": "CRUD", "path": "/rpa-service/aidigdoc/template/config", "purpose": "Template config path listed in API list; differs from detailed docs."},
+        {"method": "POST", "path": "/rpa-service/aidigdoc/v1/llm/extraction", "purpose": "LLM extraction endpoint listed in API list."}
+      ],
+      "known_error_labels": [
+        "TOKEN ID IS BLOCKED",
+        "ACCESS TOKEN IS INVALID",
+        "NO PERMISSION TO ACCESS API",
+        "TOKEN INVALID",
+        "TOKEN DEACTIVE"
+      ]
+    },
+    {
+      "name": "VNPT SmartUX",
+      "status": "public_sdk_only_no_rest_reference_found",
+      "sources": [
+        "https://vnptai.io/smartux/en",
+        "https://smartux.vnpt.vn/en",
+        "https://console-smartux.vnpt.vn/sdk/web/core-track.js"
+      ],
+      "public_sdk_scripts": [
+        "https://console-smartux.vnpt.vn/sdk/web/core-track.js",
+        "https://console-smartux.vnpt.vn/sdk/web/minify.min.js"
+      ],
+      "queued_methods_seen": [
+        "track_sessions",
+        "track_pageview",
+        "track_clicks",
+        "track_scrolls",
+        "track_errors",
+        "track_links",
+        "track_forms",
+        "collect_from_forms"
+      ],
+      "listed_vendor_documents": [
+        "VNPT SmartUX_GTSP_ForPublic_310326_V1.0.pdf",
+        "VNPT SmartUX_TNSP_ForPublic_310326_V1.0.pdf",
+        "VNPT SmartUX_KHSP_ForPublic_310326_V1.0.pdf"
+      ]
+    },
+    {
+      "name": "VNPT SmartBot",
+      "status": "public_engine_specs_only_no_endpoint_reference_found",
+      "sources": [
+        "https://vnptai.io/smartbot/en",
+        "https://vnptai.io/smartbot/en/engine-specs"
+      ],
+      "notes": ["Public engine specs mention API integration and RAG integration capability."],
+      "listed_vendor_documents": [
+        "VNPT Smartbot_GTSP_Tong quan san pham_20260330_V1.0.docx",
+        "VNPT Smartbot_GTSP_Tinh nang_20260330_V1.0.docx",
+        "VNPT Smartbot_GTSP_Khach hang_20260330_V1.0.docx"
+      ]
+    },
+    {
+      "name": "VNPT SmartVision",
+      "status": "listed_api_document_no_public_endpoint_reference_found",
+      "sources": [
+        "https://vnptai.io/smartvision/en",
+        "https://vnptai.io/smartvision/en/feature"
+      ],
+      "listed_vendor_documents": [
+        "VNPT SmartVision_TNSP_Tai lieu API Face Camera_20260327_V1.0.docx",
+        "VNPT SmartVision_TNSP_Tai lieu HDSD Face Camera_20260327_V1.0.docx",
+        "VNPT SmartVision_TNSP_Tieu chuan ky thuat Face Camera_20260327_V1.0.docx",
+        "VNPT SmartVision_TNSP_Tai lieu HDSD CONTENT DETECTION_20260327_V1.0.docx",
+        "VNPT SmartVision_GTSP_ForPublic_20260327_V1.0.pdf"
+      ]
+    },
+    {
+      "name": "vnSocial",
+      "status": "listed_api_document_no_public_endpoint_reference_found",
+      "sources": [
+        "https://vnptai.io/vnsocial/en",
+        "https://vnptai.io/vnsocial/en/price-1"
+      ],
+      "listed_vendor_documents": [
+        "vnSocial - Tai lieu API tich hop he thong v2.docx",
+        "vnSocial_GTSP_Gioi thieu_20260327_V1.0.docx",
+        "vnSocial_GTSP_Tinh nang_20260327_V1.0.docx",
+        "vnSocial_GTSP_Khach hang_20260327_V1.0.docx"
+      ]
+    },
+    {
+      "name": "vnFace",
+      "status": "public_guide_only_no_endpoint_reference_found",
+      "sources": [
+        "https://vnptai.io/vnface/en",
+        "https://vnptai.io/vnface/en/documents/setting",
+        "https://vnptai.io/vnface/en/specs"
+      ],
+      "public_console_links": [
+        "https://console-vnface.vnpt.vn",
+        "https://console-vnface.vnpt.vn/en/auth/login",
+        "https://vnface.vnpt.vn/en/account/register"
+      ],
+      "listed_vendor_documents": [
+        "VNPT_vnFace_GTSP_GioiThieuSanPham_V2.docx",
+        "vnFace_TNSP_ForPublic_20260327_V1.0.docx",
+        "VNPT vnFace_TNSP_Huong dan su dung Web quan tri vnFace_20260327_V2.0.docx",
+        "VNPT vnFace_TNSP_Tai lieu dac ta yeu cau phan mem_20260327_V1.0.docx"
+      ]
+    }
+  ]
+}

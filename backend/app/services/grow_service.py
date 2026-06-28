@@ -5,6 +5,39 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
     score = 45
     explanations: list[Explanation] = []
 
+    if request.input_mode != "manual_entry":
+        explanations.append(
+            Explanation(
+                label="Minimal input captured",
+                detail=f"Grow received this record through {request.input_mode}.",
+                weight=0,
+            )
+        )
+
+    if request.ocr.status == "completed":
+        confidence = ""
+        if request.ocr.confidence is not None:
+            confidence = f" Confidence: {request.ocr.confidence:.2f}."
+        explanations.append(
+            Explanation(
+                label="SmartReader OCR extraction",
+                detail=f"Invoice fields were extracted from {request.input_source or 'an uploaded image'}.{confidence}",
+                weight=0,
+            )
+        )
+
+    if request.voice_entry.status == "completed":
+        confidence = ""
+        if request.voice_entry.confidence is not None:
+            confidence = f" Confidence: {request.voice_entry.confidence:.2f}."
+        explanations.append(
+            Explanation(
+                label="SmartVoice bookkeeping entry",
+                detail=f"Vietnamese voice entry was parsed into ledger fields.{confidence}",
+                weight=0,
+            )
+        )
+
     if request.invoice_total >= 20_000_000:
         score += 18
         explanations.append(
@@ -68,4 +101,3 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
         explanations=explanations,
         recommended_action=recommended_action,
     )
-

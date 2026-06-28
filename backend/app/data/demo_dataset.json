@@ -388,6 +388,9 @@
       "business_stage": "Established household business",
       "demo_goal": "Show a strong invoice-backed credit profile from structured revenue and on-time payment.",
       "payload": {
+        "business_id": "biz_an_nhien_coffee",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-coffee-strong.png",
         "business_name": "An Nhien Coffee",
         "invoice_id": "INV-2026-001",
         "customer_name": "Office Pantry Co.",
@@ -396,13 +399,65 @@
         "items": [
           {
             "description": "Monthly coffee bean supply",
+            "quantity": 1,
+            "unit_price": 18000000,
             "amount": 18000000
           },
           {
             "description": "Office catering package",
+            "quantity": 1,
+            "unit_price": 14000000,
             "amount": 14000000
           }
-        ]
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.93,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-001",
+            "seller_name": "An Nhien Coffee",
+            "buyer_name": "Office Pantry Co.",
+            "issue_date": "2026-06-21",
+            "due_date": "2026-06-28",
+            "total_amount": 32000000,
+            "tax_amount": 2909091,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Monthly coffee bean supply",
+                "quantity": 1,
+                "unit_price": 18000000,
+                "amount": 18000000
+              },
+              {
+                "description": "Office catering package",
+                "quantity": 1,
+                "unit_price": 14000000,
+                "amount": 14000000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_001",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "Office Pantry Co.",
+          "amount": 32000000,
+          "currency": "VND",
+          "transaction_date": "2026-06-21",
+          "category": "sales_revenue",
+          "confidence": 0.93
+        }
       }
     },
     {
@@ -411,6 +466,9 @@
       "business_stage": "Newly digitized household business",
       "demo_goal": "Show an emerging profile that needs more transaction history.",
       "payload": {
+        "business_id": "biz_bep_nha_linh",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-food-stall-emerging.png",
         "business_name": "Bep Nha Linh",
         "invoice_id": "INV-2026-017",
         "customer_name": "Co-working Lunch Club",
@@ -419,9 +477,53 @@
         "items": [
           {
             "description": "Lunch boxes and delivery",
+            "quantity": 1,
+            "unit_price": 12500000,
             "amount": 12500000
           }
-        ]
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.89,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-017",
+            "seller_name": "Bep Nha Linh",
+            "buyer_name": "Co-working Lunch Club",
+            "issue_date": "2026-06-24",
+            "due_date": "2026-06-30",
+            "total_amount": 12500000,
+            "tax_amount": 1136364,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Lunch boxes and delivery",
+                "quantity": 1,
+                "unit_price": 12500000,
+                "amount": 12500000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_017",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "Co-working Lunch Club",
+          "amount": 12500000,
+          "currency": "VND",
+          "transaction_date": "2026-06-24",
+          "category": "food_sales",
+          "confidence": 0.89
+        }
       }
     },
     {
@@ -430,6 +532,9 @@
       "business_stage": "Thin-file retailer",
       "demo_goal": "Show how late payment weakens loan readiness even when revenue exists.",
       "payload": {
+        "business_id": "biz_thanh_tam_mini_mart",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-retail-late-payment.png",
         "business_name": "Thanh Tam Mini Mart",
         "invoice_id": "INV-2026-042",
         "customer_name": "Local Wholesale Buyer",
@@ -438,9 +543,53 @@
         "items": [
           {
             "description": "Packaged goods",
+            "quantity": 1,
+            "unit_price": 23000000,
             "amount": 23000000
           }
-        ]
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.87,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-042",
+            "seller_name": "Thanh Tam Mini Mart",
+            "buyer_name": "Local Wholesale Buyer",
+            "issue_date": "2026-06-10",
+            "due_date": "2026-06-17",
+            "total_amount": 23000000,
+            "tax_amount": 2090909,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Packaged goods",
+                "quantity": 1,
+                "unit_price": 23000000,
+                "amount": 23000000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_042",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "Local Wholesale Buyer",
+          "amount": 23000000,
+          "currency": "VND",
+          "transaction_date": "2026-06-10",
+          "category": "retail_sales",
+          "confidence": 0.87
+        }
       }
     },
     {
@@ -449,6 +598,9 @@
       "business_stage": "Growing SME",
       "demo_goal": "Show a high-volume merchant ready for a small working-capital offer.",
       "payload": {
+        "business_id": "biz_nam_phuong_devices",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-electronics-strong.png",
         "business_name": "Nam Phuong Devices",
         "invoice_id": "INV-2026-108",
         "customer_name": "District Repair Network",
@@ -457,17 +609,77 @@
         "items": [
           {
             "description": "Replacement screens",
+            "quantity": 1,
+            "unit_price": 42000000,
             "amount": 42000000
           },
           {
             "description": "Charging ports and cables",
+            "quantity": 1,
+            "unit_price": 24000000,
             "amount": 24000000
           },
           {
             "description": "Repair tool kits",
+            "quantity": 1,
+            "unit_price": 20000000,
             "amount": 20000000
           }
-        ]
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.95,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-108",
+            "seller_name": "Nam Phuong Devices",
+            "buyer_name": "District Repair Network",
+            "issue_date": "2026-06-26",
+            "due_date": "2026-07-03",
+            "total_amount": 86000000,
+            "tax_amount": 7818182,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Replacement screens",
+                "quantity": 1,
+                "unit_price": 42000000,
+                "amount": 42000000
+              },
+              {
+                "description": "Charging ports and cables",
+                "quantity": 1,
+                "unit_price": 24000000,
+                "amount": 24000000
+              },
+              {
+                "description": "Repair tool kits",
+                "quantity": 1,
+                "unit_price": 20000000,
+                "amount": 20000000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_108",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "District Repair Network",
+          "amount": 86000000,
+          "currency": "VND",
+          "transaction_date": "2026-06-26",
+          "category": "electronics_sales",
+          "confidence": 0.95
+        }
       }
     }
   ],

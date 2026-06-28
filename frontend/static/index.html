@@ -271,6 +271,25 @@
             Invoice Case
             <select id="grow-scenario"></select>
           </label>
+          <div class="wide receipt-preview">
+            <img id="grow-receipt-preview" alt="Generated receipt preview" />
+          </div>
+          <label>
+            Business ID
+            <input name="business_id" value="biz_an_nhien_coffee" />
+          </label>
+          <label>
+            Input Mode
+            <select name="input_mode">
+              <option value="invoice_photo">Invoice photo</option>
+              <option value="voice_entry">Voice entry</option>
+              <option value="manual_entry">Manual entry</option>
+            </select>
+          </label>
+          <label class="wide">
+            Input Source
+            <input name="input_source" value="/static/fixtures/receipts/grow-coffee-strong.png" />
+          </label>
           <label>
             Business
             <input name="business_name" value="An Nhien Coffee" />
@@ -290,6 +309,34 @@
           <label class="checkbox-row">
             <input name="paid_on_time" type="checkbox" checked />
             Paid on time
+          </label>
+          <label>
+            OCR Status
+            <select name="ocr_status">
+              <option value="completed">Completed</option>
+              <option value="not_used">Not used</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label>
+            OCR Confidence
+            <input name="ocr_confidence" type="number" value="0.93" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Voice Status
+            <select name="voice_status">
+              <option value="not_used">Not used</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label>
+            Voice Confidence
+            <input name="voice_confidence" type="number" value="" min="0" max="1" step="0.01" />
+          </label>
+          <label class="wide">
+            Voice Transcript
+            <textarea name="voice_transcript" rows="3"></textarea>
           </label>
           <button type="submit">Analyze Grow Profile</button>
         </form>

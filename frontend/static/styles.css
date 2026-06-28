@@ -188,6 +188,30 @@ button:hover {
   align-items: center;
 }
 
+.receipt-preview {
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  display: flex;
+  justify-content: center;
+  min-height: 180px;
+  padding: 12px;
+}
+
+.receipt-preview img {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(21, 32, 43, 0.08);
+  display: block;
+  max-height: 360px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.receipt-preview img[hidden] {
+  display: none;
+}
+
 .metric-row {
   display: flex;
   flex-wrap: wrap;
@@ -267,4 +291,3 @@ button:hover {
     text-align: center;
   }
 }
-

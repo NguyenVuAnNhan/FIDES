@@ -4,6 +4,7 @@ const shieldScenario = document.querySelector("#shield-scenario");
 const growScenario = document.querySelector("#grow-scenario");
 const shieldResult = document.querySelector("#shield-result");
 const growResult = document.querySelector("#grow-result");
+const growReceiptPreview = document.querySelector("#grow-receipt-preview");
 let activeGrowItems = [];
 
 loadDemoDataset();
@@ -21,6 +22,8 @@ growScenario.addEventListener("change", () => {
   if (selected) {
     activeGrowItems = selected.payload.items;
     fillForm(growForm, selected.payload);
+    fillGrowNestedFields(selected.payload);
+    updateGrowReceiptPreview(selected.payload.input_source);
     resetResult(growResult, "Run Grow analysis to see credit readiness.");
   }
 });
@@ -93,7 +96,13 @@ growForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = new FormData(growForm);
   const payload = {
+    business_id: String(form.get("business_id")),
     business_name: String(form.get("business_name")),
+    input_mode: String(form.get("input_mode")),
+    input_source: emptyToNull(form.get("input_source")),
+    ocr: buildOcrPayload(form),
+    voice_entry: buildVoicePayload(form),
+    normalized_ledger_entry: buildLedgerPayload(form),
     invoice_id: String(form.get("invoice_id")),
     customer_name: String(form.get("customer_name")),
     invoice_total: Number(form.get("invoice_total")),
@@ -108,6 +117,10 @@ growForm.addEventListener("submit", async (event) => {
   const response = await postJson("/api/grow/analyze-invoice", payload);
   growResult.className = "result";
   growResult.innerHTML = renderGrow(response);
+});
+
+growForm.elements.namedItem("input_source").addEventListener("input", (event) => {
+  updateGrowReceiptPreview(event.target.value);
 });
 
 async function loadDemoDataset() {
@@ -216,6 +229,93 @@ function fillForm(form, payload) {
 function resetResult(element, text) {
   element.className = "result empty";
   element.textContent = text;
+}
+
+function updateGrowReceiptPreview(source) {
+  const src = String(source ?? "").trim();
+  if (!src) {
+    growReceiptPreview.removeAttribute("src");
+    growReceiptPreview.hidden = true;
+    return;
+  }
+
+  growReceiptPreview.src = src;
+  growReceiptPreview.hidden = false;
+}
+
+function buildOcrPayload(form) {
+  const total = Number(form.get("invoice_total"));
+  const invoiceId = String(form.get("invoice_id"));
+  const businessName = String(form.get("business_name"));
+  const customerName = String(form.get("customer_name"));
+  return {
+    provider: "SmartReader",
+    status: String(form.get("ocr_status")),
+    confidence: numberOrNull(form.get("ocr_confidence")),
+    extracted_fields: {
+      invoice_id: invoiceId,
+      seller_name: businessName,
+      buyer_name: customerName,
+      issue_date: "2026-06-28",
+      due_date: "2026-07-05",
+      total_amount: total,
+      tax_amount: Math.round(total / 11),
+      currency: "VND",
+      line_items: activeGrowItems.length
+        ? activeGrowItems
+        : [{ description: "Goods and services", amount: total, quantity: 1, unit_price: total }],
+    },
+  };
+}
+
+function buildVoicePayload(form) {
+  const amount = Number(form.get("invoice_total"));
+  return {
+    provider: "SmartVoice",
+    status: String(form.get("voice_status")),
+    audio_source: null,
+    transcript: String(form.get("voice_transcript")),
+    confidence: numberOrNull(form.get("voice_confidence")),
+    parsed_fields: {
+      transaction_type: "sale",
+      amount,
+      description: String(form.get("customer_name")),
+      transaction_date: "2026-06-28",
+      category: "sales_revenue",
+    },
+  };
+}
+
+function buildLedgerPayload(form) {
+  return {
+    entry_id: `ledger_${String(form.get("invoice_id")).toLowerCase().replaceAll("-", "_")}`,
+    source_type: String(form.get("input_mode")),
+    transaction_type: "sale",
+    counterparty_name: String(form.get("customer_name")),
+    amount: Number(form.get("invoice_total")),
+    currency: "VND",
+    transaction_date: "2026-06-28",
+    category: "sales_revenue",
+    confidence: numberOrNull(form.get("ocr_confidence")) ?? numberOrNull(form.get("voice_confidence")),
+  };
+}
+
+function fillGrowNestedFields(payload) {
+  const ocr = payload.ocr ?? {};
+  const voiceEntry = payload.voice_entry ?? {};
+  setFieldValue(growForm, "ocr_status", ocr.status ?? "not_used");
+  setFieldValue(growForm, "ocr_confidence", ocr.confidence ?? "");
+  setFieldValue(growForm, "voice_status", voiceEntry.status ?? "not_used");
+  setFieldValue(growForm, "voice_confidence", voiceEntry.confidence ?? "");
+  setFieldValue(growForm, "voice_transcript", voiceEntry.transcript ?? "");
+}
+
+function setFieldValue(form, name, value) {
+  const field = form.elements.namedItem(name);
+  if (!field) {
+    return;
+  }
+  field.value = value ?? "";
 }
 
 function formatValue(value) {

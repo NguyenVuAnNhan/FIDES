@@ -51,6 +51,8 @@ Post-intervention learning is intentionally separate from the Shield transaction
 
 Behavioral-science intervention is also separate from the Shield input schema. Assistant/TTS cool-down, reflection questions, trusted-contact confirmation, and intervention levels are documented in `docs/shield_intervention_orchestration.md`.
 
+Grow input mocks cover invoice-photo OCR, Vietnamese voice bookkeeping, and normalized ledger entries. The schema and receipt fixture generation flow are documented in `docs/grow_input_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash
@@ -58,6 +60,12 @@ python3 scripts/generate_synthetic_dataset.py --seed 20260628 --count 1000
 ```
 
 By default this writes `backend/app/data/synthetic_demo_dataset.json` with 500 Shield records and 500 Grow records. The generator uses a few fixed formats per category, then fills in names, amounts, accounts, invoice IDs, and transcript details from seeded lists.
+
+Generate curated fake receipt PNGs:
+
+```bash
+python3 scripts/generate_receipt_fixtures.py
+```
 
 ## Next Build Steps
 

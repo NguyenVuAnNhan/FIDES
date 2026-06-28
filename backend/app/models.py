@@ -73,10 +73,66 @@ class ShieldAnalyzeResponse(BaseModel):
 class InvoiceItem(BaseModel):
     description: str
     amount: int = Field(ge=0)
+    quantity: float | None = Field(default=None, ge=0)
+    unit_price: int | None = Field(default=None, ge=0)
+
+
+class OcrExtractedFields(BaseModel):
+    invoice_id: str = ""
+    seller_name: str = ""
+    buyer_name: str = ""
+    issue_date: str = ""
+    due_date: str | None = None
+    total_amount: int = Field(default=0, ge=0)
+    tax_amount: int = Field(default=0, ge=0)
+    currency: str = "VND"
+    line_items: list[InvoiceItem] = Field(default_factory=list)
+
+
+class GrowOcrInput(BaseModel):
+    provider: str = "SmartReader"
+    status: str = "not_used"
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    extracted_fields: OcrExtractedFields | None = None
+
+
+class VoiceParsedFields(BaseModel):
+    transaction_type: str = ""
+    amount: int = Field(default=0, ge=0)
+    description: str = ""
+    transaction_date: str = ""
+    category: str = ""
+
+
+class GrowVoiceEntry(BaseModel):
+    provider: str = "SmartVoice"
+    status: str = "not_used"
+    audio_source: str | None = None
+    transcript: str = ""
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    parsed_fields: VoiceParsedFields | None = None
+
+
+class NormalizedLedgerEntry(BaseModel):
+    entry_id: str = ""
+    source_type: str = ""
+    transaction_type: str = ""
+    counterparty_name: str = ""
+    amount: int = Field(default=0, ge=0)
+    currency: str = "VND"
+    transaction_date: str = ""
+    category: str = ""
+    confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class GrowAnalyzeRequest(BaseModel):
+    business_id: str = ""
     business_name: str
+    input_mode: str = "manual_entry"
+    input_source: str | None = None
+    ocr: GrowOcrInput = Field(default_factory=GrowOcrInput)
+    voice_entry: GrowVoiceEntry = Field(default_factory=GrowVoiceEntry)
+    normalized_ledger_entry: NormalizedLedgerEntry | None = None
     invoice_id: str
     customer_name: str
     invoice_total: int = Field(ge=0)

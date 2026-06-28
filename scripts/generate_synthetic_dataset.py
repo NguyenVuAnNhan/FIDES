@@ -323,6 +323,16 @@ def build_grow_invoice(rng: random.Random, index: int, category: str) -> dict[st
     total = round_to_nearest(rng.randint(*template["total_range"]), 100_000)
     business_name = f"{rng.choice(BUSINESS_PREFIXES)} {rng.choice(BUSINESS_TYPES)}"
     item_names = rng.choice(template["item_sets"])
+    items = split_items(total, item_names)
+    invoice_id = f"INV-2026-{index:04d}"
+    customer_name = rng.choice(CUSTOMER_NAMES)
+    input_mode = "voice_entry" if category == "seasonal_cashflow" and index % 2 == 0 else "invoice_photo"
+    input_source = (
+        make_grow_voice_source(index)
+        if input_mode == "voice_entry"
+        else f"mock://receipts/synthetic-grow-{index:04d}.png"
+    )
+    issue_date = f"2026-06-{(index % 28) + 1:02d}"
 
     return {
         "id": f"synthetic-grow-{index:04d}",
@@ -332,19 +342,33 @@ def build_grow_invoice(rng: random.Random, index: int, category: str) -> dict[st
         "demo_goal": "Synthetic madlib invoice for volume testing and dashboard demos.",
         "expected_band": expected_grow_band(category),
         "payload": {
+            "business_id": make_business_id(business_name),
+            "input_mode": input_mode,
+            "input_source": input_source,
             "business_name": business_name,
-            "invoice_id": f"INV-2026-{index:04d}",
-            "customer_name": rng.choice(CUSTOMER_NAMES),
+            "invoice_id": invoice_id,
+            "customer_name": customer_name,
             "invoice_total": total,
             "paid_on_time": template["paid_on_time"],
-            "items": split_items(total, item_names),
+            "items": items,
+            "ocr": make_ocr_payload(input_mode, invoice_id, business_name, customer_name, issue_date, total, items, rng),
+            "voice_entry": make_voice_entry_payload(input_mode, input_source, total, customer_name, issue_date, rng),
+            "normalized_ledger_entry": make_ledger_entry(
+                invoice_id,
+                input_mode,
+                customer_name,
+                total,
+                issue_date,
+                category,
+                confidence=0.9 if input_mode == "invoice_photo" else 0.86,
+            ),
         },
     }
 
 
 def split_items(total: int, item_names: list[str]) -> list[dict[str, Any]]:
     if len(item_names) == 1:
-        return [{"description": item_names[0], "amount": total}]
+        return [{"description": item_names[0], "quantity": 1, "unit_price": total, "amount": total}]
 
     remaining = total
     items = []
@@ -354,8 +378,112 @@ def split_items(total: int, item_names: list[str]) -> list[dict[str, Any]]:
         else:
             amount = round_to_nearest(total // len(item_names), 100_000)
             remaining -= amount
-        items.append({"description": item_name, "amount": amount})
+        items.append({"description": item_name, "quantity": 1, "unit_price": amount, "amount": amount})
     return items
+
+
+def make_business_id(business_name: str) -> str:
+    return "biz_" + business_name.lower().replace(" ", "_").replace(".", "")
+
+
+def make_grow_voice_source(index: int) -> str:
+    return f"mock://audio/grow-voice-{index:04d}.wav"
+
+
+def make_ocr_payload(
+    input_mode: str,
+    invoice_id: str,
+    business_name: str,
+    customer_name: str,
+    issue_date: str,
+    total: int,
+    items: list[dict[str, Any]],
+    rng: random.Random,
+) -> dict[str, Any]:
+    if input_mode != "invoice_photo":
+        return {
+            "provider": "SmartReader",
+            "status": "not_used",
+            "confidence": None,
+            "extracted_fields": None,
+        }
+
+    return {
+        "provider": "SmartReader",
+        "status": "completed",
+        "confidence": make_confidence(rng, 0.86, 0.96),
+        "extracted_fields": {
+            "invoice_id": invoice_id,
+            "seller_name": business_name,
+            "buyer_name": customer_name,
+            "issue_date": issue_date,
+            "due_date": "2026-07-05",
+            "total_amount": total,
+            "tax_amount": round(total / 11),
+            "currency": "VND",
+            "line_items": items,
+        },
+    }
+
+
+def make_voice_entry_payload(
+    input_mode: str,
+    input_source: str,
+    total: int,
+    customer_name: str,
+    issue_date: str,
+    rng: random.Random,
+) -> dict[str, Any]:
+    if input_mode != "voice_entry":
+        return {
+            "provider": "SmartVoice",
+            "status": "not_used",
+            "audio_source": None,
+            "transcript": "",
+            "confidence": None,
+            "parsed_fields": None,
+        }
+
+    transcript = (
+        f"Hom nay ghi nhan doanh thu {total:,} dong tu khach hang {customer_name}, "
+        "phan loai doanh thu ban hang."
+    )
+    return {
+        "provider": "SmartVoice",
+        "status": "completed",
+        "audio_source": input_source,
+        "transcript": transcript,
+        "confidence": make_confidence(rng, 0.82, 0.94),
+        "parsed_fields": {
+            "transaction_type": "sale",
+            "amount": total,
+            "description": customer_name,
+            "transaction_date": issue_date,
+            "category": "sales_revenue",
+        },
+    }
+
+
+def make_ledger_entry(
+    invoice_id: str,
+    input_mode: str,
+    customer_name: str,
+    total: int,
+    issue_date: str,
+    category: str,
+    confidence: float,
+) -> dict[str, Any]:
+    return {
+        "entry_id": "ledger_" + invoice_id.lower().replace("-", "_"),
+        "source_type": input_mode,
+        "transaction_type": "sale",
+        "counterparty_name": customer_name,
+        "amount": total,
+        "currency": "VND",
+        "transaction_date": issue_date,
+        "category": category,
+        "confidence": confidence,
+    }
 
 
 def render_template(template: str, tokens: dict[str, list[str]], rng: random.Random) -> str:
