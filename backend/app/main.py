@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.app.routes import grow, health, shield
+from backend.app.routes import demo, grow, health, shield
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = BASE_DIR / "frontend" / "static"
@@ -25,6 +25,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(demo.router)
 app.include_router(shield.router)
 app.include_router(grow.router)
 
@@ -34,4 +35,3 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
-

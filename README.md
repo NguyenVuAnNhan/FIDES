@@ -22,8 +22,19 @@ Open http://127.0.0.1:8000.
 ## API
 
 - `GET /api/health`
+- `GET /api/demo/dataset`
 - `POST /api/shield/analyze`
 - `POST /api/grow/analyze-invoice`
+
+## Demo Dataset
+
+Synthetic demo fixtures live in `backend/app/data/demo_dataset.json`.
+
+The current dataset includes:
+
+- Four Shield scenarios: fake police scam, OTP theft, guaranteed-investment scam, and a legitimate supplier payment.
+- Four Grow invoice cases: strong coffee-shop profile, emerging food-stall profile, late-payment retailer, and high-volume electronics reseller.
+- Shared trust profiles for the demo dashboard and future trust-graph work.
 
 ## Next Build Steps
 

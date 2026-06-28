@@ -1,7 +1,29 @@
 const shieldForm = document.querySelector("#shield-form");
 const growForm = document.querySelector("#grow-form");
+const shieldScenario = document.querySelector("#shield-scenario");
+const growScenario = document.querySelector("#grow-scenario");
 const shieldResult = document.querySelector("#shield-result");
 const growResult = document.querySelector("#grow-result");
+let activeGrowItems = [];
+
+loadDemoDataset();
+
+shieldScenario.addEventListener("change", () => {
+  const selected = getSelectedDemoItem("shield_scenarios", shieldScenario.value);
+  if (selected) {
+    fillForm(shieldForm, selected.payload);
+    resetResult(shieldResult, "Run Shield analysis to see risk and intervention.");
+  }
+});
+
+growScenario.addEventListener("change", () => {
+  const selected = getSelectedDemoItem("grow_invoices", growScenario.value);
+  if (selected) {
+    activeGrowItems = selected.payload.items;
+    fillForm(growForm, selected.payload);
+    resetResult(growResult, "Run Grow analysis to see credit readiness.");
+  }
+});
 
 shieldForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -31,9 +53,9 @@ growForm.addEventListener("submit", async (event) => {
     customer_name: String(form.get("customer_name")),
     invoice_total: Number(form.get("invoice_total")),
     paid_on_time: form.get("paid_on_time") === "on",
-    items: [
-      { description: "Goods and services", amount: Number(form.get("invoice_total")) },
-    ],
+    items: activeGrowItems.length
+      ? activeGrowItems
+      : [{ description: "Goods and services", amount: Number(form.get("invoice_total")) }],
   };
 
   growResult.className = "result empty";
@@ -42,6 +64,23 @@ growForm.addEventListener("submit", async (event) => {
   growResult.className = "result";
   growResult.innerHTML = renderGrow(response);
 });
+
+async function loadDemoDataset() {
+  try {
+    const response = await fetch("/api/demo/dataset");
+    if (!response.ok) {
+      throw new Error("Dataset request failed");
+    }
+
+    window.fidesDemoDataset = await response.json();
+    populateScenarioSelect(shieldScenario, window.fidesDemoDataset.shield_scenarios);
+    populateScenarioSelect(growScenario, window.fidesDemoDataset.grow_invoices);
+    shieldScenario.dispatchEvent(new Event("change"));
+    growScenario.dispatchEvent(new Event("change"));
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 async function postJson(url, payload) {
   const response = await fetch(url, {
@@ -103,6 +142,37 @@ function renderExplanations(explanations) {
   `;
 }
 
+function populateScenarioSelect(select, items) {
+  select.innerHTML = items
+    .map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)}</option>`)
+    .join("");
+}
+
+function getSelectedDemoItem(collectionName, id) {
+  return window.fidesDemoDataset?.[collectionName]?.find((item) => item.id === id);
+}
+
+function fillForm(form, payload) {
+  Object.entries(payload).forEach(([name, value]) => {
+    const field = form.elements.namedItem(name);
+    if (!field || name === "items") {
+      return;
+    }
+
+    if (field.type === "checkbox") {
+      field.checked = Boolean(value);
+      return;
+    }
+
+    field.value = value;
+  });
+}
+
+function resetResult(element, text) {
+  element.className = "result empty";
+  element.textContent = text;
+}
+
 function formatValue(value) {
   return String(value).replaceAll("_", " ");
 }
@@ -123,4 +193,3 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-

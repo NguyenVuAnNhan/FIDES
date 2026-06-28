@@ -1,0 +1,186 @@
+{
+  "version": "mvp-demo-2026-06-28",
+  "shield_scenarios": [
+    {
+      "id": "shield-fake-police-critical",
+      "title": "Fake police verification",
+      "persona": "Retail banking customer",
+      "demo_goal": "Show the circuit breaker pausing a transfer while the user is being coached on a call.",
+      "payload": {
+        "transaction_amount": 75000000,
+        "recipient_name": "Nguyen Van A",
+        "recipient_account": "9704 0000 1234",
+        "active_call": true,
+        "caller_type": "unknown",
+        "transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat."
+      }
+    },
+    {
+      "id": "shield-otp-theft-critical",
+      "title": "OTP theft coaching",
+      "persona": "Digital wallet user",
+      "demo_goal": "Show detection of direct credential extraction during a payment flow.",
+      "payload": {
+        "transaction_amount": 52000000,
+        "recipient_name": "Tai khoan ho tro bao mat",
+        "recipient_account": "9704 8888 6622",
+        "active_call": true,
+        "caller_type": "voip",
+        "transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan."
+      }
+    },
+    {
+      "id": "shield-investment-elevated",
+      "title": "Guaranteed investment return",
+      "persona": "Young investor",
+      "demo_goal": "Show an elevated-risk warning for a classic high-return investment script.",
+      "payload": {
+        "transaction_amount": 30000000,
+        "recipient_name": "Cong ty Dau Tu Sao Viet",
+        "recipient_account": "9704 3456 7810",
+        "active_call": true,
+        "caller_type": "unknown",
+        "transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao."
+      }
+    },
+    {
+      "id": "shield-legit-supplier-low",
+      "title": "Known supplier payment",
+      "persona": "Household business owner",
+      "demo_goal": "Show that normal business payments can pass with low friction.",
+      "payload": {
+        "transaction_amount": 18000000,
+        "recipient_name": "Minh Phu Packaging",
+        "recipient_account": "9704 1122 3344",
+        "active_call": false,
+        "caller_type": "trusted",
+        "transcript": "Thanh toan hoa don bao bi thang 6 theo hop dong da doi soat."
+      }
+    }
+  ],
+  "grow_invoices": [
+    {
+      "id": "grow-coffee-strong",
+      "title": "Coffee shop catering invoice",
+      "business_stage": "Established household business",
+      "demo_goal": "Show a strong invoice-backed credit profile from structured revenue and on-time payment.",
+      "payload": {
+        "business_name": "An Nhien Coffee",
+        "invoice_id": "INV-2026-001",
+        "customer_name": "Office Pantry Co.",
+        "invoice_total": 32000000,
+        "paid_on_time": true,
+        "items": [
+          {
+            "description": "Monthly coffee bean supply",
+            "amount": 18000000
+          },
+          {
+            "description": "Office catering package",
+            "amount": 14000000
+          }
+        ]
+      }
+    },
+    {
+      "id": "grow-food-stall-emerging",
+      "title": "Street food stall bulk order",
+      "business_stage": "Newly digitized household business",
+      "demo_goal": "Show an emerging profile that needs more transaction history.",
+      "payload": {
+        "business_name": "Bep Nha Linh",
+        "invoice_id": "INV-2026-017",
+        "customer_name": "Co-working Lunch Club",
+        "invoice_total": 12500000,
+        "paid_on_time": true,
+        "items": [
+          {
+            "description": "Lunch boxes and delivery",
+            "amount": 12500000
+          }
+        ]
+      }
+    },
+    {
+      "id": "grow-retail-late-payment",
+      "title": "Retail stock invoice with late payment",
+      "business_stage": "Thin-file retailer",
+      "demo_goal": "Show how late payment weakens loan readiness even when revenue exists.",
+      "payload": {
+        "business_name": "Thanh Tam Mini Mart",
+        "invoice_id": "INV-2026-042",
+        "customer_name": "Local Wholesale Buyer",
+        "invoice_total": 23000000,
+        "paid_on_time": false,
+        "items": [
+          {
+            "description": "Packaged goods",
+            "amount": 23000000
+          }
+        ]
+      }
+    },
+    {
+      "id": "grow-electronics-strong",
+      "title": "Electronics reseller invoice",
+      "business_stage": "Growing SME",
+      "demo_goal": "Show a high-volume merchant ready for a small working-capital offer.",
+      "payload": {
+        "business_name": "Nam Phuong Devices",
+        "invoice_id": "INV-2026-108",
+        "customer_name": "District Repair Network",
+        "invoice_total": 86000000,
+        "paid_on_time": true,
+        "items": [
+          {
+            "description": "Replacement screens",
+            "amount": 42000000
+          },
+          {
+            "description": "Charging ports and cables",
+            "amount": 24000000
+          },
+          {
+            "description": "Repair tool kits",
+            "amount": 20000000
+          }
+        ]
+      }
+    }
+  ],
+  "trust_profiles": [
+    {
+      "id": "profile-an-nhien-coffee",
+      "owner": "An Nhien Coffee",
+      "type": "business",
+      "signals": {
+        "known_supplier_count": 8,
+        "invoice_months": 9,
+        "on_time_payment_rate": 0.94,
+        "recent_alerts": 0
+      }
+    },
+    {
+      "id": "profile-nguyen-van-a",
+      "owner": "Nguyen Van A",
+      "type": "recipient",
+      "signals": {
+        "known_supplier_count": 0,
+        "invoice_months": 0,
+        "on_time_payment_rate": 0.0,
+        "recent_alerts": 7
+      }
+    },
+    {
+      "id": "profile-minh-phu-packaging",
+      "owner": "Minh Phu Packaging",
+      "type": "recipient",
+      "signals": {
+        "known_supplier_count": 14,
+        "invoice_months": 18,
+        "on_time_payment_rate": 0.98,
+        "recent_alerts": 0
+      }
+    }
+  ]
+}
