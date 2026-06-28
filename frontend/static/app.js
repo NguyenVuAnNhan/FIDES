@@ -37,6 +37,13 @@ shieldForm.addEventListener("submit", async (event) => {
     caller_number: String(form.get("caller_number")),
     recipient_known: form.get("recipient_known") === "on",
     remote_control_detected: form.get("remote_control_detected") === "on",
+    consent_granted: form.get("consent_granted") === "on",
+    audio_source: emptyToNull(form.get("audio_source")),
+    stt_transcript: String(form.get("stt_transcript")),
+    stt_confidence: numberOrNull(form.get("stt_confidence")),
+    detected_patterns: parseList(form.get("detected_patterns")),
+    llm_scam_type: emptyToNull(form.get("llm_scam_type")),
+    llm_confidence: numberOrNull(form.get("llm_confidence")),
     transcript: String(form.get("transcript")),
   };
 
@@ -167,7 +174,7 @@ function fillForm(form, payload) {
       return;
     }
 
-    field.value = value;
+    field.value = Array.isArray(value) ? value.join(", ") : value ?? "";
   });
 }
 
@@ -178,6 +185,23 @@ function resetResult(element, text) {
 
 function formatValue(value) {
   return String(value).replaceAll("_", " ");
+}
+
+function emptyToNull(value) {
+  const text = String(value ?? "").trim();
+  return text ? text : null;
+}
+
+function numberOrNull(value) {
+  const text = String(value ?? "").trim();
+  return text ? Number(text) : null;
+}
+
+function parseList(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function formatMoney(value) {

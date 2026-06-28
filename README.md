@@ -39,6 +39,8 @@ The current dataset includes:
 
 The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.
 
+The Shield dataset also includes the mocked SmartVoice/Smartbot pipeline fields: `consent_granted`, `audio_source`, `stt_transcript`, `stt_confidence`, `detected_patterns`, `llm_scam_type`, and `llm_confidence`. The schema is documented in `docs/shield_audio_nlp_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash

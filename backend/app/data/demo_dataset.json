@@ -15,6 +15,18 @@
         "caller_number": "+882 13 456 789",
         "recipient_known": false,
         "remote_control_detected": false,
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/fake-police-001.wav",
+        "stt_transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.",
+        "stt_confidence": 0.94,
+        "detected_patterns": [
+          "fake_authority",
+          "case_involvement",
+          "transfer_for_verification",
+          "secrecy_pressure"
+        ],
+        "llm_scam_type": "fake_authority",
+        "llm_confidence": 0.91,
         "transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat."
       }
     },
@@ -32,6 +44,17 @@
         "caller_number": "1900 999 888",
         "recipient_known": false,
         "remote_control_detected": false,
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/otp-theft-001.wav",
+        "stt_transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan.",
+        "stt_confidence": 0.92,
+        "detected_patterns": [
+          "otp_theft",
+          "credential_extraction",
+          "security_support_impersonation"
+        ],
+        "llm_scam_type": "otp_theft",
+        "llm_confidence": 0.89,
         "transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan."
       }
     },
@@ -49,6 +72,17 @@
         "caller_number": "+84 901 456 222",
         "recipient_known": false,
         "remote_control_detected": false,
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/investment-001.wav",
+        "stt_transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao.",
+        "stt_confidence": 0.9,
+        "detected_patterns": [
+          "investment",
+          "guaranteed_return",
+          "urgency_pressure"
+        ],
+        "llm_scam_type": "investment",
+        "llm_confidence": 0.86,
         "transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao."
       }
     },
@@ -66,6 +100,18 @@
         "caller_number": "+883 77 900 112",
         "recipient_known": false,
         "remote_control_detected": true,
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/remote-support-001.wav",
+        "stt_transcript": "Anh chi mo ung dung dieu khien man hinh de toi sua loi. Sau do chuyen tien kiem tra va toi se hoan lai.",
+        "stt_confidence": 0.93,
+        "detected_patterns": [
+          "remote_support",
+          "screen_control",
+          "refund_promise",
+          "transfer_test"
+        ],
+        "llm_scam_type": "remote_support",
+        "llm_confidence": 0.9,
         "transcript": "Anh chi mo ung dung dieu khien man hinh de toi sua loi. Sau do chuyen tien kiem tra va toi se hoan lai."
       }
     },
@@ -83,6 +129,13 @@
         "caller_number": "+84 902 222 111",
         "recipient_known": true,
         "remote_control_detected": false,
+        "consent_granted": false,
+        "audio_source": null,
+        "stt_transcript": "",
+        "stt_confidence": null,
+        "detected_patterns": [],
+        "llm_scam_type": null,
+        "llm_confidence": null,
         "transcript": "Thanh toan hoa don bao bi thang 6 theo hop dong da doi soat."
       }
     }

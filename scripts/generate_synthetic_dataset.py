@@ -282,6 +282,8 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
     active_call = category != "legitimate_supplier"
     recipient_known = category == "legitimate_supplier"
     remote_control_detected = category == "remote_support"
+    consent_granted = active_call
+    llm_scam_type = None if category == "legitimate_supplier" else category
 
     return {
         "id": f"synthetic-shield-{index:04d}",
@@ -299,6 +301,13 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
             "caller_number": make_caller_number(rng, caller_type, category),
             "recipient_known": recipient_known,
             "remote_control_detected": remote_control_detected,
+            "consent_granted": consent_granted,
+            "audio_source": make_audio_source(category, index) if consent_granted else None,
+            "stt_transcript": transcript if consent_granted else "",
+            "stt_confidence": make_confidence(rng, 0.86, 0.98) if consent_granted else None,
+            "detected_patterns": detected_patterns_for_category(category),
+            "llm_scam_type": llm_scam_type,
+            "llm_confidence": make_confidence(rng, 0.78, 0.96) if llm_scam_type else None,
             "transcript": transcript,
         },
     }
@@ -382,6 +391,43 @@ def make_caller_number(rng: random.Random, caller_type: str, category: str) -> s
             ]
         )
     return f"+84 {rng.randint(700, 899)} {rng.randint(100, 999)} {rng.randint(100, 999)}"
+
+
+def make_audio_source(category: str, index: int) -> str:
+    return f"fixtures/audio/synthetic/{category}-{index:04d}.wav"
+
+
+def make_confidence(rng: random.Random, low: float, high: float) -> float:
+    return round(rng.uniform(low, high), 2)
+
+
+def detected_patterns_for_category(category: str) -> list[str]:
+    patterns = {
+        "fake_authority": [
+            "fake_authority",
+            "case_involvement",
+            "transfer_for_verification",
+            "secrecy_pressure",
+        ],
+        "otp_theft": [
+            "otp_theft",
+            "credential_extraction",
+            "security_support_impersonation",
+        ],
+        "investment": [
+            "investment",
+            "guaranteed_return",
+            "urgency_pressure",
+        ],
+        "remote_support": [
+            "remote_support",
+            "screen_control",
+            "refund_promise",
+            "transfer_test",
+        ],
+        "legitimate_supplier": [],
+    }
+    return patterns[category]
 
 
 def round_to_nearest(value: int, unit: int) -> int:

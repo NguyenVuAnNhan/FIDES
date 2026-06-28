@@ -31,7 +31,7 @@ SUSPICIOUS_CALL_PREFIXES = ("+882", "+883", "+870", "+979", "1900")
 
 
 def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
-    transcript = request.transcript.lower()
+    transcript = _effective_transcript(request).lower()
     score = 10
     explanations: list[Explanation] = []
     scam_type: str | None = None
@@ -106,10 +106,43 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
-    for pattern_name, keywords in SCAM_PATTERNS.items():
-        matches = [keyword for keyword in keywords if keyword in transcript]
-        if matches:
-            score += min(30, 10 + len(matches) * 5)
+    if request.consent_granted and request.audio_source:
+        explanations.append(
+            Explanation(
+                label="Audio consent granted",
+                detail=f"Audio source {request.audio_source} is available for SmartVoice transcription.",
+                weight=0,
+            )
+        )
+
+    if request.consent_granted and request.stt_transcript:
+        confidence_detail = ""
+        if request.stt_confidence is not None:
+            confidence_detail = f" Confidence: {request.stt_confidence:.2f}."
+        explanations.append(
+            Explanation(
+                label="SmartVoice transcript",
+                detail=f"Speech-to-text transcript is available for scam-script analysis.{confidence_detail}",
+                weight=0,
+            )
+        )
+
+    if request.consent_granted and (request.llm_scam_type or request.detected_patterns):
+        scam_type = request.llm_scam_type or _scam_type_from_patterns(request.detected_patterns)
+        llm_weight = _llm_pattern_weight(request.llm_confidence)
+        score += llm_weight
+        explanations.append(
+            Explanation(
+                label="Smartbot pattern classification",
+                detail=_build_llm_detail(request),
+                weight=llm_weight,
+            )
+        )
+    elif request.consent_granted:
+        transcript_match = _match_transcript_pattern(transcript)
+        if transcript_match:
+            pattern_name, match_count = transcript_match
+            score += min(30, 10 + match_count * 5)
             scam_type = pattern_name
             explanations.append(
                 Explanation(
@@ -118,7 +151,14 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
                     weight=30,
                 )
             )
-            break
+    elif request.active_call:
+        explanations.append(
+            Explanation(
+                label="Audio analysis skipped",
+                detail="The user has not granted consent, so Shield uses telecom and transaction context only.",
+                weight=0,
+            )
+        )
 
     risk_score = min(score, 100)
     if risk_score >= 75:
@@ -168,3 +208,41 @@ def _has_suspicious_prefix(caller_number: str) -> bool:
 
 def _normalize_phone(caller_number: str) -> str:
     return caller_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+
+
+def _effective_transcript(request: ShieldAnalyzeRequest) -> str:
+    return request.stt_transcript or request.transcript
+
+
+def _match_transcript_pattern(transcript: str) -> tuple[str, int] | None:
+    for pattern_name, keywords in SCAM_PATTERNS.items():
+        matches = [keyword for keyword in keywords if keyword in transcript]
+        if matches:
+            return pattern_name, len(matches)
+    return None
+
+
+def _scam_type_from_patterns(patterns: list[str]) -> str | None:
+    for pattern in patterns:
+        if pattern in SCAM_PATTERNS:
+            return pattern
+    return None
+
+
+def _llm_pattern_weight(confidence: float | None) -> int:
+    if confidence is None or confidence >= 0.75:
+        return 30
+    if confidence >= 0.55:
+        return 22
+    return 12
+
+
+def _build_llm_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = []
+    if request.llm_scam_type:
+        pieces.append(f"Scam type: {request.llm_scam_type.replace('_', ' ')}.")
+    if request.detected_patterns:
+        pieces.append(f"Patterns: {', '.join(request.detected_patterns)}.")
+    if request.llm_confidence is not None:
+        pieces.append(f"Confidence: {request.llm_confidence:.2f}.")
+    return " ".join(pieces)

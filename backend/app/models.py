@@ -16,6 +16,13 @@ class ShieldAnalyzeRequest(BaseModel):
     caller_number: str = ""
     recipient_known: bool = False
     remote_control_detected: bool = False
+    consent_granted: bool = True
+    audio_source: str | None = None
+    stt_transcript: str = ""
+    stt_confidence: float | None = Field(default=None, ge=0, le=1)
+    detected_patterns: list[str] = Field(default_factory=list)
+    llm_scam_type: str | None = None
+    llm_confidence: float | None = Field(default=None, ge=0, le=1)
     transcript: str = ""
 
 

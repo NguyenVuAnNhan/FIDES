@@ -67,8 +67,36 @@
             <input name="remote_control_detected" type="checkbox" />
             Remote-control app detected
           </label>
+          <label class="checkbox-row">
+            <input name="consent_granted" type="checkbox" checked />
+            Consent for call analysis
+          </label>
+          <label>
+            Audio Source
+            <input name="audio_source" value="fixtures/audio/fake-police-001.wav" />
+          </label>
+          <label>
+            STT Confidence
+            <input name="stt_confidence" type="number" value="0.94" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            LLM Scam Type
+            <input name="llm_scam_type" value="fake_authority" />
+          </label>
+          <label>
+            LLM Confidence
+            <input name="llm_confidence" type="number" value="0.91" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Detected Patterns
+            <input name="detected_patterns" value="fake_authority, case_involvement, transfer_for_verification, secrecy_pressure" />
+          </label>
           <label class="wide">
-            Transcript
+            SmartVoice Transcript
+            <textarea name="stt_transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
+          </label>
+          <label class="wide">
+            Fallback Transcript
             <textarea name="transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
           </label>
           <button type="submit">Analyze Shield Risk</button>
