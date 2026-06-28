@@ -37,6 +37,8 @@ The current dataset includes:
 - Four Grow invoice cases: strong coffee-shop profile, emerging food-stall profile, late-payment retailer, and high-volume electronics reseller.
 - Shared trust profiles for the demo dashboard and future trust-graph work.
 
+For a full explanation of the Shield scam schema and how the field families fit together, see `docs/scam_schema_explained.md`.
+
 The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.
 
 The Shield dataset also includes the mocked SmartVoice/Smartbot pipeline fields: `consent_granted`, `audio_source`, `stt_transcript`, `stt_confidence`, `detected_patterns`, `llm_scam_type`, and `llm_confidence`. It also includes derived coercion-signal fields: `voice_stress_score`, `face_emotion_score`, `scripted_behavior_score`, `coercion_score`, and their explanation labels/confidence values. The schema is documented in `docs/shield_audio_nlp_schema.md`.
@@ -44,6 +46,10 @@ The Shield dataset also includes the mocked SmartVoice/Smartbot pipeline fields:
 Recipient-risk mock fields cover vnSocial reports, SIMO status, and graph-derived suspected mule-account features. The flat Shield payload schema is documented in `docs/shield_recipient_risk_schema.md`; the backend graph database design is documented in `docs/graph_database_schema.md`.
 
 Native telemetry and eKYC mock fields cover liveness, mask/spoof checks, face comparison, biometric injection risk, SmartUX behavior anomaly, and remote-control-like signals supplied by the SDK consumer. This schema is documented in `docs/shield_native_telemetry_schema.md`.
+
+Post-intervention learning is intentionally separate from the Shield transaction schema. Feedback events, anonymized outcome labels, and offline model/rule updates are documented in `docs/shield_feedback_learning_pipeline.md`.
+
+Behavioral-science intervention is also separate from the Shield input schema. Assistant/TTS cool-down, reflection questions, trusted-contact confirmation, and intervention levels are documented in `docs/shield_intervention_orchestration.md`.
 
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
