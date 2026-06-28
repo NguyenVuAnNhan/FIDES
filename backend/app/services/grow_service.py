@@ -110,6 +110,26 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
                 weight=abs(alternative_credit_weight),
             )
         )
+        if profile.explainability:
+            top_contributions = profile.explainability.feature_contributions[:3]
+            contribution_detail = "; ".join(
+                f"{item.feature} {item.shap_value:+.1f}" for item in top_contributions
+            )
+            if not contribution_detail:
+                contribution_detail = "No feature contributions supplied"
+            explanations.append(
+                Explanation(
+                    label="Explainable credit model",
+                    detail=(
+                        f"{profile.explainability.model_type} "
+                        f"{profile.explainability.model_version}: baseline "
+                        f"{profile.explainability.baseline_score}, final "
+                        f"{profile.explainability.final_score or profile.alternative_credit_score}. "
+                        f"Top SHAP-style contributions: {contribution_detail}."
+                    ),
+                    weight=0,
+                )
+            )
 
     if request.invoice_total >= 20_000_000:
         score += 18

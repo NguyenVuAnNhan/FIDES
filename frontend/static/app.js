@@ -376,6 +376,68 @@ function buildAlternativeCreditProfile(form) {
       hasMeaningfulRevenue ? "repeat_buyer_relationships" : "thin_network_history",
       itemCount >= 2 ? "structured_invoice_detail" : "limited_invoice_detail",
     ],
+    explainability: buildCreditExplainability({
+      alternativeCreditScore,
+      trustGraphScore,
+      repeatCounterpartyCount: hasMeaningfulRevenue ? 12 : 3,
+      cashflowStabilityScore,
+      vnSocialReputationScore,
+      complaints,
+      paidOnTime,
+    }),
+  };
+}
+
+function buildCreditExplainability(profile) {
+  const baselineScore = 55;
+  const contributions = [
+    {
+      feature: "trust_graph_score",
+      value: profile.trustGraphScore,
+      shap_value: roundOne((profile.trustGraphScore - 0.5) * 22),
+      direction: profile.trustGraphScore >= 0.5 ? "positive" : "negative",
+      reason: "A stronger transaction graph improves confidence in real business activity.",
+    },
+    {
+      feature: "repeat_counterparty_count",
+      value: profile.repeatCounterpartyCount,
+      shap_value: roundOne(Math.min(profile.repeatCounterpartyCount, 18) * 0.45),
+      direction: "positive",
+      reason: "Repeat counterparties show durable buyer or supplier relationships.",
+    },
+    {
+      feature: "cashflow_stability_score",
+      value: profile.cashflowStabilityScore,
+      shap_value: roundOne((profile.cashflowStabilityScore - 0.5) * 18),
+      direction: profile.cashflowStabilityScore >= 0.5 ? "positive" : "negative",
+      reason: "Stable cashflow reduces short-term repayment uncertainty.",
+    },
+    {
+      feature: "vn_social_reputation_score",
+      value: profile.vnSocialReputationScore,
+      shap_value: roundOne((profile.vnSocialReputationScore - 0.5) * 14),
+      direction: profile.vnSocialReputationScore >= 0.5 ? "positive" : "negative",
+      reason: "Positive public reputation supports business legitimacy.",
+    },
+    {
+      feature: "vn_social_complaint_count_30d",
+      value: profile.complaints,
+      shap_value: roundOne(profile.complaints * -2.5),
+      direction: profile.complaints ? "negative" : "neutral",
+      reason: "Recent complaints reduce confidence and trigger review.",
+    },
+  ].sort((left, right) => Math.abs(right.shap_value) - Math.abs(left.shap_value));
+
+  return {
+    model_type: "gradient_boosted_trees",
+    model_version: "grow_alt_credit_mock_v1",
+    baseline_score: baselineScore,
+    final_score: profile.alternativeCreditScore,
+    reason_codes: contributions
+      .filter((item) => item.direction === "positive")
+      .slice(0, 3)
+      .map((item) => item.feature),
+    feature_contributions: contributions,
   };
 }
 
@@ -409,6 +471,10 @@ function emptyToNull(value) {
 function numberOrNull(value) {
   const text = String(value ?? "").trim();
   return text ? Number(text) : null;
+}
+
+function roundOne(value) {
+  return Math.round(value * 10) / 10;
 }
 
 function parseList(value) {

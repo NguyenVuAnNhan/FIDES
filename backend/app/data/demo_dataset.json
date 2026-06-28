@@ -501,7 +501,69 @@
             "repeat_buyer_relationships",
             "verified_supplier_network",
             "positive_social_reputation"
-          ]
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 88,
+            "reason_codes": [
+              "trust_graph_score",
+              "repeat_counterparty_count",
+              "cashflow_stability_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "trust_graph_score",
+                "value": 0.88,
+                "shap_value": 8.4,
+                "direction": "positive",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 16,
+                "shap_value": 7.2,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.86,
+                "shap_value": 6.5,
+                "direction": "positive",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "paid_on_time",
+                "value": true,
+                "shap_value": 5.5,
+                "direction": "positive",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.81,
+                "shap_value": 4.3,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 12,
+                "shap_value": 4.2,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 0,
+                "shap_value": -0.0,
+                "direction": "neutral",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              }
+            ]
+          }
         }
       }
     },
@@ -611,7 +673,69 @@
           "signals": [
             "newly_digitized_business",
             "thin_network_history"
-          ]
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 61,
+            "reason_codes": [
+              "paid_on_time",
+              "trust_graph_score",
+              "vn_social_reputation_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "paid_on_time",
+                "value": true,
+                "shap_value": 5.5,
+                "direction": "positive",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "trust_graph_score",
+                "value": 0.61,
+                "shap_value": 2.4,
+                "direction": "positive",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.64,
+                "shap_value": 2.0,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 3,
+                "shap_value": 1.4,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.58,
+                "shap_value": 1.4,
+                "direction": "positive",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 1,
+                "shap_value": 0.3,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 0,
+                "shap_value": -0.0,
+                "direction": "neutral",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              }
+            ]
+          }
         }
       }
     },
@@ -723,7 +847,69 @@
           "signals": [
             "delayed_settlement",
             "cashflow_volatility"
-          ]
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 47,
+            "reason_codes": [
+              "repeat_counterparty_count",
+              "verified_counterparty_count",
+              "vn_social_reputation_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "paid_on_time",
+                "value": false,
+                "shap_value": -9.5,
+                "direction": "negative",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 2,
+                "shap_value": -5.0,
+                "direction": "negative",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 5,
+                "shap_value": 2.2,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.41,
+                "shap_value": -1.6,
+                "direction": "negative",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 2,
+                "shap_value": 0.7,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.53,
+                "shap_value": 0.4,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "trust_graph_score",
+                "value": 0.49,
+                "shap_value": -0.2,
+                "direction": "negative",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              }
+            ]
+          }
         }
       }
     },
@@ -858,7 +1044,69 @@
             "high_volume_repeat_buyers",
             "verified_counterparty_network",
             "positive_social_reputation"
-          ]
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 92,
+            "reason_codes": [
+              "trust_graph_score",
+              "repeat_counterparty_count",
+              "cashflow_stability_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "trust_graph_score",
+                "value": 0.92,
+                "shap_value": 9.2,
+                "direction": "positive",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 22,
+                "shap_value": 8.1,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.9,
+                "shap_value": 7.2,
+                "direction": "positive",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "paid_on_time",
+                "value": true,
+                "shap_value": 5.5,
+                "direction": "positive",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 16,
+                "shap_value": 4.9,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.84,
+                "shap_value": 4.8,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 0,
+                "shap_value": -0.0,
+                "direction": "neutral",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              }
+            ]
+          }
         }
       }
     }

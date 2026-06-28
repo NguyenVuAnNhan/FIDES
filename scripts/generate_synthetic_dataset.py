@@ -605,6 +605,12 @@ def make_alternative_credit_profile(
     trust_graph_score = make_confidence(rng, *spec["graph"])
     cashflow_stability_score = make_confidence(rng, *spec["stability"])
     vn_social_reputation_score = make_confidence(rng, *spec["social"])
+    repeat_counterparty_count = rng.randint(*spec["repeat"])
+    verified_counterparty_count = rng.randint(*spec["verified"])
+    network_centrality_score = make_confidence(rng, *spec["centrality"])
+    vn_social_mentions_30d = rng.randint(*spec["mentions"])
+    vn_social_complaint_count_30d = rng.randint(*spec["complaints"])
+    confidence = make_confidence(rng, 0.58, 0.86)
     total_bonus = 0.04 if total >= 20_000_000 else 0
     item_bonus = 0.02 if item_count >= 2 else 0
     payment_penalty = 0 if paid_on_time else 0.12
@@ -624,18 +630,101 @@ def make_alternative_credit_profile(
     return {
         "alternative_credit_profile": {
             "trust_graph_score": trust_graph_score,
-            "repeat_counterparty_count": rng.randint(*spec["repeat"]),
-            "verified_counterparty_count": rng.randint(*spec["verified"]),
-            "network_centrality_score": make_confidence(rng, *spec["centrality"]),
+            "repeat_counterparty_count": repeat_counterparty_count,
+            "verified_counterparty_count": verified_counterparty_count,
+            "network_centrality_score": network_centrality_score,
             "cashflow_stability_score": cashflow_stability_score,
             "vn_social_reputation_score": vn_social_reputation_score,
-            "vn_social_mentions_30d": rng.randint(*spec["mentions"]),
+            "vn_social_mentions_30d": vn_social_mentions_30d,
             "vn_social_sentiment": spec["sentiment"],
-            "vn_social_complaint_count_30d": rng.randint(*spec["complaints"]),
+            "vn_social_complaint_count_30d": vn_social_complaint_count_30d,
             "alternative_credit_score": alternative_credit_score,
-            "confidence": make_confidence(rng, 0.58, 0.86),
+            "confidence": confidence,
             "signals": spec["signals"],
+            "explainability": make_credit_explainability(
+                alternative_credit_score=alternative_credit_score,
+                trust_graph_score=trust_graph_score,
+                repeat_counterparty_count=repeat_counterparty_count,
+                verified_counterparty_count=verified_counterparty_count,
+                cashflow_stability_score=cashflow_stability_score,
+                vn_social_reputation_score=vn_social_reputation_score,
+                vn_social_complaint_count_30d=vn_social_complaint_count_30d,
+                paid_on_time=paid_on_time,
+            ),
         }
+    }
+
+
+def make_credit_explainability(
+    alternative_credit_score: int,
+    trust_graph_score: float,
+    repeat_counterparty_count: int,
+    verified_counterparty_count: int,
+    cashflow_stability_score: float,
+    vn_social_reputation_score: float,
+    vn_social_complaint_count_30d: int,
+    paid_on_time: bool,
+) -> dict[str, Any]:
+    contributions = [
+        {
+            "feature": "trust_graph_score",
+            "value": trust_graph_score,
+            "shap_value": round((trust_graph_score - 0.5) * 22, 1),
+            "direction": "positive" if trust_graph_score >= 0.5 else "negative",
+            "reason": "A stronger transaction graph improves confidence in real business activity.",
+        },
+        {
+            "feature": "repeat_counterparty_count",
+            "value": repeat_counterparty_count,
+            "shap_value": round(min(repeat_counterparty_count, 18) * 0.45, 1),
+            "direction": "positive",
+            "reason": "Repeat counterparties show durable buyer or supplier relationships.",
+        },
+        {
+            "feature": "verified_counterparty_count",
+            "value": verified_counterparty_count,
+            "shap_value": round(min(verified_counterparty_count, 14) * 0.35, 1),
+            "direction": "positive",
+            "reason": "Verified counterparties reduce identity and invoice-quality uncertainty.",
+        },
+        {
+            "feature": "cashflow_stability_score",
+            "value": cashflow_stability_score,
+            "shap_value": round((cashflow_stability_score - 0.5) * 18, 1),
+            "direction": "positive" if cashflow_stability_score >= 0.5 else "negative",
+            "reason": "Stable cashflow reduces short-term repayment uncertainty.",
+        },
+        {
+            "feature": "vn_social_reputation_score",
+            "value": vn_social_reputation_score,
+            "shap_value": round((vn_social_reputation_score - 0.5) * 14, 1),
+            "direction": "positive" if vn_social_reputation_score >= 0.5 else "negative",
+            "reason": "Positive public reputation supports business legitimacy.",
+        },
+        {
+            "feature": "vn_social_complaint_count_30d",
+            "value": vn_social_complaint_count_30d,
+            "shap_value": round(vn_social_complaint_count_30d * -2.5, 1),
+            "direction": "negative" if vn_social_complaint_count_30d else "neutral",
+            "reason": "Recent complaints reduce confidence and trigger review.",
+        },
+        {
+            "feature": "paid_on_time",
+            "value": paid_on_time,
+            "shap_value": 5.5 if paid_on_time else -9.5,
+            "direction": "positive" if paid_on_time else "negative",
+            "reason": "Payment timeliness is a direct repayment-quality signal.",
+        },
+    ]
+    contributions.sort(key=lambda item: abs(item["shap_value"]), reverse=True)
+    reason_codes = [item["feature"] for item in contributions if item["direction"] == "positive"][:3]
+    return {
+        "model_type": "gradient_boosted_trees",
+        "model_version": "grow_alt_credit_mock_v1",
+        "baseline_score": 55,
+        "final_score": alternative_credit_score,
+        "reason_codes": reason_codes,
+        "feature_contributions": contributions,
     }
 
 

@@ -151,6 +151,23 @@ class EInvoiceStatus(BaseModel):
     compliance_notes: list[str] = Field(default_factory=list)
 
 
+class CreditFeatureContribution(BaseModel):
+    feature: str
+    value: str | int | float | bool | None = None
+    shap_value: float = 0
+    direction: str = "neutral"
+    reason: str = ""
+
+
+class CreditExplainability(BaseModel):
+    model_type: str = "gradient_boosted_trees"
+    model_version: str = "grow_alt_credit_mock_v1"
+    baseline_score: int = Field(default=50, ge=0, le=100)
+    final_score: int | None = Field(default=None, ge=0, le=100)
+    reason_codes: list[str] = Field(default_factory=list)
+    feature_contributions: list[CreditFeatureContribution] = Field(default_factory=list)
+
+
 class AlternativeCreditProfile(BaseModel):
     trust_graph_score: float | None = Field(default=None, ge=0, le=1)
     repeat_counterparty_count: int = Field(default=0, ge=0)
@@ -164,6 +181,7 @@ class AlternativeCreditProfile(BaseModel):
     alternative_credit_score: int | None = Field(default=None, ge=0, le=100)
     confidence: float | None = Field(default=None, ge=0, le=1)
     signals: list[str] = Field(default_factory=list)
+    explainability: CreditExplainability | None = None
 
 
 class GrowAnalyzeRequest(BaseModel):
