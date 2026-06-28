@@ -363,6 +363,7 @@ def build_grow_invoice(rng: random.Random, index: int, category: str) -> dict[st
                 confidence=0.9 if input_mode == "invoice_photo" else 0.86,
             ),
             **make_compliance_outputs(invoice_id, customer_name, total, category, template["paid_on_time"]),
+            **make_cashflow_forecast(rng, total, category, template["paid_on_time"]),
             **make_alternative_credit_profile(rng, category, total, template["paid_on_time"], len(items)),
         },
     }
@@ -529,6 +530,86 @@ def make_compliance_outputs(
                 "Ledger entry linked to source document",
             ],
         },
+    }
+
+
+def make_cashflow_forecast(
+    rng: random.Random,
+    total: int,
+    category: str,
+    paid_on_time: bool,
+) -> dict[str, Any]:
+    specs = {
+        "strong_business": {
+            "inflow_factor": 4.1,
+            "outflow_factor": 3.0,
+            "buffer_factor": 0.65,
+            "drivers": ["stable_repeat_customer_payments", "positive_cash_buffer", "predictable_supplier_costs"],
+            "confidence": (0.72, 0.84),
+        },
+        "emerging_thin_file": {
+            "inflow_factor": 3.3,
+            "outflow_factor": 2.9,
+            "buffer_factor": 0.75,
+            "drivers": ["thin_recent_revenue", "starter_cash_buffer_gap", "limited_payment_history"],
+            "confidence": (0.58, 0.7),
+        },
+        "late_payment": {
+            "inflow_factor": 2.7,
+            "outflow_factor": 3.5,
+            "buffer_factor": 0.8,
+            "drivers": ["late_receivable_risk", "cashflow_volatility", "upcoming_supplier_payment"],
+            "confidence": (0.62, 0.74),
+        },
+        "seasonal_cashflow": {
+            "inflow_factor": 3.8,
+            "outflow_factor": 3.7,
+            "buffer_factor": 0.85,
+            "drivers": ["seasonal_inventory_purchase", "revenue_timing_gap", "short_term_working_capital_need"],
+            "confidence": (0.6, 0.76),
+        },
+        "high_volume": {
+            "inflow_factor": 4.2,
+            "outflow_factor": 3.2,
+            "buffer_factor": 0.65,
+            "drivers": ["large_repeat_buyer_pipeline", "positive_cash_buffer", "working_capital_ready"],
+            "confidence": (0.74, 0.88),
+        },
+    }
+    spec = specs[category]
+    if not paid_on_time:
+        spec = {**spec, "inflow_factor": min(spec["inflow_factor"], 2.7)}
+    projected_inflow = round(total * spec["inflow_factor"])
+    projected_outflow = round(total * spec["outflow_factor"])
+    projected_net_cashflow = projected_inflow - projected_outflow
+    minimum_cash_buffer = round(total * spec["buffer_factor"])
+    shortfall_amount = max(0, minimum_cash_buffer - projected_net_cashflow)
+    if shortfall_amount == 0:
+        liquidity_risk_level = "low"
+    elif shortfall_amount > total * 0.6:
+        liquidity_risk_level = "high"
+    else:
+        liquidity_risk_level = "medium"
+
+    recommended_credit_amount = 0
+    if shortfall_amount:
+        recommended_credit_amount = max(1_000_000, round_to_nearest(round(shortfall_amount * 1.2), 1_000_000))
+
+    return {
+        "cashflow_forecast": {
+            "forecast_period_days": 30,
+            "projected_inflow": projected_inflow,
+            "projected_outflow": projected_outflow,
+            "projected_net_cashflow": projected_net_cashflow,
+            "minimum_cash_buffer": minimum_cash_buffer,
+            "liquidity_risk_level": liquidity_risk_level,
+            "shortfall_amount": shortfall_amount,
+            "shortfall_expected_date": "2026-07-18" if shortfall_amount else None,
+            "recommended_borrowing_window": "2026-07-10_to_2026-07-17" if shortfall_amount else "not_required",
+            "recommended_credit_amount": recommended_credit_amount,
+            "drivers": spec["drivers"],
+            "confidence": make_confidence(rng, *spec["confidence"]),
+        }
     }
 
 

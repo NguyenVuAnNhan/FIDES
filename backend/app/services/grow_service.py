@@ -64,6 +64,27 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
             )
         )
 
+    if request.cashflow_forecast:
+        shortfall = ""
+        if request.cashflow_forecast.shortfall_amount:
+            shortfall = (
+                f" Expected shortfall {request.cashflow_forecast.shortfall_amount:,} VND"
+                f" on {request.cashflow_forecast.shortfall_expected_date or 'the forecast horizon'}."
+            )
+        explanations.append(
+            Explanation(
+                label="Cashflow forecast",
+                detail=(
+                    f"{request.cashflow_forecast.forecast_period_days}-day liquidity risk is "
+                    f"{request.cashflow_forecast.liquidity_risk_level}; projected net cashflow "
+                    f"{request.cashflow_forecast.projected_net_cashflow:,} VND; recommended borrowing window "
+                    f"{request.cashflow_forecast.recommended_borrowing_window or 'not required'}."
+                    f"{shortfall}"
+                ),
+                weight=0,
+            )
+        )
+
     if request.tax_summary:
         explanations.append(
             Explanation(

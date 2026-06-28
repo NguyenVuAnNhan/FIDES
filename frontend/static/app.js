@@ -104,6 +104,7 @@ growForm.addEventListener("submit", async (event) => {
     voice_entry: buildVoicePayload(form),
     normalized_ledger_entry: buildLedgerPayload(form),
     cashflow_summary: buildCashflowSummary(form),
+    cashflow_forecast: buildCashflowForecast(form),
     tax_summary: buildTaxSummary(form),
     einvoice_status: buildEInvoiceStatus(form),
     alternative_credit_profile: buildAlternativeCreditProfile(form),
@@ -314,6 +315,40 @@ function buildCashflowSummary(form) {
     net_cashflow: monthlyRevenue - totalOutflow,
     largest_customer: String(form.get("customer_name")),
     revenue_confidence: numberOrNull(form.get("ocr_confidence")) ?? numberOrNull(form.get("voice_confidence")),
+  };
+}
+
+function buildCashflowForecast(form) {
+  const invoiceTotal = Number(form.get("invoice_total"));
+  const paidOnTime = form.get("paid_on_time") === "on";
+  const projectedInflow = invoiceTotal * (paidOnTime ? 4 : 3);
+  const projectedOutflow = Math.round(invoiceTotal * (paidOnTime ? 3.1 : 3.6));
+  const projectedNetCashflow = projectedInflow - projectedOutflow;
+  const minimumCashBuffer = Math.round(invoiceTotal * 0.75);
+  const shortfallAmount = Math.max(0, minimumCashBuffer - projectedNetCashflow);
+  const liquidityRiskLevel = shortfallAmount
+    ? shortfallAmount > invoiceTotal * 0.5
+      ? "high"
+      : "medium"
+    : "low";
+
+  return {
+    forecast_period_days: 30,
+    projected_inflow: projectedInflow,
+    projected_outflow: projectedOutflow,
+    projected_net_cashflow: projectedNetCashflow,
+    minimum_cash_buffer: minimumCashBuffer,
+    liquidity_risk_level: liquidityRiskLevel,
+    shortfall_amount: shortfallAmount,
+    shortfall_expected_date: shortfallAmount ? "2026-07-18" : null,
+    recommended_borrowing_window: shortfallAmount ? "2026-07-10_to_2026-07-17" : "not_required",
+    recommended_credit_amount: shortfallAmount ? Math.ceil((shortfallAmount * 1.2) / 1000000) * 1000000 : 0,
+    drivers: [
+      paidOnTime ? "on_time_receivables" : "late_receivable_risk",
+      shortfallAmount ? "projected_cash_buffer_gap" : "positive_cash_buffer",
+      invoiceTotal >= 20_000_000 ? "meaningful_revenue_base" : "thin_recent_revenue",
+    ],
+    confidence: paidOnTime ? 0.74 : 0.62,
   };
 }
 

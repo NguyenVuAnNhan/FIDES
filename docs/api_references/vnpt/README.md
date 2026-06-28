@@ -17,7 +17,8 @@ Scope: public, unauthenticated documentation and frontend bundles only. This is 
 | vnSocial | Partial. Product/pricing pages and a VNPT-listed API integration document filename were found; no direct public endpoint page was found. | https://vnptai.io/vnsocial/en, https://vnptai.io/vnsocial/en/price-1 |
 | vnFace | Partial. Public guide/spec pages are product/admin guidance, not API endpoint reference. | https://vnptai.io/vnface/en, https://vnptai.io/vnface/en/documents/setting, https://vnptai.io/vnface/en/specs |
 
-Machine-readable data is in [vnpt_public_api_reference.json](vnpt_public_api_reference.json).
+Machine-readable endpoint inventory is in [vnpt_public_api_reference.json](vnpt_public_api_reference.json).
+Detailed request/response contracts are in [endpoint_contracts.md](endpoint_contracts.md) and [vnpt_endpoint_contracts.json](vnpt_endpoint_contracts.json).
 
 ## Shared Authentication Pattern
 
@@ -82,10 +83,10 @@ Base URL found in public docs: `https://api.idg.vnpt.vn`
 | --- | --- | --- |
 | POST | `/auth-service/oauth/token` | OAuth/token flow. VNPT text renders this with an extra space in one place as `/auth-service /oauth/token`; normalize before use. |
 | POST | `/ai/api/v1/text-to-speech` | Advanced TTS request. |
-| GET or POST | `/ai/api/v1/text-to-speech/check-status` | Check TTS processing status. Method should be verified against account docs before implementation. |
-| GET or POST | `/ai/api/v1/text-to-speech/download` | Download generated audio. Method should be verified against account docs before implementation. |
+| POST | `/ai/api/v1/text-to-speech/check-status` | Check TTS processing status. |
+| POST | `/ai/api/v1/text-to-speech/download` | Download generated audio. |
 | POST | `/tts-service/v1/standard` | Standard TTS REST flow. |
-| GET or POST | `/tts-service/v1/check-status` | Check standard TTS status. |
+| POST | `/tts-service/v1/check-status` | Check standard TTS status. |
 | POST | `/tts-service/v2/standard` | TTS v2 standard REST flow. |
 | POST | `/tts-service/v2/grpc` | TTS over REST wrapper for gRPC model. |
 
@@ -98,7 +99,7 @@ gRPC service names found: `SynthesizeSpeechResponse Synthesize(SynthesizeSpeechR
 | POST | `/stt-service/v1/grpc/standard` | Speech-to-text using gRPC model through API. |
 | POST | `/stt-service/v1/grpc/async/standard` | Async gRPC STT flow. |
 | POST | `/stt-service/v3/standard` | STT standard REST flow. |
-| GET or POST | `/stt-service/v1/async/status` | Check async STT status. |
+| POST | `/stt-service/v1/async/status` | Check async STT status. |
 | POST | `/stt-service/v1/async/vn` | Async Vietnamese STT flow. |
 | WebSocket | `wss://websocket.vnpt.vn/v1/streaming-recognize?authorization=<accessToken>&token-id=<token-id>&token-key=<token-key>` | Streaming recognition. Vendor text includes a stray space before `token-key`; remove it. |
 
@@ -117,7 +118,7 @@ Voice verification uses the voice-service base in the public guide:
 | GET | `/v1/voice-id/audio/unregister?email=<email>` | Unregister voice by email. |
 | POST | `/v1/voice-id/audio/search-by-upload` | Search by uploaded audio. |
 | GET | `/v1/voice-id/audio/info-by-email?email=<email>` | Get voice enrollment info by email. |
-| GET or POST | `/voiceid/api/v1/audio/verify` | Verify two audio samples or audio IDs. |
+| GET | `/voiceid/api/v1/audio/verify` | Verify two audio samples or audio IDs. |
 
 Public SDK download URLs exposed by the SDK page:
 
@@ -150,10 +151,10 @@ Endpoint inventory:
 | POST | `/rpa-service/aidigdoc/v1/ocr/scan` | Basic OCR; exports DOCX. |
 | POST | `/rpa-service/aidigdoc/v1/ocr/scan-table` | Advanced OCR/table reconstruction; exports DOCX, XLSX, JSON. |
 | POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan` | Start async basic OCR session. |
-| GET or POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan/result` | Check async basic OCR session result. |
+| POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan/result` | Check async basic OCR session result. |
 | POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan/cancel` | Cancel async basic OCR session. |
 | POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan-table` | Start async advanced OCR/table session. |
-| GET or POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan-table/result` | Check async advanced OCR/table result. |
+| POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan-table/result` | Check async advanced OCR/table result. |
 | POST | `/rpa-service/aidigdoc/v1/integration/ocr/scan-table/cancel` | Cancel async advanced OCR/table session. |
 | POST | `/rpa-service/aidigdoc/v1/ocr/van-ban-hanh-chinh` | Extract administrative document fields. |
 | POST | `/rpa-service/aidigdoc/v2/ocr/van-ban-hanh-chinh` | Extract administrative document fields, extended-field version. |

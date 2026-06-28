@@ -100,11 +100,14 @@ This is the stable bookkeeping object Grow should use for cashflow summaries, ta
 Grow also accepts mocked post-processing outputs:
 
 - `cashflow_summary`
+- `cashflow_forecast`
 - `tax_summary`
 - `einvoice_status`
 - `alternative_credit_profile`
 
 The compliance blocks model automatic bookkeeping, tax draft, and e-invoice workflow state after the normalized ledger entry exists. They are documented in `docs/grow_compliance_schema.md`.
+
+The forecast block models liquidity early warning and suggested borrowing timing. It is documented in `docs/grow_cashflow_forecast_schema.md`.
 
 The alternative credit block models derived trust graph and vnSocial reputation evidence. It is documented in `docs/grow_alternative_credit_schema.md`.
 

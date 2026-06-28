@@ -466,6 +466,24 @@
           "largest_customer": "Office Pantry Co.",
           "revenue_confidence": 0.93
         },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 131200000,
+          "projected_outflow": 96000000,
+          "projected_net_cashflow": 35200000,
+          "minimum_cash_buffer": 20800000,
+          "liquidity_risk_level": "low",
+          "shortfall_amount": 0,
+          "shortfall_expected_date": null,
+          "recommended_borrowing_window": "not_required",
+          "recommended_credit_amount": 0,
+          "drivers": [
+            "stable_repeat_customer_payments",
+            "positive_cash_buffer",
+            "predictable_supplier_costs"
+          ],
+          "confidence": 0.78
+        },
         "tax_summary": {
           "period": "2026-06",
           "vat_estimate": 11636364,
@@ -639,6 +657,24 @@
           "largest_customer": "Co-working Lunch Club",
           "revenue_confidence": 0.89
         },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 41250000,
+          "projected_outflow": 36250000,
+          "projected_net_cashflow": 5000000,
+          "minimum_cash_buffer": 9375000,
+          "liquidity_risk_level": "medium",
+          "shortfall_amount": 4375000,
+          "shortfall_expected_date": "2026-07-18",
+          "recommended_borrowing_window": "2026-07-10_to_2026-07-17",
+          "recommended_credit_amount": 6000000,
+          "drivers": [
+            "thin_recent_revenue",
+            "starter_cash_buffer_gap",
+            "limited_payment_history"
+          ],
+          "confidence": 0.64
+        },
         "tax_summary": {
           "period": "2026-06",
           "vat_estimate": 4545455,
@@ -810,6 +846,24 @@
           "net_cashflow": 38640000,
           "largest_customer": "Local Wholesale Buyer",
           "revenue_confidence": 0.87
+        },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 62100000,
+          "projected_outflow": 80500000,
+          "projected_net_cashflow": -18400000,
+          "minimum_cash_buffer": 18400000,
+          "liquidity_risk_level": "high",
+          "shortfall_amount": 36800000,
+          "shortfall_expected_date": "2026-07-18",
+          "recommended_borrowing_window": "2026-07-10_to_2026-07-17",
+          "recommended_credit_amount": 44000000,
+          "drivers": [
+            "late_receivable_risk",
+            "cashflow_volatility",
+            "upcoming_supplier_payment"
+          ],
+          "confidence": 0.68
         },
         "tax_summary": {
           "period": "2026-06",
@@ -1008,6 +1062,24 @@
           "net_cashflow": 144480000,
           "largest_customer": "District Repair Network",
           "revenue_confidence": 0.95
+        },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 361200000,
+          "projected_outflow": 275200000,
+          "projected_net_cashflow": 86000000,
+          "minimum_cash_buffer": 55900000,
+          "liquidity_risk_level": "low",
+          "shortfall_amount": 0,
+          "shortfall_expected_date": null,
+          "recommended_borrowing_window": "not_required",
+          "recommended_credit_amount": 0,
+          "drivers": [
+            "large_repeat_buyer_pipeline",
+            "positive_cash_buffer",
+            "working_capital_ready"
+          ],
+          "confidence": 0.83
         },
         "tax_summary": {
           "period": "2026-06",

@@ -134,6 +134,21 @@ class CashflowSummary(BaseModel):
     revenue_confidence: float | None = Field(default=None, ge=0, le=1)
 
 
+class CashflowForecast(BaseModel):
+    forecast_period_days: int = Field(default=30, ge=1)
+    projected_inflow: int = Field(default=0, ge=0)
+    projected_outflow: int = Field(default=0, ge=0)
+    projected_net_cashflow: int = 0
+    minimum_cash_buffer: int = Field(default=0, ge=0)
+    liquidity_risk_level: str = "unknown"
+    shortfall_amount: int = Field(default=0, ge=0)
+    shortfall_expected_date: str | None = None
+    recommended_borrowing_window: str = ""
+    recommended_credit_amount: int = Field(default=0, ge=0)
+    drivers: list[str] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
 class TaxSummary(BaseModel):
     period: str = ""
     vat_estimate: int = Field(default=0, ge=0)
@@ -193,6 +208,7 @@ class GrowAnalyzeRequest(BaseModel):
     voice_entry: GrowVoiceEntry = Field(default_factory=GrowVoiceEntry)
     normalized_ledger_entry: NormalizedLedgerEntry | None = None
     cashflow_summary: CashflowSummary | None = None
+    cashflow_forecast: CashflowForecast | None = None
     tax_summary: TaxSummary | None = None
     einvoice_status: EInvoiceStatus | None = None
     alternative_credit_profile: AlternativeCreditProfile | None = None
