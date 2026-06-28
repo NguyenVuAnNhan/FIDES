@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIDES MVP</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Financial Integrity, Defense & Empowerment System</p>
+        <h1>FIDES MVP</h1>
+      </div>
+      <nav aria-label="Primary">
+        <a href="#shield">Shield</a>
+        <a href="#grow">Grow</a>
+      </nav>
+    </header>
+
+    <main class="workspace">
+      <section id="shield" class="panel panel-shield">
+        <div class="section-heading">
+          <p class="eyebrow">FIDES Shield</p>
+          <h2>Real-time manipulation circuit breaker</h2>
+        </div>
+
+        <form id="shield-form" class="flow-grid">
+          <label>
+            Amount
+            <input name="transaction_amount" type="number" value="75000000" min="0" />
+          </label>
+          <label>
+            Recipient
+            <input name="recipient_name" value="Nguyen Van A" />
+          </label>
+          <label>
+            Account
+            <input name="recipient_account" value="9704 0000 1234" />
+          </label>
+          <label>
+            Caller Type
+            <select name="caller_type">
+              <option value="unknown">Unknown</option>
+              <option value="voip">VoIP</option>
+              <option value="international">International</option>
+              <option value="trusted">Trusted</option>
+            </select>
+          </label>
+          <label class="checkbox-row">
+            <input name="active_call" type="checkbox" checked />
+            Active call while transferring
+          </label>
+          <label class="wide">
+            Transcript
+            <textarea name="transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
+          </label>
+          <button type="submit">Analyze Shield Risk</button>
+        </form>
+
+        <div id="shield-result" class="result empty">Run Shield analysis to see risk and intervention.</div>
+      </section>
+
+      <section id="grow" class="panel panel-grow">
+        <div class="section-heading">
+          <p class="eyebrow">FIDES Grow</p>
+          <h2>Invoice to alternative trust profile</h2>
+        </div>
+
+        <form id="grow-form" class="flow-grid">
+          <label>
+            Business
+            <input name="business_name" value="An Nhien Coffee" />
+          </label>
+          <label>
+            Invoice ID
+            <input name="invoice_id" value="INV-2026-001" />
+          </label>
+          <label>
+            Customer
+            <input name="customer_name" value="Office Pantry Co." />
+          </label>
+          <label>
+            Invoice Total
+            <input name="invoice_total" type="number" value="32000000" min="0" />
+          </label>
+          <label class="checkbox-row">
+            <input name="paid_on_time" type="checkbox" checked />
+            Paid on time
+          </label>
+          <button type="submit">Analyze Grow Profile</button>
+        </form>
+
+        <div id="grow-result" class="result empty">Run Grow analysis to see credit readiness.</div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
+

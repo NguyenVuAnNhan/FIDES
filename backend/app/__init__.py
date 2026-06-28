@@ -1,0 +1,2 @@
+"""FIDES FastAPI application package."""
+
