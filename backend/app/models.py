@@ -151,6 +151,21 @@ class EInvoiceStatus(BaseModel):
     compliance_notes: list[str] = Field(default_factory=list)
 
 
+class AlternativeCreditProfile(BaseModel):
+    trust_graph_score: float | None = Field(default=None, ge=0, le=1)
+    repeat_counterparty_count: int = Field(default=0, ge=0)
+    verified_counterparty_count: int = Field(default=0, ge=0)
+    network_centrality_score: float | None = Field(default=None, ge=0, le=1)
+    cashflow_stability_score: float | None = Field(default=None, ge=0, le=1)
+    vn_social_reputation_score: float | None = Field(default=None, ge=0, le=1)
+    vn_social_mentions_30d: int = Field(default=0, ge=0)
+    vn_social_sentiment: str = "unknown"
+    vn_social_complaint_count_30d: int = Field(default=0, ge=0)
+    alternative_credit_score: int | None = Field(default=None, ge=0, le=100)
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    signals: list[str] = Field(default_factory=list)
+
+
 class GrowAnalyzeRequest(BaseModel):
     business_id: str = ""
     business_name: str
@@ -162,6 +177,7 @@ class GrowAnalyzeRequest(BaseModel):
     cashflow_summary: CashflowSummary | None = None
     tax_summary: TaxSummary | None = None
     einvoice_status: EInvoiceStatus | None = None
+    alternative_credit_profile: AlternativeCreditProfile | None = None
     invoice_id: str
     customer_name: str
     invoice_total: int = Field(ge=0)

@@ -363,6 +363,7 @@ def build_grow_invoice(rng: random.Random, index: int, category: str) -> dict[st
                 confidence=0.9 if input_mode == "invoice_photo" else 0.86,
             ),
             **make_compliance_outputs(invoice_id, customer_name, total, category, template["paid_on_time"]),
+            **make_alternative_credit_profile(rng, category, total, template["paid_on_time"], len(items)),
         },
     }
 
@@ -528,6 +529,113 @@ def make_compliance_outputs(
                 "Ledger entry linked to source document",
             ],
         },
+    }
+
+
+def make_alternative_credit_profile(
+    rng: random.Random,
+    category: str,
+    total: int,
+    paid_on_time: bool,
+    item_count: int,
+) -> dict[str, Any]:
+    specs = {
+        "strong_business": {
+            "graph": (0.82, 0.94),
+            "repeat": (8, 18),
+            "verified": (5, 14),
+            "centrality": (0.62, 0.78),
+            "stability": (0.78, 0.9),
+            "social": (0.72, 0.88),
+            "mentions": (18, 80),
+            "sentiment": "positive",
+            "complaints": (0, 1),
+            "signals": ["repeat_buyer_relationships", "verified_supplier_network", "positive_social_reputation"],
+        },
+        "emerging_thin_file": {
+            "graph": (0.46, 0.64),
+            "repeat": (1, 4),
+            "verified": (0, 2),
+            "centrality": (0.32, 0.48),
+            "stability": (0.48, 0.62),
+            "social": (0.52, 0.68),
+            "mentions": (4, 18),
+            "sentiment": "mixed",
+            "complaints": (0, 2),
+            "signals": ["newly_digitized_business", "thin_network_history"],
+        },
+        "late_payment": {
+            "graph": (0.38, 0.58),
+            "repeat": (2, 8),
+            "verified": (1, 4),
+            "centrality": (0.3, 0.46),
+            "stability": (0.32, 0.5),
+            "social": (0.42, 0.6),
+            "mentions": (8, 28),
+            "sentiment": "mixed",
+            "complaints": (1, 4),
+            "signals": ["delayed_settlement", "cashflow_volatility"],
+        },
+        "seasonal_cashflow": {
+            "graph": (0.6, 0.78),
+            "repeat": (4, 10),
+            "verified": (2, 7),
+            "centrality": (0.46, 0.66),
+            "stability": (0.52, 0.7),
+            "social": (0.58, 0.76),
+            "mentions": (10, 44),
+            "sentiment": "positive",
+            "complaints": (0, 2),
+            "signals": ["seasonal_revenue_pattern", "repeat_buyer_relationships"],
+        },
+        "high_volume": {
+            "graph": (0.86, 0.97),
+            "repeat": (14, 28),
+            "verified": (9, 20),
+            "centrality": (0.72, 0.88),
+            "stability": (0.82, 0.94),
+            "social": (0.76, 0.9),
+            "mentions": (28, 96),
+            "sentiment": "positive",
+            "complaints": (0, 1),
+            "signals": ["high_volume_repeat_buyers", "verified_counterparty_network", "positive_social_reputation"],
+        },
+    }
+    spec = specs[category]
+    trust_graph_score = make_confidence(rng, *spec["graph"])
+    cashflow_stability_score = make_confidence(rng, *spec["stability"])
+    vn_social_reputation_score = make_confidence(rng, *spec["social"])
+    total_bonus = 0.04 if total >= 20_000_000 else 0
+    item_bonus = 0.02 if item_count >= 2 else 0
+    payment_penalty = 0 if paid_on_time else 0.12
+    alternative_credit_score = round(
+        (
+            trust_graph_score * 0.35
+            + cashflow_stability_score * 0.35
+            + vn_social_reputation_score * 0.3
+            + total_bonus
+            + item_bonus
+            - payment_penalty
+        )
+        * 100
+    )
+    alternative_credit_score = max(0, min(alternative_credit_score, 100))
+
+    return {
+        "alternative_credit_profile": {
+            "trust_graph_score": trust_graph_score,
+            "repeat_counterparty_count": rng.randint(*spec["repeat"]),
+            "verified_counterparty_count": rng.randint(*spec["verified"]),
+            "network_centrality_score": make_confidence(rng, *spec["centrality"]),
+            "cashflow_stability_score": cashflow_stability_score,
+            "vn_social_reputation_score": vn_social_reputation_score,
+            "vn_social_mentions_30d": rng.randint(*spec["mentions"]),
+            "vn_social_sentiment": spec["sentiment"],
+            "vn_social_complaint_count_30d": rng.randint(*spec["complaints"]),
+            "alternative_credit_score": alternative_credit_score,
+            "confidence": make_confidence(rng, 0.58, 0.86),
+            "signals": spec["signals"],
+        }
     }
 
 

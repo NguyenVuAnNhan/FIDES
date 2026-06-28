@@ -484,6 +484,24 @@
             "VAT estimate generated",
             "Ledger entry linked to source document"
           ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.88,
+          "repeat_counterparty_count": 16,
+          "verified_counterparty_count": 12,
+          "network_centrality_score": 0.74,
+          "cashflow_stability_score": 0.86,
+          "vn_social_reputation_score": 0.81,
+          "vn_social_mentions_30d": 54,
+          "vn_social_sentiment": "positive",
+          "vn_social_complaint_count_30d": 0,
+          "alternative_credit_score": 88,
+          "confidence": 0.82,
+          "signals": [
+            "repeat_buyer_relationships",
+            "verified_supplier_network",
+            "positive_social_reputation"
+          ]
         }
       }
     },
@@ -576,6 +594,23 @@
             "Required buyer and seller fields present",
             "VAT estimate generated",
             "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.61,
+          "repeat_counterparty_count": 3,
+          "verified_counterparty_count": 1,
+          "network_centrality_score": 0.42,
+          "cashflow_stability_score": 0.58,
+          "vn_social_reputation_score": 0.64,
+          "vn_social_mentions_30d": 12,
+          "vn_social_sentiment": "mixed",
+          "vn_social_complaint_count_30d": 0,
+          "alternative_credit_score": 61,
+          "confidence": 0.63,
+          "signals": [
+            "newly_digitized_business",
+            "thin_network_history"
           ]
         }
       }
@@ -671,6 +706,23 @@
             "Required buyer and seller fields present",
             "VAT estimate generated",
             "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.49,
+          "repeat_counterparty_count": 5,
+          "verified_counterparty_count": 2,
+          "network_centrality_score": 0.38,
+          "cashflow_stability_score": 0.41,
+          "vn_social_reputation_score": 0.53,
+          "vn_social_mentions_30d": 19,
+          "vn_social_sentiment": "mixed",
+          "vn_social_complaint_count_30d": 2,
+          "alternative_credit_score": 47,
+          "confidence": 0.66,
+          "signals": [
+            "delayed_settlement",
+            "cashflow_volatility"
           ]
         }
       }
@@ -788,6 +840,24 @@
             "Required buyer and seller fields present",
             "VAT estimate generated",
             "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.92,
+          "repeat_counterparty_count": 22,
+          "verified_counterparty_count": 16,
+          "network_centrality_score": 0.81,
+          "cashflow_stability_score": 0.9,
+          "vn_social_reputation_score": 0.84,
+          "vn_social_mentions_30d": 71,
+          "vn_social_sentiment": "positive",
+          "vn_social_complaint_count_30d": 0,
+          "alternative_credit_score": 92,
+          "confidence": 0.86,
+          "signals": [
+            "high_volume_repeat_buyers",
+            "verified_counterparty_network",
+            "positive_social_reputation"
           ]
         }
       }

@@ -89,6 +89,28 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
             )
         )
 
+    if request.alternative_credit_profile:
+        alternative_credit_weight = _alternative_credit_weight(request)
+        profile = request.alternative_credit_profile
+        details = []
+        if profile.alternative_credit_score is not None:
+            details.append(f"alternative score {profile.alternative_credit_score}/100")
+        if profile.trust_graph_score is not None:
+            details.append(f"trust graph {profile.trust_graph_score:.2f}")
+        if profile.vn_social_reputation_score is not None:
+            details.append(f"vnSocial reputation {profile.vn_social_reputation_score:.2f}")
+        details.append(f"{profile.repeat_counterparty_count} repeat counterparty relationship(s)")
+        if profile.vn_social_complaint_count_30d:
+            details.append(f"{profile.vn_social_complaint_count_30d} recent complaint(s)")
+        score += alternative_credit_weight
+        explanations.append(
+            Explanation(
+                label="Alternative credit profile",
+                detail=", ".join(details) + ".",
+                weight=abs(alternative_credit_weight),
+            )
+        )
+
     if request.invoice_total >= 20_000_000:
         score += 18
         explanations.append(
@@ -152,3 +174,28 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
         explanations=explanations,
         recommended_action=recommended_action,
     )
+
+
+def _alternative_credit_weight(request: GrowAnalyzeRequest) -> int:
+    profile = request.alternative_credit_profile
+    if profile is None:
+        return 0
+
+    score = profile.alternative_credit_score
+    if score is not None:
+        if score >= 80 and profile.vn_social_complaint_count_30d <= 1:
+            return 10
+        if score >= 65:
+            return 6
+        if score < 45 or profile.vn_social_complaint_count_30d >= 4:
+            return -8
+        return 0
+
+    positive_graph = (profile.trust_graph_score or 0) >= 0.75
+    positive_social = (profile.vn_social_reputation_score or 0) >= 0.7
+    weak_social = profile.vn_social_complaint_count_30d >= 4 or profile.vn_social_sentiment == "negative"
+    if positive_graph and positive_social:
+        return 8
+    if weak_social:
+        return -8
+    return 0

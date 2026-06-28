@@ -55,6 +55,8 @@ Grow input mocks cover invoice-photo OCR, Vietnamese voice bookkeeping, and norm
 
 Grow compliance mocks cover derived cashflow, tax-draft, and e-invoice workflow state. The MVP decision, mock formulas, and real-life integration limits are documented in `docs/grow_compliance_schema.md`.
 
+Grow alternative-credit mocks combine trust graph evidence and vnSocial reputation into a derived profile. The schema, mock rules, and real-life capability boundaries are documented in `docs/grow_alternative_credit_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash

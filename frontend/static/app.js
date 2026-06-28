@@ -106,6 +106,7 @@ growForm.addEventListener("submit", async (event) => {
     cashflow_summary: buildCashflowSummary(form),
     tax_summary: buildTaxSummary(form),
     einvoice_status: buildEInvoiceStatus(form),
+    alternative_credit_profile: buildAlternativeCreditProfile(form),
     invoice_id: String(form.get("invoice_id")),
     customer_name: String(form.get("customer_name")),
     invoice_total: Number(form.get("invoice_total")),
@@ -341,6 +342,39 @@ function buildEInvoiceStatus(form) {
       "Required buyer and seller fields present",
       "VAT estimate generated",
       "Ledger entry linked to source document",
+    ],
+  };
+}
+
+function buildAlternativeCreditProfile(form) {
+  const invoiceTotal = Number(form.get("invoice_total"));
+  const paidOnTime = form.get("paid_on_time") === "on";
+  const hasMeaningfulRevenue = invoiceTotal >= 20_000_000;
+  const itemCount = activeGrowItems.length || 1;
+  const trustGraphScore = paidOnTime ? (hasMeaningfulRevenue ? 0.84 : 0.62) : 0.48;
+  const vnSocialReputationScore = paidOnTime ? (hasMeaningfulRevenue ? 0.78 : 0.64) : 0.52;
+  const cashflowStabilityScore = paidOnTime ? (hasMeaningfulRevenue ? 0.8 : 0.58) : 0.42;
+  const complaints = paidOnTime ? 0 : 2;
+  const alternativeCreditScore = Math.round(
+    (trustGraphScore * 0.35 + vnSocialReputationScore * 0.3 + cashflowStabilityScore * 0.35) * 100,
+  );
+
+  return {
+    trust_graph_score: trustGraphScore,
+    repeat_counterparty_count: hasMeaningfulRevenue ? 12 : 3,
+    verified_counterparty_count: hasMeaningfulRevenue ? 8 : 1,
+    network_centrality_score: hasMeaningfulRevenue ? 0.68 : 0.42,
+    cashflow_stability_score: cashflowStabilityScore,
+    vn_social_reputation_score: vnSocialReputationScore,
+    vn_social_mentions_30d: hasMeaningfulRevenue ? 36 : 10,
+    vn_social_sentiment: paidOnTime ? "positive" : "mixed",
+    vn_social_complaint_count_30d: complaints,
+    alternative_credit_score: alternativeCreditScore,
+    confidence: hasMeaningfulRevenue ? 0.76 : 0.62,
+    signals: [
+      paidOnTime ? "on_time_payment_history" : "late_payment_review",
+      hasMeaningfulRevenue ? "repeat_buyer_relationships" : "thin_network_history",
+      itemCount >= 2 ? "structured_invoice_detail" : "limited_invoice_detail",
     ],
   };
 }
