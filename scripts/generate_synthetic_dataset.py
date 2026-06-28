@@ -284,6 +284,7 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
     remote_control_detected = category == "remote_support"
     consent_granted = active_call
     llm_scam_type = None if category == "legitimate_supplier" else category
+    coercion_signals = make_coercion_signals(rng, category) if consent_granted else empty_coercion_signals()
 
     return {
         "id": f"synthetic-shield-{index:04d}",
@@ -308,6 +309,7 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
             "detected_patterns": detected_patterns_for_category(category),
             "llm_scam_type": llm_scam_type,
             "llm_confidence": make_confidence(rng, 0.78, 0.96) if llm_scam_type else None,
+            **coercion_signals,
             "transcript": transcript,
         },
     }
@@ -428,6 +430,82 @@ def detected_patterns_for_category(category: str) -> list[str]:
         "legitimate_supplier": [],
     }
     return patterns[category]
+
+
+def make_coercion_signals(rng: random.Random, category: str) -> dict[str, Any]:
+    ranges = {
+        "fake_authority": {
+            "voice": (0.72, 0.95),
+            "face": (0.62, 0.9),
+            "scripted": (0.62, 0.88),
+            "coercion": (0.72, 0.94),
+            "confidence": (0.78, 0.94),
+            "voice_labels": ["elevated_pitch", "speech_hesitation", "fast_breathing"],
+            "face_labels": ["fear", "distress", "low_eye_contact"],
+            "scripted_labels": ["monotone_reading", "long_pauses_before_answers", "repeats_caller_phrasing"],
+        },
+        "otp_theft": {
+            "voice": (0.5, 0.78),
+            "face": (0.38, 0.68),
+            "scripted": (0.5, 0.78),
+            "coercion": (0.52, 0.78),
+            "confidence": (0.72, 0.9),
+            "voice_labels": ["short_answers", "speech_hesitation", "quiet_voice"],
+            "face_labels": ["concern", "reduced_attention"],
+            "scripted_labels": ["repeats_caller_phrasing", "long_pauses_before_answers"],
+        },
+        "investment": {
+            "voice": (0.28, 0.55),
+            "face": (0.22, 0.5),
+            "scripted": (0.25, 0.55),
+            "coercion": (0.28, 0.55),
+            "confidence": (0.62, 0.84),
+            "voice_labels": ["excited_speech", "rapid_response"],
+            "face_labels": ["high_engagement"],
+            "scripted_labels": ["repeats_caller_phrasing"],
+        },
+        "remote_support": {
+            "voice": (0.62, 0.88),
+            "face": (0.5, 0.82),
+            "scripted": (0.7, 0.95),
+            "coercion": (0.68, 0.9),
+            "confidence": (0.76, 0.93),
+            "voice_labels": ["speech_hesitation", "fast_breathing"],
+            "face_labels": ["distress", "low_eye_contact"],
+            "scripted_labels": ["monotone_reading", "repeats_caller_phrasing", "screen_instruction_following"],
+        },
+    }
+    spec = ranges[category]
+    return {
+        "voice_stress_score": make_confidence(rng, *spec["voice"]),
+        "voice_stress_labels": sample_labels(rng, spec["voice_labels"]),
+        "face_emotion_score": make_confidence(rng, *spec["face"]),
+        "face_emotion_labels": sample_labels(rng, spec["face_labels"]),
+        "scripted_behavior_score": make_confidence(rng, *spec["scripted"]),
+        "scripted_behavior_labels": sample_labels(rng, spec["scripted_labels"]),
+        "coercion_score": make_confidence(rng, *spec["coercion"]),
+        "coercion_confidence": make_confidence(rng, *spec["confidence"]),
+    }
+
+
+def empty_coercion_signals() -> dict[str, Any]:
+    return {
+        "voice_stress_score": None,
+        "voice_stress_labels": [],
+        "face_emotion_score": None,
+        "face_emotion_labels": [],
+        "scripted_behavior_score": None,
+        "scripted_behavior_labels": [],
+        "coercion_score": None,
+        "coercion_confidence": None,
+    }
+
+
+def sample_labels(rng: random.Random, labels: list[str]) -> list[str]:
+    if not labels:
+        return []
+    sample_size = rng.randint(1, len(labels))
+    return sorted(rng.sample(labels, sample_size))
 
 
 def round_to_nearest(value: int, unit: int) -> int:

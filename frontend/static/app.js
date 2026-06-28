@@ -44,6 +44,14 @@ shieldForm.addEventListener("submit", async (event) => {
     detected_patterns: parseList(form.get("detected_patterns")),
     llm_scam_type: emptyToNull(form.get("llm_scam_type")),
     llm_confidence: numberOrNull(form.get("llm_confidence")),
+    voice_stress_score: numberOrNull(form.get("voice_stress_score")),
+    voice_stress_labels: parseList(form.get("voice_stress_labels")),
+    face_emotion_score: numberOrNull(form.get("face_emotion_score")),
+    face_emotion_labels: parseList(form.get("face_emotion_labels")),
+    scripted_behavior_score: numberOrNull(form.get("scripted_behavior_score")),
+    scripted_behavior_labels: parseList(form.get("scripted_behavior_labels")),
+    coercion_score: numberOrNull(form.get("coercion_score")),
+    coercion_confidence: numberOrNull(form.get("coercion_confidence")),
     transcript: String(form.get("transcript")),
   };
 

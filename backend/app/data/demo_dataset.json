@@ -27,6 +27,26 @@
         ],
         "llm_scam_type": "fake_authority",
         "llm_confidence": 0.91,
+        "voice_stress_score": 0.82,
+        "voice_stress_labels": [
+          "elevated_pitch",
+          "speech_hesitation",
+          "fast_breathing"
+        ],
+        "face_emotion_score": 0.76,
+        "face_emotion_labels": [
+          "fear",
+          "distress",
+          "low_eye_contact"
+        ],
+        "scripted_behavior_score": 0.71,
+        "scripted_behavior_labels": [
+          "monotone_reading",
+          "long_pauses_before_answers",
+          "repeats_caller_phrasing"
+        ],
+        "coercion_score": 0.79,
+        "coercion_confidence": 0.84,
         "transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat."
       }
     },
@@ -55,6 +75,23 @@
         ],
         "llm_scam_type": "otp_theft",
         "llm_confidence": 0.89,
+        "voice_stress_score": 0.68,
+        "voice_stress_labels": [
+          "short_answers",
+          "speech_hesitation"
+        ],
+        "face_emotion_score": 0.52,
+        "face_emotion_labels": [
+          "concern",
+          "reduced_attention"
+        ],
+        "scripted_behavior_score": 0.64,
+        "scripted_behavior_labels": [
+          "repeats_caller_phrasing",
+          "long_pauses_before_answers"
+        ],
+        "coercion_score": 0.63,
+        "coercion_confidence": 0.81,
         "transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan."
       }
     },
@@ -83,6 +120,21 @@
         ],
         "llm_scam_type": "investment",
         "llm_confidence": 0.86,
+        "voice_stress_score": 0.46,
+        "voice_stress_labels": [
+          "excited_speech",
+          "rapid_response"
+        ],
+        "face_emotion_score": 0.38,
+        "face_emotion_labels": [
+          "high_engagement"
+        ],
+        "scripted_behavior_score": 0.41,
+        "scripted_behavior_labels": [
+          "repeats_caller_phrasing"
+        ],
+        "coercion_score": 0.42,
+        "coercion_confidence": 0.74,
         "transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao."
       }
     },
@@ -112,6 +164,24 @@
         ],
         "llm_scam_type": "remote_support",
         "llm_confidence": 0.9,
+        "voice_stress_score": 0.77,
+        "voice_stress_labels": [
+          "speech_hesitation",
+          "fast_breathing"
+        ],
+        "face_emotion_score": 0.69,
+        "face_emotion_labels": [
+          "distress",
+          "low_eye_contact"
+        ],
+        "scripted_behavior_score": 0.82,
+        "scripted_behavior_labels": [
+          "monotone_reading",
+          "repeats_caller_phrasing",
+          "screen_instruction_following"
+        ],
+        "coercion_score": 0.76,
+        "coercion_confidence": 0.86,
         "transcript": "Anh chi mo ung dung dieu khien man hinh de toi sua loi. Sau do chuyen tien kiem tra va toi se hoan lai."
       }
     },
@@ -136,6 +206,14 @@
         "detected_patterns": [],
         "llm_scam_type": null,
         "llm_confidence": null,
+        "voice_stress_score": null,
+        "voice_stress_labels": [],
+        "face_emotion_score": null,
+        "face_emotion_labels": [],
+        "scripted_behavior_score": null,
+        "scripted_behavior_labels": [],
+        "coercion_score": null,
+        "coercion_confidence": null,
         "transcript": "Thanh toan hoa don bao bi thang 6 theo hop dong da doi soat."
       }
     }

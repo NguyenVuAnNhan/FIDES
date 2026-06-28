@@ -160,6 +160,17 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
+    coercion_weight = _coercion_weight(request.coercion_score, request.coercion_confidence)
+    if coercion_weight:
+        score += coercion_weight
+        explanations.append(
+            Explanation(
+                label="Coercion and distress signals",
+                detail=_build_coercion_detail(request),
+                weight=coercion_weight,
+            )
+        )
+
     risk_score = min(score, 100)
     if risk_score >= 75:
         risk_level = "critical"
@@ -246,3 +257,39 @@ def _build_llm_detail(request: ShieldAnalyzeRequest) -> str:
     if request.llm_confidence is not None:
         pieces.append(f"Confidence: {request.llm_confidence:.2f}.")
     return " ".join(pieces)
+
+
+def _coercion_weight(coercion_score: float | None, confidence: float | None) -> int:
+    if coercion_score is None:
+        return 0
+    confidence_multiplier = 1.0 if confidence is None else confidence
+    effective_score = coercion_score * confidence_multiplier
+    if effective_score >= 0.75:
+        return 20
+    if effective_score >= 0.5:
+        return 12
+    if effective_score >= 0.35:
+        return 6
+    return 0
+
+
+def _build_coercion_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = []
+    if request.coercion_score is not None:
+        pieces.append(f"Aggregate coercion score: {request.coercion_score:.2f}.")
+    if request.coercion_confidence is not None:
+        pieces.append(f"Confidence: {request.coercion_confidence:.2f}.")
+    if request.voice_stress_score is not None:
+        pieces.append(_signal_detail("Voice stress", request.voice_stress_score, request.voice_stress_labels))
+    if request.face_emotion_score is not None:
+        pieces.append(_signal_detail("Visual distress", request.face_emotion_score, request.face_emotion_labels))
+    if request.scripted_behavior_score is not None:
+        pieces.append(
+            _signal_detail("Scripted behavior", request.scripted_behavior_score, request.scripted_behavior_labels)
+        )
+    return " ".join(piece for piece in pieces if piece)
+
+
+def _signal_detail(label: str, score: float, labels: list[str]) -> str:
+    label_text = f" Labels: {', '.join(labels)}." if labels else ""
+    return f"{label}: {score:.2f}.{label_text}"

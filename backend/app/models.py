@@ -23,6 +23,14 @@ class ShieldAnalyzeRequest(BaseModel):
     detected_patterns: list[str] = Field(default_factory=list)
     llm_scam_type: str | None = None
     llm_confidence: float | None = Field(default=None, ge=0, le=1)
+    voice_stress_score: float | None = Field(default=None, ge=0, le=1)
+    voice_stress_labels: list[str] = Field(default_factory=list)
+    face_emotion_score: float | None = Field(default=None, ge=0, le=1)
+    face_emotion_labels: list[str] = Field(default_factory=list)
+    scripted_behavior_score: float | None = Field(default=None, ge=0, le=1)
+    scripted_behavior_labels: list[str] = Field(default_factory=list)
+    coercion_score: float | None = Field(default=None, ge=0, le=1)
+    coercion_confidence: float | None = Field(default=None, ge=0, le=1)
     transcript: str = ""
 
 
