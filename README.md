@@ -43,6 +43,8 @@ The Shield dataset also includes the mocked SmartVoice/Smartbot pipeline fields:
 
 Recipient-risk mock fields cover vnSocial reports, SIMO status, and graph-derived suspected mule-account features. The flat Shield payload schema is documented in `docs/shield_recipient_risk_schema.md`; the backend graph database design is documented in `docs/graph_database_schema.md`.
 
+Native telemetry and eKYC mock fields cover liveness, mask/spoof checks, face comparison, biometric injection risk, SmartUX behavior anomaly, and remote-control-like signals supplied by the SDK consumer. This schema is documented in `docs/shield_native_telemetry_schema.md`.
+
 For bulk UI/dashboard testing, generate a deterministic madlib-style synthetic dataset:
 
 ```bash

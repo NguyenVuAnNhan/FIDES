@@ -12,6 +12,7 @@ Implemented Shield fields:
 - `caller_number`: used for simple country-code and suspicious-prefix checks.
 - `recipient_known`: whether the recipient appears in trusted payees, recent invoices, or known supplier history.
 - `remote_control_detected`: whether a remote-support or screen-control signal is present.
+- `native_telemetry_available`: whether the integrating SDK consumer supplied native telemetry.
 
 The current MVP treats these as explainable risk signals. They are not claims that a browser can directly observe phone-call or installed-app state.
 
@@ -52,6 +53,8 @@ Android can support more context, but it depends on permissions, OS version, and
 
 For MVP and pilot language, describe this as `mobile telemetry with explicit consent`, not guaranteed universal device visibility.
 
+In the SDK/API product model, native telemetry collection belongs to the integrating bank or wallet app. FIDES defines the telemetry contract and risk-fusion logic; the SDK consumer supplies derived signals where legally and technically available.
+
 ### iOS App
 
 iOS is much more restricted:
@@ -90,4 +93,3 @@ The production design should use explicit consent, data minimization, and purpos
 - Keep risky actions explainable.
 - Do not let the LLM independently block money movement.
 - Maintain a clear appeal or continue-flow path for false positives.
-

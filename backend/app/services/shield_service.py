@@ -139,6 +139,28 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
+    ekyc_weight = _ekyc_weight(request)
+    if ekyc_weight:
+        score += ekyc_weight
+        explanations.append(
+            Explanation(
+                label="eKYC verification risk",
+                detail=_build_ekyc_detail(request),
+                weight=ekyc_weight,
+            )
+        )
+
+    smartux_weight = _smartux_weight(request)
+    if smartux_weight:
+        score += smartux_weight
+        explanations.append(
+            Explanation(
+                label="SmartUX native telemetry risk",
+                detail=_build_smartux_detail(request),
+                weight=smartux_weight,
+            )
+        )
+
     if request.consent_granted and request.audio_source:
         explanations.append(
             Explanation(
@@ -396,4 +418,84 @@ def _build_recipient_graph_detail(request: ShieldAnalyzeRequest) -> str:
         pieces.append(f"Shared-device cluster size: {request.shared_device_cluster_size}.")
     if request.funds_moved_within_minutes:
         pieces.append("Funds moved onward within minutes.")
+    return " ".join(pieces)
+
+
+def _ekyc_weight(request: ShieldAnalyzeRequest) -> int:
+    weight = 0
+    status = request.ekyc_verification_status.lower()
+    if status == "failed":
+        weight += 25
+    elif status == "review":
+        weight += 12
+    if request.ekyc_liveness_score is not None:
+        if request.ekyc_liveness_score < 0.5:
+            weight += 20
+        elif request.ekyc_liveness_score < 0.7:
+            weight += 10
+    if request.ekyc_mask_detected:
+        weight += 10
+    if request.ekyc_face_match_score is not None:
+        if request.ekyc_face_match_score < 0.5:
+            weight += 18
+        elif request.ekyc_face_match_score < 0.75:
+            weight += 8
+    if request.ekyc_injection_risk_score is not None:
+        if request.ekyc_injection_risk_score >= 0.75:
+            weight += 25
+        elif request.ekyc_injection_risk_score >= 0.45:
+            weight += 14
+    return min(weight, 30)
+
+
+def _build_ekyc_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = [f"Verification status: {request.ekyc_verification_status}."]
+    if request.ekyc_liveness_score is not None:
+        pieces.append(f"Liveness score: {request.ekyc_liveness_score:.2f}.")
+    pieces.append(f"Mask detected: {str(request.ekyc_mask_detected).lower()}.")
+    if request.ekyc_face_match_score is not None:
+        pieces.append(f"Face match score: {request.ekyc_face_match_score:.2f}.")
+    if request.ekyc_injection_risk_score is not None:
+        pieces.append(f"Injection risk score: {request.ekyc_injection_risk_score:.2f}.")
+    return " ".join(pieces)
+
+
+def _smartux_weight(request: ShieldAnalyzeRequest) -> int:
+    weight = 0
+    if request.installed_remote_access_app_detected:
+        weight += 10
+    if request.accessibility_service_risk:
+        weight += 10
+    if request.screen_sharing_detected:
+        weight += 12
+    if request.smartux_behavior_anomaly_score is not None:
+        if request.smartux_behavior_anomaly_score >= 0.75:
+            weight += 14
+        elif request.smartux_behavior_anomaly_score >= 0.5:
+            weight += 8
+    if request.smartux_remote_control_score is not None:
+        if request.smartux_remote_control_score >= 0.75:
+            weight += 18
+        elif request.smartux_remote_control_score >= 0.5:
+            weight += 10
+    return min(weight, 25)
+
+
+def _build_smartux_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = []
+    if request.native_telemetry_available:
+        source = request.native_telemetry_source or "sdk_consumer"
+        pieces.append(f"Native telemetry source: {source}.")
+    pieces.append(
+        "Installed remote-access app detected: "
+        f"{str(request.installed_remote_access_app_detected).lower()}."
+    )
+    pieces.append(f"Accessibility service risk: {str(request.accessibility_service_risk).lower()}.")
+    pieces.append(f"Screen sharing detected: {str(request.screen_sharing_detected).lower()}.")
+    if request.smartux_behavior_anomaly_score is not None:
+        pieces.append(f"Behavior anomaly score: {request.smartux_behavior_anomaly_score:.2f}.")
+    if request.smartux_remote_control_score is not None:
+        pieces.append(f"Remote-control score: {request.smartux_remote_control_score:.2f}.")
+    if request.smartux_signals:
+        pieces.append(f"Signals: {', '.join(request.smartux_signals)}.")
     return " ".join(pieces)

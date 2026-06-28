@@ -30,6 +30,19 @@ class ShieldAnalyzeRequest(BaseModel):
     funds_moved_within_minutes: bool = False
     recipient_risk_level: str = "unknown"
     remote_control_detected: bool = False
+    native_telemetry_available: bool = False
+    native_telemetry_source: str | None = None
+    installed_remote_access_app_detected: bool = False
+    accessibility_service_risk: bool = False
+    screen_sharing_detected: bool = False
+    ekyc_verification_status: str = "not_checked"
+    ekyc_liveness_score: float | None = Field(default=None, ge=0, le=1)
+    ekyc_mask_detected: bool = False
+    ekyc_face_match_score: float | None = Field(default=None, ge=0, le=1)
+    ekyc_injection_risk_score: float | None = Field(default=None, ge=0, le=1)
+    smartux_behavior_anomaly_score: float | None = Field(default=None, ge=0, le=1)
+    smartux_remote_control_score: float | None = Field(default=None, ge=0, le=1)
+    smartux_signals: list[str] = Field(default_factory=list)
     consent_granted: bool = True
     audio_source: str | None = None
     stt_transcript: str = ""

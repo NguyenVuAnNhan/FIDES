@@ -134,6 +134,63 @@
             Remote-control app detected
           </label>
           <label class="checkbox-row">
+            <input name="native_telemetry_available" type="checkbox" checked />
+            Native telemetry available
+          </label>
+          <label>
+            Native Telemetry Source
+            <input name="native_telemetry_source" value="mock_android_sdk" />
+          </label>
+          <label class="checkbox-row">
+            <input name="installed_remote_access_app_detected" type="checkbox" />
+            Remote-access app detected
+          </label>
+          <label class="checkbox-row">
+            <input name="accessibility_service_risk" type="checkbox" />
+            Accessibility service risk
+          </label>
+          <label class="checkbox-row">
+            <input name="screen_sharing_detected" type="checkbox" />
+            Screen sharing detected
+          </label>
+          <label>
+            eKYC Status
+            <select name="ekyc_verification_status">
+              <option value="not_checked">Not checked</option>
+              <option value="passed">Passed</option>
+              <option value="review">Review</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label>
+            Liveness Score
+            <input name="ekyc_liveness_score" type="number" value="0.91" min="0" max="1" step="0.01" />
+          </label>
+          <label class="checkbox-row">
+            <input name="ekyc_mask_detected" type="checkbox" />
+            eKYC mask detected
+          </label>
+          <label>
+            Face Match Score
+            <input name="ekyc_face_match_score" type="number" value="0.88" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Injection Risk Score
+            <input name="ekyc_injection_risk_score" type="number" value="0.12" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            SmartUX Behavior Score
+            <input name="smartux_behavior_anomaly_score" type="number" value="0.36" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            SmartUX Remote Score
+            <input name="smartux_remote_control_score" type="number" value="0.22" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            SmartUX Signals
+            <input name="smartux_signals" value="unusual_navigation_sequence" />
+          </label>
+          <label class="checkbox-row">
             <input name="consent_granted" type="checkbox" checked />
             Consent for call analysis
           </label>
