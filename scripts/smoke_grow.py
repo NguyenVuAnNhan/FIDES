@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke-test FIDES Grow demo scenarios against the local analyzer."""
+"""Smoke-test FIDES Grow pipeline with real PaddleOCR on receipt fixtures."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.app.models import GrowAnalyzeRequest, GrowProcessRequest
-from backend.app.services.grow_pipeline_service import process_invoice
-from backend.app.services.grow_service import analyze_invoice
+from backend.app.models import GrowProcessRequest
+from backend.app.services.grow_pipeline_service import GrowOcrError, process_invoice
+from backend.app.services.ocr.paths import ReceiptPathError, resolve_receipt_path
 
 DATASET_PATH = ROOT / "backend/app/data/demo_dataset.json"
 FIXTURES_DIR = ROOT / "frontend/static/fixtures/receipts"
@@ -41,41 +41,78 @@ def _minimal_payload(payload: dict) -> dict:
 
 
 def main() -> int:
+    try:
+        from paddleocr import PaddleOCR  # noqa: F401
+    except ImportError as exc:
+        print("PaddleOCR is not installed. Activate .venv and pip install -r requirements.txt")
+        print(f"Import error: {exc}")
+        return 1
+
     dataset = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
     failures: list[str] = []
+
+    # Path safety checks (Part 3).
+    try:
+        resolve_receipt_path("/static/fixtures/receipts/../../../etc/passwd")
+        failures.append("path traversal was not rejected")
+    except ReceiptPathError:
+        print("[ok] path traversal rejected")
+
+    try:
+        resolve_receipt_path("/static/other/file.png")
+        failures.append("non-receipt path was not rejected")
+    except ReceiptPathError:
+        print("[ok] non-receipt path rejected")
 
     for record in dataset["grow_invoices"]:
         scenario_id = record["id"]
         payload = record["payload"]
-        full_request = GrowAnalyzeRequest(**payload)
-        full_response = analyze_invoice(full_request)
+        if payload.get("input_mode") != "invoice_photo":
+            continue
 
-        process_response = process_invoice(GrowProcessRequest(**_minimal_payload(payload)))
+        try:
+            process_response = process_invoice(GrowProcessRequest(**_minimal_payload(payload)))
+        except GrowOcrError as exc:
+            failures.append(f"{scenario_id}: OCR error: {exc}")
+            print(f"[grow] {scenario_id}: OCR error: {exc}")
+            continue
+
+        request = process_response.request
+        analysis = process_response.analysis
+        ocr = request.ocr
+        fields = ocr.extracted_fields
         expected_band = EXPECTED_BANDS.get(scenario_id)
 
         print(
-            f"[grow] {scenario_id}: trust={process_response.analysis.trust_score} "
-            f"band={process_response.analysis.credit_band} "
-            f"readiness={process_response.analysis.loan_readiness}"
+            f"[grow] {scenario_id}: provider={ocr.provider} trust={analysis.trust_score} "
+            f"band={analysis.credit_band} total={request.invoice_total}"
         )
 
-        if expected_band and process_response.analysis.credit_band != expected_band:
-            failures.append(
-                f"{scenario_id}: expected credit_band={expected_band}, "
-                f"got {process_response.analysis.credit_band}"
-            )
+        if ocr.provider != "PaddleOCR":
+            failures.append(f"{scenario_id}: provider={ocr.provider!r}")
+        if ocr.status != "completed":
+            failures.append(f"{scenario_id}: ocr.status={ocr.status}")
+        if fields is None:
+            failures.append(f"{scenario_id}: missing extracted_fields")
+        else:
+            if request.invoice_total != fields.total_amount:
+                failures.append(
+                    f"{scenario_id}: invoice_total {request.invoice_total} "
+                    f"!= ocr total {fields.total_amount}"
+                )
+            if request.business_name != fields.seller_name:
+                failures.append(
+                    f"{scenario_id}: business_name {request.business_name!r} "
+                    f"!= seller {fields.seller_name!r}"
+                )
 
-        if process_response.analysis.credit_band != full_response.credit_band:
+        if expected_band and analysis.credit_band != expected_band:
             failures.append(
-                f"{scenario_id}: pipeline band {process_response.analysis.credit_band} "
-                f"!= full payload band {full_response.credit_band}"
+                f"{scenario_id}: expected credit_band={expected_band}, got {analysis.credit_band}"
             )
-
-        if not process_response.request.ocr.extracted_fields and payload.get("input_mode") == "invoice_photo":
-            failures.append(f"{scenario_id}: pipeline missing OCR extraction")
 
         input_source = payload.get("input_source", "")
-        if payload.get("input_mode") == "invoice_photo" and input_source.startswith("/static/"):
+        if input_source.startswith("/static/"):
             fixture_path = ROOT / "frontend/static" / input_source.removeprefix("/static/")
             if not fixture_path.exists():
                 failures.append(f"{scenario_id}: missing receipt fixture {fixture_path}")

@@ -17,7 +17,28 @@ cp .env.example .env
 uvicorn backend.app.main:app --reload
 ```
 
-Open http://127.0.0.1:8000.
+Open http://127.0.0.1:8000 (redirects to Grow).
+
+### Grow OCR (PaddleOCR)
+
+Grow receipt OCR uses **PaddleOCR** on the synthetic PNGs under `frontend/static/fixtures/receipts/`.
+
+Use the project virtualenv (recommended; avoids system NumPy conflicts):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Parser unit tests (no Paddle model download)
+python scripts/test_receipt_parser.py
+
+# PaddleOcrProvider on all receipt fixtures (first run may download models)
+python scripts/smoke_paddle_ocr.py
+```
+
+
+If `paddlepaddle` fails to install on your platform, check the [PaddlePaddle install guide](https://www.paddlepaddle.org.cn/install/quick) for the correct wheel, then `pip install paddleocr`.
 
 ## API
 
@@ -25,7 +46,8 @@ Open http://127.0.0.1:8000.
 - `GET /api/demo/dataset`
 - `GET /api/demo/synthetic-dataset`
 - `POST /api/shield/analyze`
-- `POST /api/grow/analyze-invoice`
+- `POST /api/grow/process-invoice` — minimal input; runs PaddleOCR on receipt PNG then credit pipeline
+- `POST /api/grow/analyze-invoice` — full payload scoring (compat)
 
 ## SDK Scaffolds
 
@@ -85,6 +107,18 @@ Generate curated fake receipt PNGs:
 ```bash
 python3 scripts/generate_receipt_fixtures.py
 ```
+
+## Grow OCR flow
+
+`POST /api/grow/process-invoice` no longer loads curated demo JSON for scoring inputs.
+
+1. Resolve `input_source` under `frontend/static/fixtures/receipts/` (path-safe).
+2. Run **PaddleOCR** on the PNG.
+3. Parse fields (`seller`, `buyer`, `invoice_id`, `total`, line items).
+4. Build ledger / cashflow / credit / capital from OCR output.
+5. Return `{ request, analysis }` for the Grow wizard.
+
+Form fields `business_id` and `paid_on_time` still come from the UI; invoice identity and amounts come from OCR.
 
 ## Next Build Steps
 

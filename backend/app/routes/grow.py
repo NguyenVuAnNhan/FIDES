@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from backend.app.models import (
     GrowAnalyzeRequest,
@@ -6,7 +6,7 @@ from backend.app.models import (
     GrowProcessRequest,
     GrowProcessResponse,
 )
-from backend.app.services.grow_pipeline_service import process_invoice
+from backend.app.services.grow_pipeline_service import GrowOcrError, process_invoice
 from backend.app.services.grow_service import analyze_invoice
 
 router = APIRouter(prefix="/api/grow", tags=["grow"])
@@ -14,10 +14,12 @@ router = APIRouter(prefix="/api/grow", tags=["grow"])
 
 @router.post("/process-invoice", response_model=GrowProcessResponse)
 def process_invoice_route(request: GrowProcessRequest) -> GrowProcessResponse:
-    return process_invoice(request)
+    try:
+        return process_invoice(request)
+    except GrowOcrError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/analyze-invoice", response_model=GrowAnalyzeResponse)
 def analyze_invoice_route(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
     return analyze_invoice(request)
-

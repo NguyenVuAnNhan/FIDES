@@ -1,7 +1,3 @@
-import json
-from functools import lru_cache
-from pathlib import Path
-
 from backend.app.models import (
     AlternativeCreditProfile,
     CapitalConnection,
@@ -24,8 +20,12 @@ from backend.app.models import (
     VoiceParsedFields,
 )
 from backend.app.services.grow_service import analyze_invoice
+from backend.app.services.ocr.paddle_provider import get_paddle_provider
+from backend.app.services.ocr.paths import ReceiptPathError, resolve_receipt_path
 
-DATASET_PATH = Path(__file__).resolve().parents[1] / "data" / "demo_dataset.json"
+
+class GrowOcrError(Exception):
+    """Raised when receipt OCR cannot produce a usable invoice payload."""
 
 
 def process_invoice(process: GrowProcessRequest) -> GrowProcessResponse:
@@ -35,53 +35,49 @@ def process_invoice(process: GrowProcessRequest) -> GrowProcessResponse:
 
 
 def _resolve_grow_request(process: GrowProcessRequest) -> GrowAnalyzeRequest:
-    demo_payload = _lookup_demo_payload(process.input_source)
-    if demo_payload:
-        base = GrowAnalyzeRequest(**demo_payload)
-    else:
-        base = _build_from_minimal(process)
-    return _merge_process(process, base)
+    if process.input_mode == "invoice_photo":
+        return _resolve_from_receipt_image(process)
+    return _build_from_minimal(process)
 
 
-def _merge_process(process: GrowProcessRequest, base: GrowAnalyzeRequest) -> GrowAnalyzeRequest:
-    items = process.items or base.items
-    return base.model_copy(
+def _resolve_from_receipt_image(process: GrowProcessRequest) -> GrowAnalyzeRequest:
+    try:
+        image_path = resolve_receipt_path(process.input_source)
+    except ReceiptPathError as exc:
+        raise GrowOcrError(str(exc)) from exc
+
+    ocr = get_paddle_provider().extract(image_path)
+    fields = ocr.extracted_fields
+    if ocr.status != "completed" or fields is None:
+        raise GrowOcrError("OCR failed to extract required invoice fields from the receipt image.")
+
+    enriched = process.model_copy(
         update={
-            "business_id": process.business_id,
-            "business_name": process.business_name,
-            "input_mode": process.input_mode,
-            "input_source": process.input_source,
-            "invoice_id": process.invoice_id,
-            "customer_name": process.customer_name,
-            "invoice_total": process.invoice_total,
-            "paid_on_time": process.paid_on_time,
-            "items": items,
+            "business_name": fields.seller_name or process.business_name,
+            "customer_name": fields.buyer_name or process.customer_name,
+            "invoice_id": fields.invoice_id or process.invoice_id,
+            "invoice_total": fields.total_amount or process.invoice_total,
+            "items": fields.line_items or process.items,
         }
     )
+    return _build_from_minimal(enriched, ocr=ocr)
 
 
-def _lookup_demo_payload(input_source: str | None) -> dict | None:
-    if not input_source:
-        return None
-    for record in _load_demo_dataset()["grow_invoices"]:
-        payload = record["payload"]
-        if payload.get("input_source") == input_source:
-            return payload
-    return None
-
-
-@lru_cache
-def _load_demo_dataset() -> dict:
-    return json.loads(DATASET_PATH.read_text(encoding="utf-8"))
-
-
-def _build_from_minimal(process: GrowProcessRequest) -> GrowAnalyzeRequest:
+def _build_from_minimal(
+    process: GrowProcessRequest,
+    ocr: GrowOcrInput | None = None,
+) -> GrowAnalyzeRequest:
     items = process.items or [
         InvoiceItem(description="Goods and services", amount=process.invoice_total, quantity=1, unit_price=process.invoice_total)
     ]
-    ocr = _build_ocr(process, items)
+    ocr_input = ocr if ocr is not None else _build_ocr(process, items)
     voice_entry = _build_voice(process)
-    confidence = ocr.confidence if ocr.status == "completed" else voice_entry.confidence
+    confidence = ocr_input.confidence if ocr_input.status == "completed" else voice_entry.confidence
+    issue_date = (
+        ocr_input.extracted_fields.issue_date
+        if ocr_input.extracted_fields and ocr_input.extracted_fields.issue_date
+        else "2026-06-28"
+    )
     ledger = NormalizedLedgerEntry(
         entry_id=f"ledger_{process.invoice_id.lower().replace('-', '_')}",
         source_type=process.input_mode,
@@ -89,7 +85,7 @@ def _build_from_minimal(process: GrowProcessRequest) -> GrowAnalyzeRequest:
         counterparty_name=process.customer_name,
         amount=process.invoice_total,
         currency="VND",
-        transaction_date="2026-06-28",
+        transaction_date=issue_date,
         category="sales_revenue",
         confidence=confidence,
     )
@@ -105,7 +101,7 @@ def _build_from_minimal(process: GrowProcessRequest) -> GrowAnalyzeRequest:
         business_name=process.business_name,
         input_mode=process.input_mode,
         input_source=process.input_source,
-        ocr=ocr,
+        ocr=ocr_input,
         voice_entry=voice_entry,
         normalized_ledger_entry=ledger,
         cashflow_summary=cashflow_summary,

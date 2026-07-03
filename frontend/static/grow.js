@@ -76,18 +76,36 @@ growForm.addEventListener("submit", (event) => {
 async function runGrowAnalysis() {
   const payload = buildMinimalGrowRequest(new FormData(growForm));
   growNext.disabled = true;
-  setGrowStatus("Running Grow pipeline: OCR, ledger, cashflow, and credit scoring...");
+  setGrowStatus("Running PaddleOCR on receipt image, then ledger, cashflow, and credit scoring...");
 
   try {
     lastProcessResponse = await postJson("/api/grow/process-invoice", payload);
+    const provider = lastProcessResponse.request?.ocr?.provider || "OCR";
+    const confidence = lastProcessResponse.request?.ocr?.confidence;
+    const confidenceText =
+      confidence != null ? ` Confidence ${Math.round(confidence * 100)}%.` : "";
     renderWizardResults(lastProcessResponse);
-    setGrowStatus("Analysis complete. Review each step to see how Grow built the trust profile.");
+    setGrowStatus(
+      `Analysis complete via ${provider}.${confidenceText} Review each step to see how Grow built the trust profile.`,
+    );
     setWizardStep(2);
   } catch (error) {
-    setGrowStatus(`Grow analysis failed: ${error.message}`);
+    setGrowStatus(`Grow analysis failed: ${formatApiError(error.message)}`);
   } finally {
     growNext.disabled = false;
   }
+}
+
+function formatApiError(message) {
+  try {
+    const parsed = JSON.parse(message);
+    if (parsed && typeof parsed.detail === "string") {
+      return parsed.detail;
+    }
+  } catch (_error) {
+    // Keep the original message when the body is not JSON.
+  }
+  return message;
 }
 
 function renderWizardResults(response) {
@@ -227,16 +245,19 @@ function buildMinimalGrowRequest(form) {
 
 function renderGrowOcrStage(ocr, extracted, request) {
   if (ocr.status !== "completed") {
-    return `<p class="stage-muted">Input mode: ${escapeHtml(formatValue(request.input_mode))}.</p>`;
+    return `<p class="stage-muted">OCR status: ${escapeHtml(formatValue(ocr.status || "not_used"))}. Input mode: ${escapeHtml(formatValue(request.input_mode))}.</p>`;
   }
 
   const lineItems = extracted.line_items ?? request.items ?? [];
   const confidence = ocr.confidence != null ? `${Math.round(ocr.confidence * 100)}%` : "n/a";
+  const provider = ocr.provider || "OCR";
 
   return `
-    <h4>SmartReader OCR</h4>
-    <p class="stage-lead">Invoice ${escapeHtml(extracted.invoice_id || request.invoice_id)} extracted with ${confidence} confidence.</p>
+    <h4>${escapeHtml(provider)} extraction</h4>
+    <p class="stage-lead">Invoice ${escapeHtml(extracted.invoice_id || request.invoice_id)} read from the receipt image with ${confidence} confidence.</p>
     <dl class="stage-facts">
+      <div><dt>Provider</dt><dd>${escapeHtml(provider)}</dd></div>
+      <div><dt>Confidence</dt><dd>${escapeHtml(confidence)}</dd></div>
       <div><dt>Seller</dt><dd>${escapeHtml(extracted.seller_name || request.business_name)}</dd></div>
       <div><dt>Buyer</dt><dd>${escapeHtml(extracted.buyer_name || request.customer_name)}</dd></div>
       <div><dt>Total</dt><dd>${formatMoney(extracted.total_amount ?? request.invoice_total)}</dd></div>
