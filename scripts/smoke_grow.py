@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.app.models import GrowAnalyzeRequest
+from backend.app.models import GrowAnalyzeRequest, GrowProcessRequest
+from backend.app.services.grow_pipeline_service import process_invoice
 from backend.app.services.grow_service import analyze_invoice
 
 DATASET_PATH = ROOT / "backend/app/data/demo_dataset.json"
@@ -25,6 +26,20 @@ EXPECTED_BANDS = {
 }
 
 
+def _minimal_payload(payload: dict) -> dict:
+    return {
+        "business_id": payload["business_id"],
+        "business_name": payload["business_name"],
+        "input_mode": payload["input_mode"],
+        "input_source": payload.get("input_source"),
+        "invoice_id": payload["invoice_id"],
+        "customer_name": payload["customer_name"],
+        "invoice_total": payload["invoice_total"],
+        "paid_on_time": payload["paid_on_time"],
+        "items": payload.get("items", []),
+    }
+
+
 def main() -> int:
     dataset = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
     failures: list[str] = []
@@ -32,19 +47,32 @@ def main() -> int:
     for record in dataset["grow_invoices"]:
         scenario_id = record["id"]
         payload = record["payload"]
-        request = GrowAnalyzeRequest(**payload)
-        response = analyze_invoice(request)
+        full_request = GrowAnalyzeRequest(**payload)
+        full_response = analyze_invoice(full_request)
+
+        process_response = process_invoice(GrowProcessRequest(**_minimal_payload(payload)))
         expected_band = EXPECTED_BANDS.get(scenario_id)
 
         print(
-            f"[grow] {scenario_id}: trust={response.trust_score} "
-            f"band={response.credit_band} readiness={response.loan_readiness}"
+            f"[grow] {scenario_id}: trust={process_response.analysis.trust_score} "
+            f"band={process_response.analysis.credit_band} "
+            f"readiness={process_response.analysis.loan_readiness}"
         )
 
-        if expected_band and response.credit_band != expected_band:
+        if expected_band and process_response.analysis.credit_band != expected_band:
             failures.append(
-                f"{scenario_id}: expected credit_band={expected_band}, got {response.credit_band}"
+                f"{scenario_id}: expected credit_band={expected_band}, "
+                f"got {process_response.analysis.credit_band}"
             )
+
+        if process_response.analysis.credit_band != full_response.credit_band:
+            failures.append(
+                f"{scenario_id}: pipeline band {process_response.analysis.credit_band} "
+                f"!= full payload band {full_response.credit_band}"
+            )
+
+        if not process_response.request.ocr.extracted_fields and payload.get("input_mode") == "invoice_photo":
+            failures.append(f"{scenario_id}: pipeline missing OCR extraction")
 
         input_source = payload.get("input_source", "")
         if payload.get("input_mode") == "invoice_photo" and input_source.startswith("/static/"):

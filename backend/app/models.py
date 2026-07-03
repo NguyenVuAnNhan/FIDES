@@ -258,3 +258,20 @@ class GrowAnalyzeResponse(BaseModel):
     loan_readiness: str
     explanations: list[Explanation]
     recommended_action: str
+
+
+class GrowProcessRequest(BaseModel):
+    business_id: str = ""
+    business_name: str
+    input_mode: str = "invoice_photo"
+    input_source: str | None = None
+    invoice_id: str
+    customer_name: str
+    invoice_total: int = Field(ge=0)
+    paid_on_time: bool = True
+    items: list[InvoiceItem] = Field(default_factory=list)
+
+
+class GrowProcessResponse(BaseModel):
+    request: GrowAnalyzeRequest
+    analysis: GrowAnalyzeResponse
