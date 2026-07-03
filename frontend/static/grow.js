@@ -1,9 +1,24 @@
 const growForm = document.querySelector("#grow-form");
 const growScenario = document.querySelector("#grow-scenario");
-const growResult = document.querySelector("#grow-result");
 const growReceiptPreview = document.querySelector("#grow-receipt-preview");
+const growWizardSteps = document.querySelector("#grow-wizard-steps");
+const growBack = document.querySelector("#grow-back");
+const growNext = document.querySelector("#grow-next");
+const growStatus = document.querySelector("#grow-status");
+const growStepExtractBody = document.querySelector("#grow-step-extract-body");
+const growStepFinanceBody = document.querySelector("#grow-step-finance-body");
+const growStepCreditBody = document.querySelector("#grow-step-credit-body");
+
+const WIZARD_STEPS = [
+  { id: 1, nextLabel: "Run analysis" },
+  { id: 2, nextLabel: "Continue to financial health" },
+  { id: 3, nextLabel: "Continue to credit & capital" },
+  { id: 4, nextLabel: "Start new case" },
+];
+
 let activeGrowItems = [];
-let lastGrowRequest = null;
+let currentStep = 1;
+let lastProcessResponse = null;
 
 initGrowPage();
 
@@ -12,43 +27,185 @@ async function initGrowPage() {
     await loadDemoDataset();
     populateScenarioSelect(growScenario, window.fidesDemoDataset.grow_invoices);
     growScenario.dispatchEvent(new Event("change"));
+    setWizardStep(1);
   } catch (error) {
     console.error(error);
-    resetResult(growResult, "Failed to load Grow demo scenarios.");
+    setGrowStatus("Failed to load Grow demo scenarios.");
   }
 }
 
 growScenario.addEventListener("change", () => {
   const selected = getSelectedDemoItem("grow_invoices", growScenario.value);
-  if (selected) {
-    activeGrowItems = selected.payload.items ?? [];
-    fillForm(growForm, selected.payload);
-    fillGrowNestedFields(selected.payload);
-    updateGrowReceiptPreview(selected.payload.input_source);
-    resetResult(growResult, "Run Grow analysis to see credit readiness.");
+  if (!selected) {
+    return;
+  }
+
+  activeGrowItems = selected.payload.items ?? [];
+  fillForm(growForm, selected.payload);
+  updateGrowReceiptPreview(selected.payload.input_source);
+  lastProcessResponse = null;
+  clearResultPanels();
+  setWizardStep(1);
+  setGrowStatus("");
+});
+
+growBack.addEventListener("click", () => {
+  if (currentStep > 1) {
+    setWizardStep(currentStep - 1);
   }
 });
 
-growForm.addEventListener("submit", async (event) => {
+growNext.addEventListener("click", async () => {
+  if (currentStep === 1) {
+    await runGrowAnalysis();
+    return;
+  }
+
+  if (currentStep < 4) {
+    setWizardStep(currentStep + 1);
+    return;
+  }
+
+  growScenario.dispatchEvent(new Event("change"));
+});
+
+growForm.addEventListener("submit", (event) => {
   event.preventDefault();
+});
+
+async function runGrowAnalysis() {
   const payload = buildMinimalGrowRequest(new FormData(growForm));
+  growNext.disabled = true;
+  setGrowStatus("Running Grow pipeline: OCR, ledger, cashflow, and credit scoring...");
 
-  growResult.className = "result empty";
-  growResult.textContent = "Analyzing Grow profile...";
   try {
-    const response = await postJson("/api/grow/process-invoice", payload);
-    lastGrowRequest = response.request;
-    growResult.className = "result";
-    growResult.innerHTML = renderGrow(response.analysis, response.request);
+    lastProcessResponse = await postJson("/api/grow/process-invoice", payload);
+    renderWizardResults(lastProcessResponse);
+    setGrowStatus("Analysis complete. Review each step to see how Grow built the trust profile.");
+    setWizardStep(2);
   } catch (error) {
-    growResult.className = "result empty";
-    growResult.textContent = `Grow analysis failed: ${error.message}`;
+    setGrowStatus(`Grow analysis failed: ${error.message}`);
+  } finally {
+    growNext.disabled = false;
   }
-});
+}
 
-growForm.elements.namedItem("input_source").addEventListener("input", (event) => {
-  updateGrowReceiptPreview(event.target.value);
-});
+function renderWizardResults(response) {
+  const request = response.request;
+  const analysis = response.analysis;
+  const ocr = request.ocr ?? {};
+  const extracted = ocr.extracted_fields ?? {};
+
+  growStepExtractBody.innerHTML = `
+    <div class="grow-stage">
+      ${renderGrowOcrStage(ocr, extracted, request)}
+    </div>
+    <div class="grow-stage">
+      <h4>Normalized ledger</h4>
+      ${renderLedgerBlock(request.normalized_ledger_entry)}
+    </div>
+  `;
+
+  growStepFinanceBody.innerHTML = `
+    <div class="grow-stage">
+      ${renderGrowLedgerStage(request, request.cashflow_forecast ?? {})}
+    </div>
+    ${renderEInvoiceBlock(request.einvoice_status)}
+  `;
+
+  const profile = request.alternative_credit_profile ?? {};
+  const capital = request.capital_connection ?? {};
+  const offers = capital.partner_offers ?? [];
+  const recommended =
+    offers.find((offer) => offer.offer_id === capital.recommended_offer_id) ?? offers[0];
+  const contributions = profile.explainability?.feature_contributions?.slice(0, 3) ?? [];
+
+  growStepCreditBody.innerHTML = `
+    <div class="metric-row">
+      <span class="pill ${analysis.credit_band}">Trust ${analysis.trust_score}/100</span>
+      <span class="pill ${analysis.credit_band}">${formatValue(analysis.credit_band)}</span>
+      <span class="pill">${formatMoney(analysis.monthly_revenue_estimate)}/mo</span>
+      <span class="pill">${formatValue(analysis.loan_readiness)}</span>
+    </div>
+    <p class="grow-summary">${escapeHtml(analysis.recommended_action)}</p>
+    <div class="grow-stage">
+      ${renderGrowCreditStage(profile, contributions)}
+    </div>
+    <div class="grow-stage">
+      ${renderGrowCapitalStage(capital, recommended, analysis)}
+    </div>
+    ${renderExplanations(analysis.explanations)}
+  `;
+}
+
+function renderLedgerBlock(ledger) {
+  if (!ledger) {
+    return `<p class="stage-muted">Ledger entry pending.</p>`;
+  }
+
+  return `
+    <p class="stage-lead">
+      Entry <strong>${escapeHtml(ledger.entry_id)}</strong> records
+      ${formatMoney(ledger.amount)} as ${escapeHtml(formatValue(ledger.category))}.
+    </p>
+    <dl class="stage-facts">
+      <div><dt>Counterparty</dt><dd>${escapeHtml(ledger.counterparty_name)}</dd></div>
+      <div><dt>Date</dt><dd>${escapeHtml(ledger.transaction_date)}</dd></div>
+      <div><dt>Source</dt><dd>${escapeHtml(formatValue(ledger.source_type))}</dd></div>
+      <div><dt>Confidence</dt><dd>${ledger.confidence != null ? ledger.confidence.toFixed(2) : "n/a"}</dd></div>
+    </dl>
+  `;
+}
+
+function renderEInvoiceBlock(einvoice) {
+  if (!einvoice) {
+    return "";
+  }
+
+  const errors = einvoice.validation_errors?.length
+    ? `<p class="stage-muted">Validation: ${escapeHtml(einvoice.validation_errors.join(", "))}</p>`
+    : "";
+
+  return `
+    <div class="grow-stage">
+      <h4>E-invoice compliance</h4>
+      <p class="stage-lead">Status: <strong>${escapeHtml(formatValue(einvoice.status))}</strong> for ${escapeHtml(einvoice.invoice_id)}.</p>
+      ${errors}
+    </div>
+  `;
+}
+
+function setWizardStep(step) {
+  currentStep = step;
+  const config = WIZARD_STEPS[step - 1];
+
+  growForm.querySelectorAll(".wizard-panel").forEach((panel) => {
+    const panelStep = Number(panel.dataset.step);
+    const isActive = panelStep === step;
+    panel.classList.toggle("is-active", isActive);
+    panel.hidden = !isActive;
+  });
+
+  growWizardSteps.querySelectorAll(".wizard-step").forEach((item) => {
+    const itemStep = Number(item.dataset.step);
+    item.classList.toggle("is-active", itemStep === step);
+    item.classList.toggle("is-complete", itemStep < step && lastProcessResponse != null);
+  });
+
+  growBack.disabled = step === 1;
+  growNext.textContent = config.nextLabel;
+  growNext.disabled = step > 1 && !lastProcessResponse;
+}
+
+function clearResultPanels() {
+  growStepExtractBody.innerHTML = "";
+  growStepFinanceBody.innerHTML = "";
+  growStepCreditBody.innerHTML = "";
+}
+
+function setGrowStatus(message) {
+  growStatus.textContent = message;
+}
 
 function buildMinimalGrowRequest(form) {
   const items = activeGrowItems.length
@@ -68,52 +225,6 @@ function buildMinimalGrowRequest(form) {
   };
 }
 
-function renderGrow(result, request = lastGrowRequest) {
-  return `
-    <div class="metric-row">
-      <span class="pill ${result.credit_band}">Trust ${result.trust_score}/100</span>
-      <span class="pill ${result.credit_band}">${formatValue(result.credit_band)}</span>
-      <span class="pill">${formatMoney(result.monthly_revenue_estimate)}/mo</span>
-      <span class="pill">${formatValue(result.loan_readiness)}</span>
-    </div>
-    <p class="grow-summary">${escapeHtml(result.recommended_action)}</p>
-    ${request ? renderGrowPipeline(request, result) : ""}
-    ${renderExplanations(result.explanations)}
-  `;
-}
-
-function renderGrowPipeline(request, result) {
-  const ocr = request.ocr ?? {};
-  const extracted = ocr.extracted_fields ?? {};
-  const forecast = request.cashflow_forecast ?? {};
-  const profile = request.alternative_credit_profile ?? {};
-  const capital = request.capital_connection ?? {};
-  const offers = capital.partner_offers ?? [];
-  const recommended = offers.find((offer) => offer.offer_id === capital.recommended_offer_id) ?? offers[0];
-  const contributions = profile.explainability?.feature_contributions?.slice(0, 3) ?? [];
-
-  return `
-    <div class="grow-pipeline">
-      <section class="grow-stage">
-        <h3>1. SmartReader extraction</h3>
-        ${renderGrowOcrStage(ocr, extracted, request)}
-      </section>
-      <section class="grow-stage">
-        <h3>2. Ledger & cashflow</h3>
-        ${renderGrowLedgerStage(request, forecast)}
-      </section>
-      <section class="grow-stage">
-        <h3>3. Alternative credit</h3>
-        ${renderGrowCreditStage(profile, contributions)}
-      </section>
-      <section class="grow-stage">
-        <h3>4. Capital connection</h3>
-        ${renderGrowCapitalStage(capital, recommended, result)}
-      </section>
-    </div>
-  `;
-}
-
 function renderGrowOcrStage(ocr, extracted, request) {
   if (ocr.status !== "completed") {
     return `<p class="stage-muted">Input mode: ${escapeHtml(formatValue(request.input_mode))}.</p>`;
@@ -123,6 +234,7 @@ function renderGrowOcrStage(ocr, extracted, request) {
   const confidence = ocr.confidence != null ? `${Math.round(ocr.confidence * 100)}%` : "n/a";
 
   return `
+    <h4>SmartReader OCR</h4>
     <p class="stage-lead">Invoice ${escapeHtml(extracted.invoice_id || request.invoice_id)} extracted with ${confidence} confidence.</p>
     <dl class="stage-facts">
       <div><dt>Seller</dt><dd>${escapeHtml(extracted.seller_name || request.business_name)}</dd></div>
@@ -141,13 +253,8 @@ function renderGrowOcrStage(ocr, extracted, request) {
 }
 
 function renderGrowLedgerStage(request, forecast) {
-  const ledger = request.normalized_ledger_entry;
   const summary = request.cashflow_summary;
   const tax = request.tax_summary;
-
-  const ledgerLine = ledger
-    ? `Ledger ${escapeHtml(ledger.entry_id)} recorded ${formatMoney(ledger.amount)} as ${escapeHtml(formatValue(ledger.category))}.`
-    : "Ledger entry pending.";
 
   const cashflowLine = summary
     ? `${escapeHtml(summary.period)} net cashflow ${formatMoney(summary.net_cashflow)} (in ${formatMoney(summary.total_inflow)}, out ${formatMoney(summary.total_outflow)}).`
@@ -166,8 +273,7 @@ function renderGrowLedgerStage(request, forecast) {
     : "";
 
   return `
-    <p class="stage-lead">${ledgerLine}</p>
-    ${cashflowLine ? `<p>${cashflowLine}</p>` : ""}
+    ${cashflowLine ? `<p class="stage-lead">${cashflowLine}</p>` : ""}
     ${forecastLine ? `<p>${forecastLine}</p>` : ""}
     ${taxLine ? `<p>${taxLine}</p>` : ""}
   `;
@@ -179,8 +285,9 @@ function renderGrowCreditStage(profile, contributions) {
   }
 
   return `
+    <h4>Alternative credit profile</h4>
     <p class="stage-lead">
-      Alternative score <strong>${profile.alternative_credit_score}/100</strong>
+      Score <strong>${profile.alternative_credit_score}/100</strong>
       · trust graph ${profile.trust_graph_score?.toFixed(2) ?? "n/a"}
       · vnSocial ${profile.vn_social_reputation_score?.toFixed(2) ?? "n/a"}
     </p>
@@ -205,6 +312,7 @@ function renderGrowCapitalStage(capital, recommended, result) {
   const advice = capital.smartbot_advice?.message;
 
   return `
+    <h4>Partner capital connection</h4>
     ${
       recommended
         ? `<div class="offer-card">
@@ -229,14 +337,4 @@ function updateGrowReceiptPreview(source) {
 
   growReceiptPreview.src = src;
   growReceiptPreview.hidden = false;
-}
-
-function fillGrowNestedFields(payload) {
-  const ocr = payload.ocr ?? {};
-  const voiceEntry = payload.voice_entry ?? {};
-  setFieldValue(growForm, "ocr_status", ocr.status ?? "not_used");
-  setFieldValue(growForm, "ocr_confidence", ocr.confidence ?? "");
-  setFieldValue(growForm, "voice_status", voiceEntry.status ?? "not_used");
-  setFieldValue(growForm, "voice_confidence", voiceEntry.confidence ?? "");
-  setFieldValue(growForm, "voice_transcript", voiceEntry.transcript ?? "");
 }
