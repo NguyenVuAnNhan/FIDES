@@ -6,345 +6,48 @@
     <title>FIDES MVP</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
-  <body>
+  <body data-page="home">
     <header class="topbar">
       <div>
         <p class="eyebrow">Financial Integrity, Defense & Empowerment System</p>
         <h1>FIDES MVP</h1>
       </div>
       <nav aria-label="Primary">
-        <a href="#shield">Shield</a>
-        <a href="#grow">Grow</a>
+        <a href="/" data-nav="home" class="active">Home</a>
+        <a href="/shield" data-nav="shield">Shield</a>
+        <a href="/grow" data-nav="grow">Grow</a>
       </nav>
     </header>
 
-    <main class="workspace">
-      <section id="shield" class="panel panel-shield">
-        <div class="section-heading">
+    <main class="landing">
+      <p class="landing-lead">
+        One AI core, two product modules. Choose a demo flow to explore real-time fraud protection or
+        SME credit readiness.
+      </p>
+
+      <div class="product-grid">
+        <a href="/shield" class="product-card product-card-shield">
           <p class="eyebrow">FIDES Shield</p>
           <h2>Real-time manipulation circuit breaker</h2>
-        </div>
+          <p>
+            Detect APP fraud during high-risk transfers using telecom context, scam-script NLP, recipient
+            risk, and behavioral intervention.
+          </p>
+          <span class="product-cta">Open Shield demo</span>
+        </a>
 
-        <form id="shield-form" class="flow-grid">
-          <label class="wide">
-            Scenario
-            <select id="shield-scenario"></select>
-          </label>
-          <label>
-            Amount
-            <input name="transaction_amount" type="number" value="75000000" min="0" />
-          </label>
-          <label>
-            Recipient
-            <input name="recipient_name" value="Nguyen Van A" />
-          </label>
-          <label>
-            Account
-            <input name="recipient_account" value="9704 0000 1234" />
-          </label>
-          <label>
-            Caller Type
-            <select name="caller_type">
-              <option value="unknown">Unknown</option>
-              <option value="voip">VoIP</option>
-              <option value="international">International</option>
-              <option value="trusted">Trusted</option>
-            </select>
-          </label>
-          <label>
-            Caller Number
-            <input name="caller_number" value="+882 13 456 789" />
-          </label>
-          <label class="checkbox-row">
-            <input name="active_call" type="checkbox" checked />
-            Active call while transferring
-          </label>
-          <label class="checkbox-row">
-            <input name="recipient_known" type="checkbox" />
-            Recipient known/trusted
-          </label>
-          <label>
-            Recipient Phone
-            <input name="recipient_phone" value="+84 903 777 888" />
-          </label>
-          <label>
-            vnSocial Reports
-            <input name="vn_social_report_count" type="number" value="27" min="0" />
-          </label>
-          <label>
-            vnSocial Keywords
-            <input name="vn_social_recent_keywords" value="cong an, xac minh tai khoan, chuyen tien" />
-          </label>
-          <label>
-            SIMO Status
-            <select name="simo_status">
-              <option value="not_checked">Not checked</option>
-              <option value="not_listed">Not listed</option>
-              <option value="watchlisted">Watchlisted</option>
-              <option value="listed">Listed</option>
-            </select>
-          </label>
-          <label>
-            SIMO Last Checked
-            <input name="simo_last_checked_at" value="2026-06-28T10:00:00Z" />
-          </label>
-          <label>
-            Graph Risk Score
-            <input name="graph_risk_score" type="number" value="0.88" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Graph Pattern
-            <input name="graph_pattern" value="fan_in_fan_out" />
-          </label>
-          <label>
-            Inbound Senders 10m
-            <input name="inbound_sender_count_10m" type="number" value="14" min="0" />
-          </label>
-          <label>
-            Outbound Accounts 10m
-            <input name="outbound_account_count_10m" type="number" value="9" min="0" />
-          </label>
-          <label>
-            Pass-through Minutes
-            <input name="median_pass_through_minutes" type="number" value="3" min="0" step="0.1" />
-          </label>
-          <label>
-            Account Age Days
-            <input name="account_age_days" type="number" value="4" min="0" />
-          </label>
-          <label>
-            Shared Device Cluster
-            <input name="shared_device_cluster_size" type="number" value="6" min="0" />
-          </label>
-          <label>
-            Recipient Risk Level
-            <select name="recipient_risk_level">
-              <option value="unknown">Unknown</option>
-              <option value="low">Low</option>
-              <option value="elevated">Elevated</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
-          <label class="checkbox-row">
-            <input name="funds_moved_within_minutes" type="checkbox" checked />
-            Funds moved onward within minutes
-          </label>
-          <label class="checkbox-row">
-            <input name="remote_control_detected" type="checkbox" />
-            Remote-control app detected
-          </label>
-          <label class="checkbox-row">
-            <input name="native_telemetry_available" type="checkbox" checked />
-            Native telemetry available
-          </label>
-          <label>
-            Native Telemetry Source
-            <input name="native_telemetry_source" value="mock_android_sdk" />
-          </label>
-          <label class="checkbox-row">
-            <input name="installed_remote_access_app_detected" type="checkbox" />
-            Remote-access app detected
-          </label>
-          <label class="checkbox-row">
-            <input name="accessibility_service_risk" type="checkbox" />
-            Accessibility service risk
-          </label>
-          <label class="checkbox-row">
-            <input name="screen_sharing_detected" type="checkbox" />
-            Screen sharing detected
-          </label>
-          <label>
-            eKYC Status
-            <select name="ekyc_verification_status">
-              <option value="not_checked">Not checked</option>
-              <option value="passed">Passed</option>
-              <option value="review">Review</option>
-              <option value="failed">Failed</option>
-            </select>
-          </label>
-          <label>
-            Liveness Score
-            <input name="ekyc_liveness_score" type="number" value="0.91" min="0" max="1" step="0.01" />
-          </label>
-          <label class="checkbox-row">
-            <input name="ekyc_mask_detected" type="checkbox" />
-            eKYC mask detected
-          </label>
-          <label>
-            Face Match Score
-            <input name="ekyc_face_match_score" type="number" value="0.88" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Injection Risk Score
-            <input name="ekyc_injection_risk_score" type="number" value="0.12" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            SmartUX Behavior Score
-            <input name="smartux_behavior_anomaly_score" type="number" value="0.36" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            SmartUX Remote Score
-            <input name="smartux_remote_control_score" type="number" value="0.22" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            SmartUX Signals
-            <input name="smartux_signals" value="unusual_navigation_sequence" />
-          </label>
-          <label class="checkbox-row">
-            <input name="consent_granted" type="checkbox" checked />
-            Consent for call analysis
-          </label>
-          <label>
-            Audio Source
-            <input name="audio_source" value="fixtures/audio/fake-police-001.wav" />
-          </label>
-          <label>
-            STT Confidence
-            <input name="stt_confidence" type="number" value="0.94" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            LLM Scam Type
-            <input name="llm_scam_type" value="fake_authority" />
-          </label>
-          <label>
-            LLM Confidence
-            <input name="llm_confidence" type="number" value="0.91" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Detected Patterns
-            <input name="detected_patterns" value="fake_authority, case_involvement, transfer_for_verification, secrecy_pressure" />
-          </label>
-          <label>
-            Voice Stress Score
-            <input name="voice_stress_score" type="number" value="0.82" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Face Emotion Score
-            <input name="face_emotion_score" type="number" value="0.76" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Scripted Behavior Score
-            <input name="scripted_behavior_score" type="number" value="0.71" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Coercion Score
-            <input name="coercion_score" type="number" value="0.79" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Coercion Confidence
-            <input name="coercion_confidence" type="number" value="0.84" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Voice Stress Labels
-            <input name="voice_stress_labels" value="elevated_pitch, speech_hesitation, fast_breathing" />
-          </label>
-          <label>
-            Visual Distress Labels
-            <input name="face_emotion_labels" value="fear, distress, low_eye_contact" />
-          </label>
-          <label>
-            Scripted Behavior Labels
-            <input name="scripted_behavior_labels" value="monotone_reading, long_pauses_before_answers, repeats_caller_phrasing" />
-          </label>
-          <label class="wide">
-            SmartVoice Transcript
-            <textarea name="stt_transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
-          </label>
-          <label class="wide">
-            Fallback Transcript
-            <textarea name="transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
-          </label>
-          <button type="submit">Analyze Shield Risk</button>
-        </form>
-
-        <div id="shield-result" class="result empty">Run Shield analysis to see risk and intervention.</div>
-      </section>
-
-      <section id="grow" class="panel panel-grow">
-        <div class="section-heading">
+        <a href="/grow" class="product-card product-card-grow">
           <p class="eyebrow">FIDES Grow</p>
           <h2>Invoice to alternative trust profile</h2>
-        </div>
-
-        <form id="grow-form" class="flow-grid">
-          <label class="wide">
-            Invoice Case
-            <select id="grow-scenario"></select>
-          </label>
-          <div class="wide receipt-preview">
-            <img id="grow-receipt-preview" alt="Generated receipt preview" />
-          </div>
-          <label>
-            Business ID
-            <input name="business_id" value="biz_an_nhien_coffee" />
-          </label>
-          <label>
-            Input Mode
-            <select name="input_mode">
-              <option value="invoice_photo">Invoice photo</option>
-              <option value="voice_entry">Voice entry</option>
-              <option value="manual_entry">Manual entry</option>
-            </select>
-          </label>
-          <label class="wide">
-            Input Source
-            <input name="input_source" value="/static/fixtures/receipts/grow-coffee-strong.png" />
-          </label>
-          <label>
-            Business
-            <input name="business_name" value="An Nhien Coffee" />
-          </label>
-          <label>
-            Invoice ID
-            <input name="invoice_id" value="INV-2026-001" />
-          </label>
-          <label>
-            Customer
-            <input name="customer_name" value="Office Pantry Co." />
-          </label>
-          <label>
-            Invoice Total
-            <input name="invoice_total" type="number" value="32000000" min="0" />
-          </label>
-          <label class="checkbox-row">
-            <input name="paid_on_time" type="checkbox" checked />
-            Paid on time
-          </label>
-          <label>
-            OCR Status
-            <select name="ocr_status">
-              <option value="completed">Completed</option>
-              <option value="not_used">Not used</option>
-              <option value="failed">Failed</option>
-            </select>
-          </label>
-          <label>
-            OCR Confidence
-            <input name="ocr_confidence" type="number" value="0.93" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Voice Status
-            <select name="voice_status">
-              <option value="not_used">Not used</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-            </select>
-          </label>
-          <label>
-            Voice Confidence
-            <input name="voice_confidence" type="number" value="" min="0" max="1" step="0.01" />
-          </label>
-          <label class="wide">
-            Voice Transcript
-            <textarea name="voice_transcript" rows="3"></textarea>
-          </label>
-          <button type="submit">Analyze Grow Profile</button>
-        </form>
-
-        <div id="grow-result" class="result empty">Run Grow analysis to see credit readiness.</div>
-      </section>
+          <p>
+            Turn invoice photos into bookkeeping, cashflow forecasts, explainable credit scores, and partner
+            capital recommendations for small businesses.
+          </p>
+          <span class="product-cta">Open Grow demo</span>
+        </a>
+      </div>
     </main>
 
-    <script src="/static/app.js"></script>
+    <script src="/static/shared.js"></script>
   </body>
 </html>

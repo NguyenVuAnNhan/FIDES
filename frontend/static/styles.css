@@ -79,11 +79,87 @@ nav a {
   background: #fff;
 }
 
+nav a.active {
+  background: #eef4fa;
+  border-color: #b8cfe6;
+  color: var(--accent);
+}
+
 .workspace {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   padding: 24px clamp(20px, 4vw, 56px) 56px;
+}
+
+.workspace-single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.landing {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 32px clamp(20px, 4vw, 56px) 56px;
+}
+
+.landing-lead {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.5;
+  margin-bottom: 28px;
+  max-width: 720px;
+}
+
+.product-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.product-card {
+  border: 1px solid var(--line);
+  border-top-width: 6px;
+  border-radius: 8px;
+  background: var(--panel);
+  color: inherit;
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  text-decoration: none;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.product-card:hover {
+  box-shadow: 0 12px 28px rgba(21, 32, 43, 0.08);
+  transform: translateY(-2px);
+}
+
+.product-card-shield {
+  border-top-color: var(--shield);
+}
+
+.product-card-grow {
+  border-top-color: var(--grow);
+}
+
+.product-card h2 {
+  font-size: 24px;
+}
+
+.product-card p:last-of-type {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.product-cta {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 800;
+  margin-top: 4px;
 }
 
 .panel {
@@ -399,7 +475,8 @@ button:hover {
 
 @media (max-width: 920px) {
   .topbar,
-  .workspace {
+  .workspace,
+  .product-grid {
     grid-template-columns: 1fr;
   }
 

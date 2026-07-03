@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIDES Grow</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body data-page="grow">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FIDES Grow</p>
+        <h1>Invoice to trust profile</h1>
+      </div>
+      <nav aria-label="Primary">
+        <a href="/" data-nav="home">Home</a>
+        <a href="/shield" data-nav="shield">Shield</a>
+        <a href="/grow" data-nav="grow">Grow</a>
+      </nav>
+    </header>
+
+    <main class="workspace workspace-single">
+      <section class="panel panel-grow">
+        <div class="section-heading">
+          <p class="eyebrow">Empowerment</p>
+          <h2>Alternative credit from invoice evidence</h2>
+        </div>
+
+        <form id="grow-form" class="flow-grid">
+          <label class="wide">
+            Invoice Case
+            <select id="grow-scenario"></select>
+          </label>
+          <div class="wide receipt-preview">
+            <img id="grow-receipt-preview" alt="Generated receipt preview" />
+          </div>
+          <label>
+            Business ID
+            <input name="business_id" value="biz_an_nhien_coffee" />
+          </label>
+          <label>
+            Input Mode
+            <select name="input_mode">
+              <option value="invoice_photo">Invoice photo</option>
+              <option value="voice_entry">Voice entry</option>
+              <option value="manual_entry">Manual entry</option>
+            </select>
+          </label>
+          <label class="wide">
+            Input Source
+            <input name="input_source" value="/static/fixtures/receipts/grow-coffee-strong.png" />
+          </label>
+          <label>
+            Business
+            <input name="business_name" value="An Nhien Coffee" />
+          </label>
+          <label>
+            Invoice ID
+            <input name="invoice_id" value="INV-2026-001" />
+          </label>
+          <label>
+            Customer
+            <input name="customer_name" value="Office Pantry Co." />
+          </label>
+          <label>
+            Invoice Total
+            <input name="invoice_total" type="number" value="32000000" min="0" />
+          </label>
+          <label class="checkbox-row">
+            <input name="paid_on_time" type="checkbox" checked />
+            Paid on time
+          </label>
+          <label>
+            OCR Status
+            <select name="ocr_status">
+              <option value="completed">Completed</option>
+              <option value="not_used">Not used</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label>
+            OCR Confidence
+            <input name="ocr_confidence" type="number" value="0.93" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Voice Status
+            <select name="voice_status">
+              <option value="not_used">Not used</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label>
+            Voice Confidence
+            <input name="voice_confidence" type="number" value="" min="0" max="1" step="0.01" />
+          </label>
+          <label class="wide">
+            Voice Transcript
+            <textarea name="voice_transcript" rows="3"></textarea>
+          </label>
+          <button type="submit" class="wide">Analyze Grow Profile</button>
+        </form>
+
+        <div id="grow-result" class="result empty">Run Grow analysis to see credit readiness.</div>
+      </section>
+    </main>
+
+    <script src="/static/shared.js"></script>
+    <script src="/static/grow.js"></script>
+  </body>
+</html>

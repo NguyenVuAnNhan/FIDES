@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIDES Shield</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body data-page="shield">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FIDES Shield</p>
+        <h1>Manipulation circuit breaker</h1>
+      </div>
+      <nav aria-label="Primary">
+        <a href="/" data-nav="home">Home</a>
+        <a href="/shield" data-nav="shield">Shield</a>
+        <a href="/grow" data-nav="grow">Grow</a>
+      </nav>
+    </header>
+
+    <main class="workspace workspace-single">
+      <section class="panel panel-shield">
+        <div class="section-heading">
+          <p class="eyebrow">Defense</p>
+          <h2>Real-time transfer risk analysis</h2>
+        </div>
+
+        <form id="shield-form" class="flow-grid">
+          <label class="wide">
+            Scenario
+            <select id="shield-scenario"></select>
+          </label>
+          <label>
+            Amount
+            <input name="transaction_amount" type="number" value="75000000" min="0" />
+          </label>
+          <label>
+            Recipient
+            <input name="recipient_name" value="Nguyen Van A" />
+          </label>
+          <label>
+            Account
+            <input name="recipient_account" value="9704 0000 1234" />
+          </label>
+          <label>
+            Caller Type
+            <select name="caller_type">
+              <option value="unknown">Unknown</option>
+              <option value="voip">VoIP</option>
+              <option value="international">International</option>
+              <option value="trusted">Trusted</option>
+            </select>
+          </label>
+          <label>
+            Caller Number
+            <input name="caller_number" value="+882 13 456 789" />
+          </label>
+          <label class="checkbox-row">
+            <input name="active_call" type="checkbox" checked />
+            Active call while transferring
+          </label>
+          <label class="checkbox-row">
+            <input name="recipient_known" type="checkbox" />
+            Recipient known/trusted
+          </label>
+          <label>
+            Recipient Phone
+            <input name="recipient_phone" value="+84 903 777 888" />
+          </label>
+          <label>
+            vnSocial Reports
+            <input name="vn_social_report_count" type="number" value="27" min="0" />
+          </label>
+          <label>
+            vnSocial Keywords
+            <input name="vn_social_recent_keywords" value="cong an, xac minh tai khoan, chuyen tien" />
+          </label>
+          <label>
+            SIMO Status
+            <select name="simo_status">
+              <option value="not_checked">Not checked</option>
+              <option value="not_listed">Not listed</option>
+              <option value="watchlisted">Watchlisted</option>
+              <option value="listed">Listed</option>
+            </select>
+          </label>
+          <label>
+            SIMO Last Checked
+            <input name="simo_last_checked_at" value="2026-06-28T10:00:00Z" />
+          </label>
+          <label>
+            Graph Risk Score
+            <input name="graph_risk_score" type="number" value="0.88" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Graph Pattern
+            <input name="graph_pattern" value="fan_in_fan_out" />
+          </label>
+          <label>
+            Inbound Senders 10m
+            <input name="inbound_sender_count_10m" type="number" value="14" min="0" />
+          </label>
+          <label>
+            Outbound Accounts 10m
+            <input name="outbound_account_count_10m" type="number" value="9" min="0" />
+          </label>
+          <label>
+            Pass-through Minutes
+            <input name="median_pass_through_minutes" type="number" value="3" min="0" step="0.1" />
+          </label>
+          <label>
+            Account Age Days
+            <input name="account_age_days" type="number" value="4" min="0" />
+          </label>
+          <label>
+            Shared Device Cluster
+            <input name="shared_device_cluster_size" type="number" value="6" min="0" />
+          </label>
+          <label>
+            Recipient Risk Level
+            <select name="recipient_risk_level">
+              <option value="unknown">Unknown</option>
+              <option value="low">Low</option>
+              <option value="elevated">Elevated</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <label class="checkbox-row">
+            <input name="funds_moved_within_minutes" type="checkbox" checked />
+            Funds moved onward within minutes
+          </label>
+          <label class="checkbox-row">
+            <input name="remote_control_detected" type="checkbox" />
+            Remote-control app detected
+          </label>
+          <label class="checkbox-row">
+            <input name="native_telemetry_available" type="checkbox" checked />
+            Native telemetry available
+          </label>
+          <label>
+            Native Telemetry Source
+            <input name="native_telemetry_source" value="mock_android_sdk" />
+          </label>
+          <label class="checkbox-row">
+            <input name="installed_remote_access_app_detected" type="checkbox" />
+            Remote-access app detected
+          </label>
+          <label class="checkbox-row">
+            <input name="accessibility_service_risk" type="checkbox" />
+            Accessibility service risk
+          </label>
+          <label class="checkbox-row">
+            <input name="screen_sharing_detected" type="checkbox" />
+            Screen sharing detected
+          </label>
+          <label>
+            eKYC Status
+            <select name="ekyc_verification_status">
+              <option value="not_checked">Not checked</option>
+              <option value="passed">Passed</option>
+              <option value="review">Review</option>
+              <option value="failed">Failed</option>
+            </select>
+          </label>
+          <label>
+            Liveness Score
+            <input name="ekyc_liveness_score" type="number" value="0.91" min="0" max="1" step="0.01" />
+          </label>
+          <label class="checkbox-row">
+            <input name="ekyc_mask_detected" type="checkbox" />
+            eKYC mask detected
+          </label>
+          <label>
+            Face Match Score
+            <input name="ekyc_face_match_score" type="number" value="0.88" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Injection Risk Score
+            <input name="ekyc_injection_risk_score" type="number" value="0.12" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            SmartUX Behavior Score
+            <input name="smartux_behavior_anomaly_score" type="number" value="0.36" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            SmartUX Remote Score
+            <input name="smartux_remote_control_score" type="number" value="0.22" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            SmartUX Signals
+            <input name="smartux_signals" value="unusual_navigation_sequence" />
+          </label>
+          <label class="checkbox-row">
+            <input name="consent_granted" type="checkbox" checked />
+            Consent for call analysis
+          </label>
+          <label>
+            Audio Source
+            <input name="audio_source" value="fixtures/audio/fake-police-001.wav" />
+          </label>
+          <label>
+            STT Confidence
+            <input name="stt_confidence" type="number" value="0.94" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            LLM Scam Type
+            <input name="llm_scam_type" value="fake_authority" />
+          </label>
+          <label>
+            LLM Confidence
+            <input name="llm_confidence" type="number" value="0.91" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Detected Patterns
+            <input name="detected_patterns" value="fake_authority, case_involvement, transfer_for_verification, secrecy_pressure" />
+          </label>
+          <label>
+            Voice Stress Score
+            <input name="voice_stress_score" type="number" value="0.82" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Face Emotion Score
+            <input name="face_emotion_score" type="number" value="0.76" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Scripted Behavior Score
+            <input name="scripted_behavior_score" type="number" value="0.71" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Coercion Score
+            <input name="coercion_score" type="number" value="0.79" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Coercion Confidence
+            <input name="coercion_confidence" type="number" value="0.84" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Voice Stress Labels
+            <input name="voice_stress_labels" value="elevated_pitch, speech_hesitation, fast_breathing" />
+          </label>
+          <label>
+            Visual Distress Labels
+            <input name="face_emotion_labels" value="fear, distress, low_eye_contact" />
+          </label>
+          <label>
+            Scripted Behavior Labels
+            <input name="scripted_behavior_labels" value="monotone_reading, long_pauses_before_answers, repeats_caller_phrasing" />
+          </label>
+          <label class="wide">
+            SmartVoice Transcript
+            <textarea name="stt_transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
+          </label>
+          <label class="wide">
+            Fallback Transcript
+            <textarea name="transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
+          </label>
+          <button type="submit" class="wide">Analyze Shield Risk</button>
+        </form>
+
+        <div id="shield-result" class="result empty">Run Shield analysis to see risk and intervention.</div>
+      </section>
+    </main>
+
+    <script src="/static/shared.js"></script>
+    <script src="/static/shield.js"></script>
+  </body>
+</html>

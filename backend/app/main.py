@@ -35,3 +35,13 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.get("/shield", include_in_schema=False)
+def shield_page() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "shield.html")
+
+
+@app.get("/grow", include_in_schema=False)
+def grow_page() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "grow.html")
