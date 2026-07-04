@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     vnpt_smartvoice_api_key: str | None = None
     vnpt_smartbot_api_key: str | None = None
     vnpt_smartreader_api_key: str | None = None
+    neo4j_enabled: bool = False
+    neo4j_uri: str = "bolt://localhost:7687"
+    neo4j_user: str = "neo4j"
+    neo4j_password: str = "fides-dev-password"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

@@ -42,6 +42,23 @@ def analyze_invoice(request: GrowAnalyzeRequest) -> GrowAnalyzeResponse:
             )
         )
 
+    if request.alternative_credit_profile:
+        profile = request.alternative_credit_profile
+        trust = profile.trust_graph_score if profile.trust_graph_score is not None else 0.0
+        centrality = profile.network_centrality_score if profile.network_centrality_score is not None else 0.0
+        explanations.append(
+            Explanation(
+                label="Trust graph (Neo4j)",
+                detail=(
+                    f"trust graph {trust:.2f}, "
+                    f"{profile.repeat_counterparty_count} repeat counterparty relationship(s), "
+                    f"{profile.verified_counterparty_count} verified, "
+                    f"centrality {centrality:.2f}."
+                ),
+                weight=0,
+            )
+        )
+
     top_contributions = explainability.feature_contributions[:3]
     contribution_detail = "; ".join(
         f"{item.feature} {item.shap_value:+.1f}" for item in top_contributions
@@ -88,6 +105,15 @@ def compute_rule_trust_score(request: GrowAnalyzeRequest) -> int:
         score -= 12
     if len(request.items) >= 2:
         score += 8
+
+    profile = request.alternative_credit_profile
+    if profile and profile.trust_graph_score is not None:
+        if profile.trust_graph_score >= 0.8 and profile.repeat_counterparty_count >= 8:
+            score += 8
+        elif profile.trust_graph_score >= 0.6:
+            score += 4
+        elif profile.trust_graph_score < 0.4:
+            score -= 4
 
     return max(0, min(score, 100))
 

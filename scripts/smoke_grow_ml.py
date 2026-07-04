@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.app.models import GrowAnalyzeRequest
+from backend.app.services.graph.grow_features import build_alternative_credit_profile
 from backend.app.services.grow_service import analyze_invoice
 from backend.app.services.ml.credit_model import model_available
 
@@ -26,14 +27,17 @@ EXPECTED_BANDS = {
 
 
 def _ml_ready_request(payload: dict) -> GrowAnalyzeRequest:
-    """Use only OCR/invoice fields; ignore legacy mock blocks in demo JSON."""
+    """Use only OCR/invoice fields; attach Neo4j graph profile when available."""
+    business_id = payload.get("business_id", "")
+    profile = build_alternative_credit_profile(business_id)
     return GrowAnalyzeRequest(
-        business_id=payload.get("business_id", ""),
+        business_id=business_id,
         business_name=payload["business_name"],
         input_mode=payload.get("input_mode", "invoice_photo"),
         input_source=payload.get("input_source"),
         ocr=payload["ocr"],
         normalized_ledger_entry=payload.get("normalized_ledger_entry"),
+        alternative_credit_profile=profile,
         invoice_id=payload["invoice_id"],
         customer_name=payload["customer_name"],
         invoice_total=payload["invoice_total"],

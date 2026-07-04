@@ -16,9 +16,15 @@ if str(ROOT) not in sys.path:
 import lightgbm as lgb
 import pandas as pd
 
-from backend.app.models import GrowAnalyzeRequest, GrowOcrInput, InvoiceItem, OcrExtractedFields
+from backend.app.models import (
+    AlternativeCreditProfile,
+    GrowAnalyzeRequest,
+    GrowOcrInput,
+    InvoiceItem,
+    OcrExtractedFields,
+)
 from backend.app.services.grow_service import compute_rule_trust_score
-from backend.app.services.ml.features import FEATURE_NAMES, extract_features
+from backend.app.services.ml.features import FEATURE_NAMES, extract_features, synthetic_graph_features
 
 MODEL_DIR = ROOT / "backend/app/data/models"
 MODEL_PATH = MODEL_DIR / "grow_credit_lgb.txt"
@@ -74,7 +80,7 @@ def main() -> int:
     booster.save_model(str(MODEL_PATH))
 
     meta = {
-        "model_version": "grow_credit_lgb_v1",
+        "model_version": "grow_credit_lgb_v2",
         "feature_names": FEATURE_NAMES,
         "training_samples": len(frame),
         "valid_rmse": float(booster.best_score["valid_0"]["rmse"]),
@@ -104,6 +110,15 @@ def build_training_rows(rng: random.Random, sample_count: int) -> list[dict[str,
             items = _make_items(rng, invoice_total, item_count)
             tax_amount = round(invoice_total / 11)
             ocr_confidence = round(rng.uniform(0.72, 0.98), 2)
+            graph_feats = synthetic_graph_features(category)
+            profile = AlternativeCreditProfile(
+                trust_graph_score=graph_feats["trust_graph_score"],
+                repeat_counterparty_count=int(graph_feats["repeat_counterparty_count"]),
+                verified_counterparty_count=int(graph_feats["verified_counterparty_count"]),
+                network_centrality_score=graph_feats["network_centrality_score"],
+                signals=[],
+                confidence=0.8,
+            )
 
             request = GrowAnalyzeRequest(
                 business_id=f"biz_{category}",
@@ -114,6 +129,7 @@ def build_training_rows(rng: random.Random, sample_count: int) -> list[dict[str,
                 invoice_total=invoice_total,
                 paid_on_time=paid_on_time,
                 items=items,
+                alternative_credit_profile=profile,
                 ocr=GrowOcrInput(
                     provider="SmartReader",
                     status="completed",

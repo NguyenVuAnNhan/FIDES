@@ -163,7 +163,26 @@ python scripts/smoke_grow_ml.py
 
 Model artifacts: `backend/app/data/models/grow_credit_lgb.txt` and `grow_credit_model_meta.json`.
 
-The live Grow pipeline keeps only implemented stages: **PaddleOCR → ledger → LightGBM + SHAP**. Mock trust graph, vnSocial, cashflow, tax, e-invoice, and partner capital blocks were removed from the pipeline and wizard.
+The live Grow pipeline: **PaddleOCR → ledger → Neo4j trust graph → LightGBM + SHAP**. Mock vnSocial, cashflow, tax, e-invoice, and partner capital blocks were removed from the pipeline and wizard.
+
+Trust graph design: [`docs/grow_trust_graph_neo4j_plan.md`](docs/grow_trust_graph_neo4j_plan.md).
+
+### Neo4j (trust graph)
+
+```bash
+docker compose up neo4j -d
+# Browser: http://localhost:7474 (neo4j / fides-dev-password)
+
+# Enable in .env:
+# NEO4J_ENABLED=true
+
+python scripts/init_neo4j_schema.py
+python scripts/seed_grow_graph.py
+python scripts/train_grow_credit_model.py   # v2 model with 11 features
+python scripts/smoke_grow_graph.py
+```
+
+Demo business IDs (seeded graph history): `biz_an_nhien_coffee`, `biz_bep_nha_linh`, `biz_thanh_tam_mini_mart`, `biz_nam_phuong_devices`.
 
 ## Next Build Steps
 

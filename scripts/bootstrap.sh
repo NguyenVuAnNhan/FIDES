@@ -25,8 +25,23 @@ python scripts/generate_receipt_fixtures.py
 mkdir -p frontend/static/uploads/receipts
 touch frontend/static/uploads/receipts/.gitkeep
 
-echo "==> Training Grow credit model"
+echo "==> Training Grow credit model (v2 with trust graph features)"
 python scripts/train_grow_credit_model.py
+
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  echo "==> Starting Neo4j (optional trust graph)"
+  docker compose up neo4j -d
+  if grep -q '^NEO4J_ENABLED=true' .env 2>/dev/null; then
+    echo "==> Initializing Neo4j schema and seed data"
+    python scripts/init_neo4j_schema.py
+    python scripts/seed_grow_graph.py
+    echo "==> Retraining Grow credit model with graph-aware labels"
+    python scripts/train_grow_credit_model.py
+    python scripts/smoke_grow_graph.py
+  else
+    echo "==> Neo4j running; set NEO4J_ENABLED=true in .env to enable trust graph"
+  fi
+fi
 
 echo "==> Running Grow smoke checks"
 python scripts/test_receipt_parser.py

@@ -178,7 +178,7 @@ function renderWizardResults(response) {
   `;
 
   const explainability = analysis.credit_explainability ?? {};
-  const contributions = explainability.feature_contributions?.slice(0, 7) ?? [];
+  const contributions = explainability.feature_contributions ?? [];
 
   growStepCreditBody.innerHTML = `
     <div class="metric-row">
@@ -188,6 +188,9 @@ function renderWizardResults(response) {
       <span class="pill">${formatValue(analysis.loan_readiness)}</span>
     </div>
     <p class="grow-summary">${escapeHtml(analysis.recommended_action)}</p>
+    <div class="grow-stage">
+      ${renderTrustGraphBlock(request.alternative_credit_profile)}
+    </div>
     <div class="grow-stage">
       ${renderGrowCreditStage(explainability, contributions, analysis.trust_score)}
     </div>
@@ -292,6 +295,42 @@ function renderGrowOcrStage(ocr, extracted, request) {
             .map((item) => `<li>${escapeHtml(item.description)} · ${formatMoney(item.amount)}</li>`)
             .join("")}</ul>`
         : ""
+    }
+  `;
+}
+
+function renderTrustGraphBlock(profile) {
+  if (!profile) {
+    return `
+      <h4>Trust graph (Neo4j)</h4>
+      <p class="stage-muted">
+        Trust graph unavailable. Start Neo4j (<code>docker compose up neo4j -d</code>)
+        and set <code>NEO4J_ENABLED=true</code> in <code>.env</code>.
+      </p>
+    `;
+  }
+
+  const trust = profile.trust_graph_score != null ? profile.trust_graph_score.toFixed(2) : "n/a";
+  const centrality =
+    profile.network_centrality_score != null ? profile.network_centrality_score.toFixed(2) : "n/a";
+  const confidence = profile.confidence != null ? `${Math.round(profile.confidence * 100)}%` : "n/a";
+  const signals = profile.signals ?? [];
+
+  return `
+    <h4>Trust graph (Neo4j)</h4>
+    <div class="metric-row">
+      <span class="pill strong">Trust ${escapeHtml(trust)}</span>
+      <span class="pill">${profile.repeat_counterparty_count} repeat</span>
+      <span class="pill">${profile.verified_counterparty_count} verified</span>
+      <span class="pill">Centrality ${escapeHtml(centrality)}</span>
+      <span class="pill">Confidence ${escapeHtml(confidence)}</span>
+    </div>
+    ${
+      signals.length
+        ? `<ul class="stage-list">${signals
+            .map((signal) => `<li>${escapeHtml(formatValue(signal))}</li>`)
+            .join("")}</ul>`
+        : `<p class="stage-muted">No graph signals yet for this business.</p>`
     }
   `;
 }

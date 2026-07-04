@@ -10,12 +10,18 @@ from backend.app.models import (
     CreditFeatureContribution,
     GrowAnalyzeRequest,
 )
-from backend.app.services.ml.features import FEATURE_NAMES, FEATURE_REASONS, extract_features, feature_vector
+from backend.app.services.ml.features import (
+    FEATURE_NAMES,
+    FEATURE_REASONS,
+    INVOICE_FEATURE_NAMES,
+    extract_features,
+    feature_vector,
+)
 
 MODEL_DIR = Path(__file__).resolve().parents[2] / "data" / "models"
 MODEL_PATH = MODEL_DIR / "grow_credit_lgb.txt"
 META_PATH = MODEL_DIR / "grow_credit_model_meta.json"
-MODEL_VERSION = "grow_credit_lgb_v1"
+MODEL_VERSION = "grow_credit_lgb_v2"
 
 _booster = None
 _meta: dict | None = None
@@ -33,11 +39,12 @@ class CreditModelPrediction:
 
 def predict_credit_score(request: GrowAnalyzeRequest) -> CreditModelPrediction:
     features = extract_features(request)
+    active_names = active_feature_names()
     booster = _load_model()
     if booster is None:
-        return _rule_based_prediction(features)
+        return _rule_based_prediction(features, active_names)
 
-    row = [feature_vector(features)]
+    row = [feature_vector(features, active_names)]
     raw = booster.predict(row, num_iteration=booster.best_iteration)[0]
     trust_score = max(0, min(int(round(raw)), 100))
 
@@ -45,7 +52,7 @@ def predict_credit_score(request: GrowAnalyzeRequest) -> CreditModelPrediction:
     baseline = float(contrib_raw[-1])
     shap_values = contrib_raw[:-1]
 
-    contributions = _build_contributions(features, shap_values)
+    contributions = _build_contributions(features, shap_values, active_names)
     return CreditModelPrediction(
         trust_score=trust_score,
         baseline_score=baseline,
@@ -71,8 +78,25 @@ def build_explainability(prediction: CreditModelPrediction) -> CreditExplainabil
     )
 
 
+def active_feature_names() -> list[str]:
+    meta = _load_meta()
+    if meta and meta.get("feature_names"):
+        return list(meta["feature_names"])
+    return FEATURE_NAMES
+
+
 def model_available() -> bool:
     return MODEL_PATH.exists() and META_PATH.exists()
+
+
+def _load_meta() -> dict | None:
+    global _meta
+    if _meta is not None:
+        return _meta
+    if not META_PATH.exists():
+        return None
+    _meta = json.loads(META_PATH.read_text(encoding="utf-8"))
+    return _meta
 
 
 def _load_model():
@@ -91,11 +115,14 @@ def _load_model():
             return None
 
         _booster = lgb.Booster(model_file=str(MODEL_PATH))
-        _meta = json.loads(META_PATH.read_text(encoding="utf-8"))
+        _load_meta()
         return _booster
 
 
-def _rule_based_prediction(features: dict[str, float]) -> CreditModelPrediction:
+def _rule_based_prediction(
+    features: dict[str, float],
+    active_names: list[str],
+) -> CreditModelPrediction:
     score = 45.0
     contributions: list[CreditFeatureContribution] = []
 
@@ -112,6 +139,14 @@ def _rule_based_prediction(features: dict[str, float]) -> CreditModelPrediction:
         score += 8
         contributions.append(_mock_contribution("item_count", int(features["item_count"]), 8.0))
 
+    if "trust_graph_score" in active_names:
+        graph_bonus = int(round((features.get("trust_graph_score", 0) - 0.5) * 16))
+        if graph_bonus:
+            score += graph_bonus
+            contributions.append(
+                _mock_contribution("trust_graph_score", round(features["trust_graph_score"], 2), float(graph_bonus))
+            )
+
     trust_score = max(0, min(int(round(score)), 100))
     return CreditModelPrediction(
         trust_score=trust_score,
@@ -125,13 +160,14 @@ def _rule_based_prediction(features: dict[str, float]) -> CreditModelPrediction:
 def _build_contributions(
     features: dict[str, float],
     shap_values: list[float],
+    active_names: list[str],
 ) -> list[CreditFeatureContribution]:
     contributions: list[CreditFeatureContribution] = []
-    for name, shap_value in zip(FEATURE_NAMES, shap_values, strict=True):
+    for name, shap_value in zip(active_names, shap_values, strict=True):
         value: str | int | float | bool | None
         if name == "paid_on_time":
             value = features[name] >= 0.5
-        elif name in {"item_count", "invoice_total"}:
+        elif name in {"item_count", "invoice_total", "repeat_counterparty_count", "verified_counterparty_count"}:
             value = int(features[name])
         else:
             value = round(features[name], 4)
@@ -148,7 +184,7 @@ def _build_contributions(
                 value=value,
                 shap_value=round(float(shap_value), 1),
                 direction=direction,
-                reason=FEATURE_REASONS[name],
+                reason=FEATURE_REASONS.get(name, "Model feature contribution."),
             )
         )
     return contributions

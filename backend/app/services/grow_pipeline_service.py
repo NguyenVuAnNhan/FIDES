@@ -7,6 +7,8 @@ from backend.app.models import (
     InvoiceItem,
     NormalizedLedgerEntry,
 )
+from backend.app.services.graph.grow_features import build_alternative_credit_profile
+from backend.app.services.graph.grow_ingest import GrowInvoiceIngest, ingest_grow_invoice
 from backend.app.services.grow_service import analyze_invoice
 from backend.app.services.ocr.paddle_provider import get_paddle_provider
 from backend.app.services.ocr.paths import ReceiptPathError, resolve_receipt_path
@@ -71,6 +73,20 @@ def _build_from_minimal(
     if ocr_input.status == "completed":
         confidence = ocr_input.confidence
 
+    ingest_grow_invoice(
+        GrowInvoiceIngest(
+            business_id=process.business_id,
+            business_name=process.business_name,
+            customer_name=process.customer_name,
+            invoice_id=process.invoice_id,
+            invoice_total=process.invoice_total,
+            paid_on_time=process.paid_on_time,
+            issue_date=issue_date,
+            ocr_confidence=confidence,
+        )
+    )
+    alternative_credit_profile = build_alternative_credit_profile(process.business_id)
+
     ledger = NormalizedLedgerEntry(
         entry_id=f"ledger_{process.invoice_id.lower().replace('-', '_')}",
         source_type=process.input_mode,
@@ -95,7 +111,7 @@ def _build_from_minimal(
         cashflow_forecast=None,
         tax_summary=None,
         einvoice_status=None,
-        alternative_credit_profile=None,
+        alternative_credit_profile=alternative_credit_profile,
         capital_connection=None,
         invoice_id=process.invoice_id,
         customer_name=process.customer_name,
