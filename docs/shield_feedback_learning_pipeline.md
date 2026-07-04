@@ -45,7 +45,7 @@ For the MVP, this can be mocked as an append-only feedback log and a versioned p
     "secrecy_pressure"
   ],
   "risk_score": 100,
-  "action_taken": "pause_transfer",
+  "action_taken": "withhold_24h_notify_trusted_authority",
   "user_outcome": "cancelled_transfer",
   "confirmed_label": "fraud_prevented",
   "new_keywords": [
@@ -108,4 +108,3 @@ Feedback events should avoid raw sensitive data:
 - Avoid storing raw audio, face frames, biometric templates, or full call transcripts.
 - Prefer derived labels, pattern names, risk scores, and short candidate keywords.
 - Keep immutable audit logs for model-update decisions.
-

@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -36,6 +38,7 @@ class ShieldAnalyzeRequest(BaseModel):
     accessibility_service_risk: bool = False
     screen_sharing_detected: bool = False
     ekyc_verification_status: str = "not_checked"
+    ekyc_liveness_passed: bool | None = None
     ekyc_liveness_score: float | None = Field(default=None, ge=0, le=1)
     ekyc_mask_detected: bool = False
     ekyc_face_match_score: float | None = Field(default=None, ge=0, le=1)
@@ -47,6 +50,10 @@ class ShieldAnalyzeRequest(BaseModel):
     audio_source: str | None = None
     stt_transcript: str = ""
     stt_confidence: float | None = Field(default=None, ge=0, le=1)
+    voice_reference_source: str | None = None
+    voice_verification_status: str = "not_checked"
+    voice_match_score: float | None = Field(default=None, ge=0, le=1)
+    voice_match_threshold: float | None = Field(default=None, ge=0, le=1)
     detected_patterns: list[str] = Field(default_factory=list)
     llm_scam_type: str | None = None
     llm_confidence: float | None = Field(default=None, ge=0, le=1)
@@ -65,9 +72,33 @@ class ShieldAnalyzeResponse(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     risk_level: str
     action: str
+    circuit_breaker_stage: str = "outer_context"
+    circuit_breaker_triggered: bool = False
+    invasive_check_required: bool = False
+    stage_one_score: int = Field(default=0, ge=0, le=100)
+    stage_two_score: int | None = Field(default=None, ge=0, le=100)
+    stage_one_flags: list[Explanation] = Field(default_factory=list)
+    stage_two_flags: list[Explanation] = Field(default_factory=list)
+    trusted_authority_notification: bool = False
+    trusted_authority_message: str | None = None
+    transaction_hold_hours: int = Field(default=0, ge=0)
+    challenge_profile: str | None = None
+    provider_mode: str = "mock"
+    mock_provider_calls: list[Explanation] = Field(default_factory=list)
+    provider_raw_responses: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    mock_provider_raw_responses: dict[str, dict[str, Any]] = Field(default_factory=dict)
     scam_type: str | None
     explanations: list[Explanation]
     intervention_message: str
+
+
+class ShieldChallengeRequest(BaseModel):
+    transaction: ShieldAnalyzeRequest
+    ekyc_image_ref: str = "mock_payload/ekyc_img_1"
+    ekyc_document_ref: str | None = None
+    stt_audio_ref: str = "mock_payload/stt_audio_1"
+    voice_reference_ref: str | None = "mock_payload/customer_voice_samples/voice_ref_1"
+    client_session: str = "shield-demo-session"
 
 
 class InvoiceItem(BaseModel):

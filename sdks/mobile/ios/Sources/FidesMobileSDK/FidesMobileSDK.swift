@@ -102,7 +102,7 @@ public struct FidesTelemetrySnapshot {
             "smartux_session": [
                 "provider": "FIDES Mobile SDK",
                 "sdk_session_id": sdkSessionId as Any,
-                "sdk_methods": ["snapshot", "buildShieldPayload", "analyzeShield"]
+                "sdk_methods": ["snapshot", "buildShieldPayload", "analyzeShield", "challengeShield"]
             ]
         ]
     }
@@ -173,6 +173,26 @@ public final class FidesMobileSDK {
         )
     }
 
+    public func challengeShield(
+        transaction: ShieldTransaction,
+        consent: FidesConsent,
+        overrides: [String: Any] = [:],
+        ekycImageRef: String = "mock_payload/ekyc_img_1",
+        sttAudioRef: String = "mock_payload/stt_audio_1",
+        completion: @escaping (Result<Data, Error>) -> Void
+    ) {
+        transport.postJSON(
+            baseUrl: config.baseUrl,
+            path: "/api/shield/challenge",
+            body: [
+                "transaction": buildShieldPayload(transaction: transaction, consent: consent, overrides: overrides),
+                "ekyc_image_ref": ekycImageRef,
+                "stt_audio_ref": sttAudioRef
+            ],
+            completion: completion
+        )
+    }
+
     public func analyzeGrow(
         payload: [String: Any],
         completion: @escaping (Result<Data, Error>) -> Void
@@ -185,4 +205,3 @@ public final class FidesMobileSDK {
         )
     }
 }
-

@@ -194,7 +194,7 @@ These fields model device/session risk and identity-confirmation risk.
   "accessibility_service_risk": false,
   "screen_sharing_detected": false,
   "ekyc_verification_status": "passed",
-  "ekyc_liveness_score": 0.91,
+  "ekyc_liveness_passed": true,
   "ekyc_mask_detected": false,
   "ekyc_face_match_score": 0.88,
   "ekyc_injection_risk_score": 0.12,
@@ -213,7 +213,8 @@ Meaning:
 - `accessibility_service_risk`: risky accessibility or overlay behavior was observed.
 - `screen_sharing_detected`: screen sharing or screen-control-like behavior was observed.
 - `ekyc_verification_status`: `not_checked`, `passed`, `review`, or `failed`.
-- `ekyc_liveness_score`: liveness result.
+- `ekyc_liveness_passed`: boolean face liveness result. For VNPT, this is the source of truth.
+- `ekyc_liveness_score`: legacy/manual normalized liveness score, only used when no boolean liveness result is available.
 - `ekyc_mask_detected`: mask/spoof signal.
 - `ekyc_face_match_score`: face comparison confidence.
 - `ekyc_injection_risk_score`: biometric injection risk.
@@ -235,7 +236,7 @@ Important boundary:
 
 MVP behavior:
 
-- eKYC review/failure, weak liveness, weak face match, mask, or high injection risk adds risk.
+- eKYC review/failure, `ekyc_liveness_passed=false`, weak legacy liveness score, weak face match, mask, or high injection risk adds risk.
 - SmartUX anomaly and remote-control scores add risk.
 - Native signals produce explanations but do not require raw biometric data.
 
@@ -249,6 +250,10 @@ These fields model the SmartVoice and Smartbot pipeline.
   "audio_source": "fixtures/audio/fake-police-001.wav",
   "stt_transcript": "Toi la cong an...",
   "stt_confidence": 0.94,
+  "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
+  "voice_verification_status": "passed",
+  "voice_match_score": 0.91,
+  "voice_match_threshold": 0.75,
   "detected_patterns": [
     "fake_authority",
     "case_involvement",
@@ -267,6 +272,10 @@ Meaning:
 - `audio_source`: fixture path or future processing job reference.
 - `stt_transcript`: SmartVoice speech-to-text output.
 - `stt_confidence`: speech-to-text confidence.
+- `voice_reference_source`: stored customer voice sample or enrollment reference.
+- `voice_verification_status`: `not_checked`, `passed`, `review`, `failed`, or `skipped`.
+- `voice_match_score`: SmartVoice voice verification score/similarity.
+- `voice_match_threshold`: threshold used by Shield to interpret the match score.
 - `detected_patterns`: fine-grained Smartbot scam signals.
 - `llm_scam_type`: top-level scam type.
 - `llm_confidence`: scam classification confidence.
@@ -276,12 +285,14 @@ Production source:
 
 - User consent flow.
 - SmartVoice or STT provider.
+- SmartVoice voice verification.
 - Smartbot or guarded LLM classifier.
 
 MVP behavior:
 
 - If `stt_transcript` exists, Shield uses it.
 - Otherwise, Shield falls back to `transcript`.
+- If voice verification returns `failed` or a score below threshold, Shield adds Stage 2 voice-identity risk.
 - If `llm_scam_type` or `detected_patterns` exists, Shield uses the Smartbot classification.
 - Otherwise, it falls back to keyword matching.
 - If consent is false, audio/transcript analysis is skipped.
@@ -339,30 +350,139 @@ MVP behavior:
 
 The current scorer is intentionally transparent and rule-based. It does not claim to be a trained fraud model.
 
-It adds risk weight from:
+Shield now uses a two-stage circuit-breaker flow.
+
+### Stage 1: Outer Context Circuit
+
+Stage 1 uses cheap, low-friction signals that can be checked before interrupting the user:
 
 - high-value transfer
+- unknown recipient
 - active call
 - suspicious caller context
-- unknown recipient
+- international or high-risk caller prefix
 - vnSocial reports
 - SIMO status
 - graph-derived recipient risk
 - remote-control signal
-- eKYC risk
 - SmartUX/native telemetry risk
-- Smartbot scam classification or transcript keyword match
-- coercion/distress signals
 
-Then it maps the final score:
+The outer breaker score starts at `10`. If the score reaches `45`, the circuit breaker trips.
+
+If the breaker does not trip, Shield returns:
 
 ```text
-0-44   -> low       -> allow_with_notice
-45-74  -> elevated  -> step_up_verification
-75-100 -> critical  -> pause_transfer
+circuit_breaker_stage = outer_context_clear
+action = allow_with_notice
 ```
 
-This is a good MVP design because judges can inspect exactly why a case was flagged.
+If the breaker trips and no camera/voice challenge evidence is present yet, Shield returns:
+
+```text
+circuit_breaker_stage = invasive_check_required
+action = require_camera_voice_check
+```
+
+This means the app should ask the user, with consent, to open the camera and speak into the app.
+In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with:
+
+```json
+{
+  "transaction": { "...": "original ShieldAnalyzeRequest" },
+  "ekyc_image_ref": "mock_payload/ekyc_img_1",
+  "ekyc_document_ref": "mock_payload/customer_document_faces/doc_face_1",
+  "stt_audio_ref": "mock_payload/stt_audio_1",
+  "voice_reference_ref": "mock_payload/customer_voice_samples/voice_ref_1",
+  "client_session": "shield-demo-browser-session"
+}
+```
+
+The backend does not automatically pass the challenge. In default `mock` mode, it calls mocked provider APIs and re-runs Shield analysis from their outputs:
+
+- mock eKYC API: liveness, mask/spoof, face match, injection risk
+- mock SmartVoice API: speech-to-text transcript and confidence
+- mock SmartVoice voice verification API: customer voice match score
+- mock Smartbot API: scam-script classification and confidence
+- mock coercion API: voice stress, visual distress, scripted behavior, aggregate coercion
+
+The current mock artifacts are:
+
+- `mock_payload/ekyc_img_1`: eKYC passes.
+- `mock_payload/ekyc_img_2`: eKYC fails.
+- `mock_payload/customer_document_faces/doc_face_1`: mock document/front-ID portrait source for face compare.
+- `mock_payload/customer_document_faces/doc_face_2`: alternate mock document/front-ID portrait source.
+- `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
+- `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
+- `mock_payload/customer_voice_samples/voice_ref_1`: enrolled customer voice reference.
+- `mock_payload/customer_voice_samples/voice_ref_2`: alternate voice reference for mismatch demos.
+
+Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_passed`, `ekyc_face_match_score`, `stt_transcript`, `stt_confidence`, and `voice_match_score`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
+
+For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token headers in `.env`. The same challenge route then calls real VNPT eKYC liveness, mask, face-compare, SmartVoice STT, and SmartVoice voice verification endpoints. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the audio file sent as a binary STT body and used as the challenge voice sample; `voice_reference_ref` is the stored customer voice sample; `client_session` is passed through for request correlation.
+
+### Stage 2: Invasive Camera And Voice Challenge
+
+Stage 2 runs only after Stage 1 trips. It uses higher-friction checks:
+
+- eKYC status
+- face liveness boolean
+- mask/spoof signal
+- face-match score
+- biometric injection risk
+- SmartVoice voice verification
+- SmartVoice transcript
+- Smartbot scam classification
+- transcript keyword fallback
+- voice stress
+- visual distress
+- scripted-behavior signal
+- aggregate coercion score
+
+The Stage 2 fail threshold is `25`. If Stage 2 fails, Shield returns:
+
+```text
+circuit_breaker_stage = withhold_and_notify
+action = withhold_24h_notify_trusted_authority
+transaction_hold_hours = 24
+trusted_authority_notification = true
+```
+
+For the MVP, "trusted authority" means the bank fraud desk or equivalent trusted escalation path. In a production bank deployment, this could also fan out to a pre-consented trusted contact, but that should be governed by a separate consent workflow.
+
+If Stage 2 does not fail, the transfer is released:
+
+```text
+circuit_breaker_stage = invasive_check_cleared
+action = allow_after_challenge
+```
+
+The response still includes the familiar top-level fields:
+
+- `risk_score`
+- `risk_level`
+- `action`
+- `scam_type`
+- `explanations`
+- `intervention_message`
+
+It also includes staged fields:
+
+- `circuit_breaker_stage`
+- `circuit_breaker_triggered`
+- `invasive_check_required`
+- `stage_one_score`
+- `stage_two_score`
+- `stage_one_flags`
+- `stage_two_flags`
+- `trusted_authority_notification`
+- `trusted_authority_message`
+- `transaction_hold_hours`
+- `challenge_profile`
+- `mock_provider_calls`
+- `provider_raw_responses`
+- `mock_provider_raw_responses`
+
+This is a good MVP design because judges can inspect why the low-friction circuit tripped separately from why the invasive challenge passed or failed.
 
 ## What The Schema Does Not Do
 
@@ -401,4 +521,3 @@ This schema lets us demo the full FIDES thesis without needing every production 
 - It can be populated by synthetic records, real API outputs, or future SDK integrations.
 
 In short, the schema is a risk-fusion contract. It tells FIDES what the bank app, AI services, graph service, eKYC provider, and SDK consumer have observed, then lets Shield produce one explainable decision.
-

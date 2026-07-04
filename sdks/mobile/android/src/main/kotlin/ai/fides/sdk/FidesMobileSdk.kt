@@ -46,7 +46,7 @@ data class FidesTelemetrySnapshot(
         "smartux_session" to mapOf(
             "provider" to "FIDES Mobile SDK",
             "sdk_session_id" to sdkSessionId,
-            "sdk_methods" to listOf("snapshot", "buildShieldPayload", "analyzeShield")
+            "sdk_methods" to listOf("snapshot", "buildShieldPayload", "analyzeShield", "challengeShield")
         )
     )
 }
@@ -108,6 +108,26 @@ class FidesMobileSdk(
         )
     }
 
+    fun challengeShield(
+        transaction: ShieldTransaction,
+        consent: FidesConsent,
+        overrides: Map<String, Any?> = emptyMap(),
+        ekycImageRef: String = "mock_payload/ekyc_img_1",
+        sttAudioRef: String = "mock_payload/stt_audio_1",
+        completion: (FidesSdkResult<String>) -> Unit
+    ) {
+        transport.postJson(
+            baseUrl = config.baseUrl,
+            path = "/api/shield/challenge",
+            body = mapOf(
+                "transaction" to buildShieldPayload(transaction, consent, overrides),
+                "ekyc_image_ref" to ekycImageRef,
+                "stt_audio_ref" to sttAudioRef
+            ),
+            completion = completion
+        )
+    }
+
     fun analyzeGrow(
         payload: Map<String, Any?>,
         completion: (FidesSdkResult<String>) -> Unit
@@ -120,4 +140,3 @@ class FidesMobileSdk(
         )
     }
 }
-

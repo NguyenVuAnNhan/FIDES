@@ -163,7 +163,15 @@
             </select>
           </label>
           <label>
-            Liveness Score
+            Face Liveness
+            <select name="ekyc_liveness_passed">
+              <option value="">Unknown</option>
+              <option value="true">Live</option>
+              <option value="false">Not live</option>
+            </select>
+          </label>
+          <label>
+            Legacy Liveness Score
             <input name="ekyc_liveness_score" type="number" value="0.91" min="0" max="1" step="0.01" />
           </label>
           <label class="checkbox-row">
@@ -201,6 +209,28 @@
           <label>
             STT Confidence
             <input name="stt_confidence" type="number" value="0.94" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Voice Verification
+            <select name="voice_verification_status">
+              <option value="not_checked">Not checked</option>
+              <option value="passed">Passed</option>
+              <option value="review">Review</option>
+              <option value="failed">Failed</option>
+              <option value="skipped">Skipped</option>
+            </select>
+          </label>
+          <label>
+            Voice Reference
+            <input name="voice_reference_source" value="" />
+          </label>
+          <label>
+            Voice Match Score
+            <input name="voice_match_score" type="number" value="" min="0" max="1" step="0.01" />
+          </label>
+          <label>
+            Voice Match Threshold
+            <input name="voice_match_threshold" type="number" value="0.75" min="0" max="1" step="0.01" />
           </label>
           <label>
             LLM Scam Type

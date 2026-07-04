@@ -15,6 +15,10 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `scripts/generate_synthetic_dataset.py` | Seeded madlib generator for Shield and Grow records. |
 | `frontend/static/fixtures/receipts/` | Fake receipt PNGs for Grow OCR demos. |
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
+| `mock_payload/` | Fake Shield challenge payload assets for eKYC image and STT audio pass/fail demos. |
+| `mock_payload/customer_document_faces/` | Mock document/front-ID portrait sources for eKYC face compare. |
+| `mock_payload/customer_voice_samples/` | Mock enrolled customer voice samples for SmartVoice voice verification. |
+| `backend/app/data/vnpt_mocks/` | VNPT-shaped mock eKYC and SmartVoice JSON responses used by the Shield challenge adapters when `VNPT_PROVIDER_MODE=mock`. |
 | `docs/graph_database_schema.md` | Future graph database design. |
 | `sdks/web/` | Web SDK scaffold for in-page telemetry and Shield/Grow calls. |
 | `sdks/mobile/` | Android/iOS SDK scaffold for host-app telemetry and Shield/Grow calls. |
@@ -30,13 +34,14 @@ These are required for a convincing end-to-end demo.
 | Shield transaction context | Amount, recipient, account, known-recipient flag | Flat Shield payload | Bank transaction API |
 | Telecom context | Active call, caller type, caller number, suspicious prefix | Flat Shield payload | Mobile SDK, OS permissions, telco metadata where available |
 | Scam transcript | STT transcript and scam-script patterns | Flat Shield payload | SmartVoice STT + Smartbot classifier |
+| Voice verification | Customer reference voice sample compared with current challenge audio | Flat Shield payload + `mock_payload/customer_voice_samples/` | SmartVoice voice verification |
 | Recipient reputation | vnSocial report count and keywords | Flat Shield payload | vnSocial or bank/customer-support report service |
 | Official/interbank watchlist | SIMO/NHNN status and last checked time | Flat Shield payload | Official or consortium lookup API |
 | Recipient graph risk | Mule score, graph pattern, fan-in/fan-out features | Flat Shield payload | FIDES graph database + graph feature service |
 | Native telemetry | Remote-control, screen-sharing, accessibility risk, SmartUX signals | Flat Shield payload | SDK consumer telemetry |
 | eKYC/deepfake signals | Liveness, mask/spoof, face match, injection risk | Flat Shield payload | eKYC SDK/API |
 | Coercion signals | Voice stress, face emotion, scripted behavior | Flat Shield payload | SmartVoice/SmartVision/vnFace style services |
-| Intervention response | Risk action and behavioral-science message | Shield response | Intervention orchestration service |
+| Circuit-breaker response | Stage 1/Stage 2 decision, hold state, notification flag, behavioral-science message | Shield response | Intervention orchestration service |
 | Grow input records | Business, invoice, customer, items, payment status | Flat Grow payload | Ledger/invoice database |
 | OCR extraction | SmartReader invoice fields and confidence | Grow `ocr` block | SmartReader OCR API |
 | Voice bookkeeping | SmartVoice transcript and parsed fields | Grow `voice_entry` block | SmartVoice STT + parser |
@@ -234,7 +239,7 @@ Stores per-call metadata and raw response references for VNPT-backed mock output
 MVP:
 
 -   Inline provider trace objects in VNPT-backed payload blocks.
--   Keep raw VNPT-style responses as references, not frontend-facing payloads.
+-   Return raw VNPT-style responses in the demo response for judge inspection; production should replace this with server-side raw response references.
 -   Optional future mock file paths:
     -   `backend/app/data/vnpt_mocks/smartreader/`
     -   `backend/app/data/vnpt_mocks/smartvoice/`
@@ -243,6 +248,7 @@ MVP:
 Later:
 
 -   Provider-call table with provider/product, endpoint ID, endpoint path, client session, file/audio/text IDs, status, raw request/response refs, error details, and timestamps.
+-   Real Shield challenge calls can already be enabled with `VNPT_PROVIDER_MODE=real` and server-side VNPT token headers; the database layer should record the same trace fields once persistent storage is added.
 
 ## External Services To Mock
 
@@ -251,7 +257,7 @@ VNPT public contract cross-check and schema integration recommendations are docu
 | Service | Used By | MVP mock |
 |------------------------|------------------------|------------------------|
 | SmartReader | Grow OCR | `ocr` block and fake receipt images |
-| SmartVoice | Shield STT, Grow voice bookkeeping | `stt_transcript`, `voice_entry`, confidence fields |
+| SmartVoice | Shield STT, Shield voice verification, Grow voice bookkeeping | `stt_transcript`, `voice_verification_status`, `voice_match_score`, `voice_entry`, confidence fields |
 | Smartbot | Shield scam classification, Grow capital advice | `detected_patterns`, `llm_scam_type`, `smartbot_advice` |
 | eKYC/vnFace | Shield deepfake/liveness | `ekyc_*` and face emotion fields |
 | SmartUX/native telemetry | Shield remote-control and behavior anomaly | `smartux_*`, `native_telemetry_*`, remote-control flags |

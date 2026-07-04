@@ -16,7 +16,8 @@ Important boundary: FIDES backend does not directly inspect the user's device. T
 | `accessibility_service_risk` | boolean | SDK consumer claim | Whether risky accessibility/overlay behavior was observed. |
 | `screen_sharing_detected` | boolean | SDK consumer claim | Whether screen sharing or screen-control-like telemetry was observed. |
 | `ekyc_verification_status` | string | eKYC provider or mock | One of `not_checked`, `passed`, `review`, or `failed`. |
-| `ekyc_liveness_score` | number or null | eKYC provider output | Liveness score from `0.0` to `1.0`. |
+| `ekyc_liveness_passed` | boolean or null | eKYC provider output | Face liveness result. `false` fails the Stage 2 challenge. |
+| `ekyc_liveness_score` | number or null | Legacy/manual input | Normalized liveness score from `0.0` to `1.0`, used only when no boolean liveness result is available. |
 | `ekyc_mask_detected` | boolean | eKYC provider output | Whether a mask/spoof indicator was detected. |
 | `ekyc_face_match_score` | number or null | eKYC provider output | Face comparison score from `0.0` to `1.0`. |
 | `ekyc_injection_risk_score` | number or null | eKYC provider output | Biometric injection risk from `0.0` to `1.0`. |
@@ -29,7 +30,8 @@ Important boundary: FIDES backend does not directly inspect the user's device. T
 Shield adds explainable risk weight for:
 
 - failed/review eKYC status
-- low liveness score
+- failed face liveness
+- low legacy liveness score
 - weak face match
 - mask/spoof signal
 - high biometric injection risk
@@ -76,4 +78,3 @@ Avoid:
 - Avoid storing raw face frames or long-lived device identifiers unless legally required and explicitly consented.
 - Keep eKYC and native telemetry explanations reviewable.
 - Treat all outputs as risk signals, not final fraud verdicts.
-

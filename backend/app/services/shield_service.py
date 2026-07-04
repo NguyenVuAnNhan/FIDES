@@ -1,4 +1,10 @@
-from backend.app.models import Explanation, ShieldAnalyzeRequest, ShieldAnalyzeResponse
+import json
+from pathlib import Path
+from typing import Any
+
+from backend.app.config import get_settings
+from backend.app.models import Explanation, ShieldAnalyzeRequest, ShieldAnalyzeResponse, ShieldChallengeRequest
+from backend.app.services.vnpt_client import VnptClient
 
 SCAM_PATTERNS = {
     "fake_authority": [
@@ -28,13 +34,492 @@ SCAM_PATTERNS = {
 }
 
 SUSPICIOUS_CALL_PREFIXES = ("+882", "+883", "+870", "+979", "1900")
+OUTER_BREAKER_THRESHOLD = 45
+INVASIVE_FAIL_THRESHOLD = 25
+TRANSACTION_HOLD_HOURS = 24
+VNPT_MOCK_DIR = Path(__file__).resolve().parents[1] / "data" / "vnpt_mocks"
+
+def run_mock_camera_voice_challenge(challenge: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
+    profile = _challenge_profile_from_artifacts(challenge.ekyc_image_ref, challenge.stt_audio_ref)
+    provider_fields, provider_calls, raw_responses, provider_mode = _run_mock_challenge_apis(challenge, profile)
+    challenged_request = challenge.transaction.model_copy(update=provider_fields)
+    response = analyze_shield_risk(challenged_request)
+
+    return response.model_copy(
+        update={
+            "challenge_profile": profile,
+            "provider_mode": provider_mode,
+            "mock_provider_calls": provider_calls,
+            "provider_raw_responses": raw_responses,
+            "mock_provider_raw_responses": raw_responses,
+            "explanations": [*provider_calls, *response.explanations],
+        }
+    )
+
+
+def _run_mock_challenge_apis(
+    challenge: ShieldChallengeRequest,
+    profile: str,
+) -> tuple[dict[str, object], list[Explanation], dict[str, dict[str, Any]], str]:
+    settings = get_settings()
+    vnpt_client = VnptClient(settings)
+    provider_mode = vnpt_client.mode
+    ekyc_fields, ekyc_call, ekyc_raw = _ekyc_api(challenge, vnpt_client)
+    smartvoice_fields, smartvoice_call, smartvoice_raw = _smartvoice_api(challenge, vnpt_client)
+    voice_fields, voice_call, voice_raw = _voice_verification_api(challenge, vnpt_client)
+    smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]))
+    coercion_fields, coercion_call = _mock_coercion_api(challenge.ekyc_image_ref, challenge.stt_audio_ref)
+
+    fields = {
+        "consent_granted": True,
+        "audio_source": challenge.stt_audio_ref,
+        **ekyc_fields,
+        **smartvoice_fields,
+        **voice_fields,
+        **smartbot_fields,
+        **coercion_fields,
+        "transcript": smartvoice_fields["stt_transcript"],
+    }
+    raw_responses = {
+        "ekyc_face_liveness": ekyc_raw["face_liveness"],
+        "ekyc_face_mask": ekyc_raw["face_mask"],
+        "ekyc_face_compare": ekyc_raw["face_compare"],
+        "smartvoice_stt": smartvoice_raw,
+        "smartvoice_voice_verification": voice_raw,
+    }
+    return fields, [ekyc_call, smartvoice_call, voice_call, smartbot_call, coercion_call], raw_responses, provider_mode
+
+
+def _challenge_profile_from_artifacts(ekyc_image_ref: str, stt_audio_ref: str) -> str:
+    ekyc_passed = _artifact_name(ekyc_image_ref) == "ekyc_img_1"
+    stt_passed = _artifact_name(stt_audio_ref) == "stt_audio_1"
+    if ekyc_passed and stt_passed:
+        return "clear_user"
+    if not ekyc_passed and stt_passed:
+        return "ekyc_failed"
+    if ekyc_passed and not stt_passed:
+        return "stt_failed"
+    return "ekyc_and_stt_failed"
+
+
+def _artifact_name(ref: str) -> str:
+    return ref.rstrip("/").split("/")[-1]
+
+
+def _load_vnpt_mock(product: str, filename: str) -> dict[str, Any]:
+    path = VNPT_MOCK_DIR / product / filename
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {
+        "message": "Mock response not found",
+        "object": {},
+        "error": {
+            "mock_path": str(path),
+        },
+    }
+
+
+def _object(response: dict[str, Any]) -> dict[str, Any]:
+    value = response.get("object", {})
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _bounded_float(value: object, default: float) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        number = default
+    return max(0.0, min(1.0, number))
+
+
+def _provider_score(value: object, default: float) -> float:
+    score = _bounded_float(value, default)
+    try:
+        raw_number = float(value)
+    except (TypeError, ValueError):
+        return score
+    if raw_number > 1:
+        return _bounded_float(raw_number / 100, default)
+    return score
+
+
+def _truthy_provider_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y", "live", "masked", "match"}
+    if isinstance(value, (int, float)):
+        return value > 0
+    return False
+
+
+def _derive_injection_risk(face_is_live: bool, mask_detected: bool, face_match_score: float) -> float:
+    risk = 0.04
+    if not face_is_live:
+        risk += 0.55
+    if mask_detected:
+        risk += 0.18
+    if face_match_score < 0.5:
+        risk += 0.18
+    elif face_match_score < 0.75:
+        risk += 0.08
+    return round(min(risk, 0.95), 2)
+
+
+def _ekyc_api(
+    challenge: ShieldChallengeRequest,
+    vnpt_client: VnptClient,
+) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
+    if vnpt_client.enabled:
+        liveness_response = vnpt_client.face_liveness(challenge.ekyc_image_ref, challenge.client_session)
+        mask_response = vnpt_client.face_mask(challenge.ekyc_image_ref, challenge.client_session)
+        compare_response = vnpt_client.face_compare(
+            challenge.ekyc_document_ref,
+            challenge.ekyc_image_ref,
+            challenge.client_session,
+        )
+        provider_label = "VNPT eKYC API"
+        source_detail = "called VNPT eKYC liveness, mask, and face-compare endpoints"
+    else:
+        artifact = _artifact_name(challenge.ekyc_image_ref)
+        liveness_response = _load_vnpt_mock("ekyc", f"{artifact}_face_liveness.json")
+        mask_response = _load_vnpt_mock("ekyc", f"{artifact}_face_mask.json")
+        compare_response = _load_vnpt_mock("ekyc", f"{artifact}_face_compare.json")
+        provider_label = "Mock eKYC API"
+        source_detail = "loaded VNPT-like liveness, mask, and face-compare responses"
+
+    liveness_object = _object(liveness_response)
+    mask_object = _object(mask_response)
+    compare_object = _object(compare_response)
+
+    face_is_live = _truthy_provider_bool(liveness_object.get("liveness"))
+    mask_detected = _truthy_provider_bool(mask_object.get("masked"))
+    face_match_score = _provider_score(compare_object.get("prob"), default=0.5)
+    face_match_result = str(compare_object.get("result", "")).upper()
+    verification_status = "passed"
+    if not face_is_live or mask_detected or face_match_result == "NOMATCH" or face_match_score < 0.5:
+        verification_status = "failed"
+    elif face_match_score < 0.75:
+        verification_status = "review"
+
+    injection_risk = _derive_injection_risk(face_is_live, mask_detected, face_match_score)
+    detail = (
+        f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
+        f"Status={verification_status}, liveness={liveness_object.get('liveness_msg')}, "
+        f"compare={compare_object.get('msg')}."
+    )
+
+    fields = {
+        "ekyc_verification_status": verification_status,
+        "ekyc_liveness_passed": face_is_live,
+        "ekyc_liveness_score": None,
+        "ekyc_mask_detected": mask_detected,
+        "ekyc_face_match_score": face_match_score,
+        "ekyc_injection_risk_score": injection_risk,
+    }
+    return (
+        fields,
+        Explanation(label=provider_label, detail=detail, weight=0),
+        {
+            "face_liveness": liveness_response,
+            "face_mask": mask_response,
+            "face_compare": compare_response,
+        },
+    )
+
+
+def _smartvoice_api(
+    challenge: ShieldChallengeRequest,
+    vnpt_client: VnptClient,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    if vnpt_client.enabled:
+        stt_response = vnpt_client.smartvoice_stt(challenge.stt_audio_ref)
+        provider_label = "VNPT SmartVoice API"
+        source_detail = "called VNPT STT v3 standard"
+    else:
+        artifact = _artifact_name(challenge.stt_audio_ref)
+        stt_response = _load_vnpt_mock("smartvoice", f"{artifact}_stt.json")
+        provider_label = "Mock SmartVoice API"
+        source_detail = "loaded VNPT-like STT response"
+
+    stt_object = _object(stt_response)
+    alternatives = stt_object.get("transcript_list") or []
+    first_alternative = alternatives[0] if alternatives else {}
+    transcript = str(stt_object.get("transcript") or first_alternative.get("transcript") or "")
+    confidence = _bounded_float(first_alternative.get("confidence"), default=0.0)
+
+    detail = (
+        f"{provider_label} {source_detail} for {challenge.stt_audio_ref}. "
+        f"Audio id={stt_object.get('id')}, model={stt_object.get('transcript_model')}, "
+        f"confidence={confidence:.2f}."
+    )
+    return (
+        {
+            "stt_transcript": transcript,
+            "stt_confidence": confidence,
+        },
+        Explanation(
+            label=provider_label,
+            detail=detail,
+            weight=0,
+        ),
+        stt_response,
+    )
+
+
+def _voice_verification_api(
+    challenge: ShieldChallengeRequest,
+    vnpt_client: VnptClient,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    if vnpt_client.enabled:
+        voice_response = vnpt_client.smartvoice_voice_verify(
+            challenge.voice_reference_ref,
+            challenge.stt_audio_ref,
+            challenge.client_session,
+        )
+        provider_label = "VNPT SmartVoice Voice Verification API"
+        source_detail = "called VNPT voice upload, encode, and verify endpoints"
+    else:
+        reference_artifact = _artifact_name(challenge.voice_reference_ref or "no_voice_reference")
+        challenge_artifact = _artifact_name(challenge.stt_audio_ref)
+        voice_response = _load_vnpt_mock(
+            "smartvoice",
+            f"{reference_artifact}_{challenge_artifact}_voice_verify.json",
+        )
+        provider_label = "Mock SmartVoice Voice Verification API"
+        source_detail = "loaded VNPT-like voice verification response"
+
+    voice_object = _object(voice_response)
+    result_object = voice_object.get("result") if isinstance(voice_object.get("result"), dict) else {}
+    score = _provider_score(result_object.get("score") or result_object.get("similarity"), default=0.0)
+    threshold = 0.75
+    provider_ok = _truthy_provider_bool(voice_object.get("ok", True))
+    status = "passed"
+    if voice_response.get("skipped"):
+        status = "skipped"
+    elif not provider_ok:
+        status = "review"
+    elif score < 0.55:
+        status = "failed"
+    elif score < threshold:
+        status = "review"
+
+    detail = (
+        f"{provider_label} {source_detail} for reference {challenge.voice_reference_ref} "
+        f"and challenge audio {challenge.stt_audio_ref}. Status={status}, score={score:.2f}."
+    )
+    return (
+        {
+            "voice_reference_source": challenge.voice_reference_ref,
+            "voice_verification_status": status,
+            "voice_match_score": score,
+            "voice_match_threshold": threshold,
+        },
+        Explanation(label=provider_label, detail=detail, weight=0),
+        voice_response,
+    )
+
+
+def _mock_smartbot_api(transcript: str) -> tuple[dict[str, object], Explanation]:
+    scam_type = None
+    transcript_match = _match_transcript_pattern(transcript.lower())
+    if transcript_match:
+        scam_type = transcript_match[0]
+
+    detected_patterns = detected_patterns_for_challenge(scam_type)
+    confidence = 0.91 if scam_type else None
+
+    detail = (
+        f"Smartbot classified {scam_type.replace('_', ' ')}."
+        if scam_type
+        else "Smartbot did not find a scam-script pattern."
+    )
+    return (
+        {
+            "detected_patterns": detected_patterns,
+            "llm_scam_type": scam_type,
+            "llm_confidence": confidence,
+        },
+        Explanation(label="Mock Smartbot API", detail=detail, weight=0),
+    )
+
+
+def _mock_coercion_api(ekyc_image_ref: str, stt_audio_ref: str) -> tuple[dict[str, object], Explanation]:
+    stt_failed = _artifact_name(stt_audio_ref) != "stt_audio_1"
+    ekyc_failed = _artifact_name(ekyc_image_ref) != "ekyc_img_1"
+    if stt_failed:
+        selected = {
+            "voice": 0.83,
+            "voice_labels": ["elevated_pitch", "speech_hesitation"],
+            "face": 0.77 if not ekyc_failed else 0.68,
+            "face_labels": ["fear", "low_eye_contact"],
+            "scripted": 0.81,
+            "scripted_labels": ["monotone_reading", "repeats_caller_phrasing"],
+            "coercion": 0.84,
+            "confidence": 0.86,
+            "detail": f"Mock coercion API used {stt_audio_ref} and found distress plus scripted behavior.",
+        }
+    elif ekyc_failed:
+        selected = {
+            "voice": 0.28,
+            "voice_labels": ["steady_voice"],
+            "face": 0.46,
+            "face_labels": ["visual_artifact"],
+            "scripted": 0.18,
+            "scripted_labels": [],
+            "coercion": 0.22,
+            "confidence": 0.78,
+            "detail": f"Mock coercion API used {ekyc_image_ref} and found biometric artifact risk without coercion.",
+        }
+    else:
+        selected = {
+            "voice": 0.18,
+            "voice_labels": ["steady_voice"],
+            "face": 0.16,
+            "face_labels": ["calm"],
+            "scripted": 0.12,
+            "scripted_labels": ["free_response"],
+            "coercion": 0.14,
+            "confidence": 0.82,
+            "detail": f"Mock coercion API used {ekyc_image_ref} and {stt_audio_ref}; no distress pattern found.",
+        }
+    return (
+        {
+            "voice_stress_score": selected["voice"],
+            "voice_stress_labels": selected["voice_labels"],
+            "face_emotion_score": selected["face"],
+            "face_emotion_labels": selected["face_labels"],
+            "scripted_behavior_score": selected["scripted"],
+            "scripted_behavior_labels": selected["scripted_labels"],
+            "coercion_score": selected["coercion"],
+            "coercion_confidence": selected["confidence"],
+        },
+        Explanation(label="Mock coercion API", detail=str(selected["detail"]), weight=0),
+    )
+
+
+def detected_patterns_for_challenge(scam_type: str | None) -> list[str]:
+    if scam_type == "fake_authority":
+        return [
+            "fake_authority",
+            "case_involvement",
+            "transfer_for_verification",
+            "secrecy_pressure",
+        ]
+    if scam_type == "remote_support":
+        return [
+            "remote_support",
+            "screen_control",
+            "refund_promise",
+            "transfer_test",
+        ]
+    return [scam_type] if scam_type else []
 
 
 def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
-    transcript = _effective_transcript(request).lower()
+    stage_one_score, stage_one_flags = _score_outer_context(request)
+    circuit_breaker_triggered = stage_one_score >= OUTER_BREAKER_THRESHOLD
+
+    if not circuit_breaker_triggered:
+        return ShieldAnalyzeResponse(
+            risk_score=stage_one_score,
+            risk_level="low",
+            action="allow_with_notice",
+            circuit_breaker_stage="outer_context_clear",
+            circuit_breaker_triggered=False,
+            invasive_check_required=False,
+            stage_one_score=stage_one_score,
+            stage_two_score=None,
+            stage_one_flags=stage_one_flags,
+            stage_two_flags=[],
+            scam_type=None,
+            explanations=stage_one_flags,
+            intervention_message=_build_intervention_message("allow_with_notice", request.recipient_name),
+        )
+
+    if not _has_invasive_check_evidence(request):
+        challenge_explanation = Explanation(
+            label="Camera and voice challenge required",
+            detail=(
+                "The outer circuit breaker tripped, so Shield needs a consented camera "
+                "and voice check before the transfer can continue."
+            ),
+            weight=0,
+        )
+        return ShieldAnalyzeResponse(
+            risk_score=stage_one_score,
+            risk_level="elevated",
+            action="require_camera_voice_check",
+            circuit_breaker_stage="invasive_check_required",
+            circuit_breaker_triggered=True,
+            invasive_check_required=True,
+            stage_one_score=stage_one_score,
+            stage_two_score=None,
+            stage_one_flags=stage_one_flags,
+            stage_two_flags=[],
+            scam_type=None,
+            explanations=[*stage_one_flags, challenge_explanation],
+            intervention_message=_build_intervention_message(
+                "require_camera_voice_check", request.recipient_name
+            ),
+        )
+
+    stage_two_score, stage_two_flags, scam_type = _score_invasive_check(request)
+    stage_two_failed = stage_two_score >= INVASIVE_FAIL_THRESHOLD
+
+    if stage_two_failed:
+        risk_score = min(100, stage_one_score + stage_two_score)
+        return ShieldAnalyzeResponse(
+            risk_score=risk_score,
+            risk_level="critical",
+            action="withhold_24h_notify_trusted_authority",
+            circuit_breaker_stage="withhold_and_notify",
+            circuit_breaker_triggered=True,
+            invasive_check_required=False,
+            stage_one_score=stage_one_score,
+            stage_two_score=stage_two_score,
+            stage_one_flags=stage_one_flags,
+            stage_two_flags=stage_two_flags,
+            trusted_authority_notification=True,
+            trusted_authority_message=_build_trusted_authority_message(request.recipient_name),
+            transaction_hold_hours=TRANSACTION_HOLD_HOURS,
+            scam_type=scam_type,
+            explanations=[*stage_one_flags, *stage_two_flags],
+            intervention_message=_build_intervention_message(
+                "withhold_24h_notify_trusted_authority", request.recipient_name
+            ),
+        )
+
+    cleared_explanation = Explanation(
+        label="Camera and voice challenge cleared",
+        detail=(
+            "The outer circuit breaker tripped, but the consented eKYC, voice, and "
+            "distress checks did not show enough evidence to hold the transfer."
+        ),
+        weight=0,
+    )
+    return ShieldAnalyzeResponse(
+        risk_score=min(44, 10 + stage_two_score),
+        risk_level="low",
+        action="allow_after_challenge",
+        circuit_breaker_stage="invasive_check_cleared",
+        circuit_breaker_triggered=True,
+        invasive_check_required=False,
+        stage_one_score=stage_one_score,
+        stage_two_score=stage_two_score,
+        stage_one_flags=stage_one_flags,
+        stage_two_flags=stage_two_flags,
+        scam_type=scam_type,
+        explanations=[*stage_one_flags, *stage_two_flags, cleared_explanation],
+        intervention_message=_build_intervention_message("allow_after_challenge", request.recipient_name),
+    )
+
+
+def _score_outer_context(request: ShieldAnalyzeRequest) -> tuple[int, list[Explanation]]:
     score = 10
     explanations: list[Explanation] = []
-    scam_type: str | None = None
 
     if request.transaction_amount >= 50_000_000:
         score += 25
@@ -139,17 +624,6 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
-    ekyc_weight = _ekyc_weight(request)
-    if ekyc_weight:
-        score += ekyc_weight
-        explanations.append(
-            Explanation(
-                label="eKYC verification risk",
-                detail=_build_ekyc_detail(request),
-                weight=ekyc_weight,
-            )
-        )
-
     smartux_weight = _smartux_weight(request)
     if smartux_weight:
         score += smartux_weight
@@ -158,6 +632,26 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
                 label="SmartUX native telemetry risk",
                 detail=_build_smartux_detail(request),
                 weight=smartux_weight,
+            )
+        )
+
+    return min(score, 100), explanations
+
+
+def _score_invasive_check(request: ShieldAnalyzeRequest) -> tuple[int, list[Explanation], str | None]:
+    transcript = _effective_transcript(request).lower()
+    score = 0
+    explanations: list[Explanation] = []
+    scam_type: str | None = None
+
+    ekyc_weight = _ekyc_weight(request)
+    if ekyc_weight:
+        score += ekyc_weight
+        explanations.append(
+            Explanation(
+                label="eKYC verification risk",
+                detail=_build_ekyc_detail(request),
+                weight=ekyc_weight,
             )
         )
 
@@ -182,6 +676,17 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
+    voice_verification_weight = _voice_verification_weight(request)
+    if voice_verification_weight:
+        score += voice_verification_weight
+        explanations.append(
+            Explanation(
+                label="Voice verification risk",
+                detail=_build_voice_verification_detail(request),
+                weight=voice_verification_weight,
+            )
+        )
+
     if request.consent_granted and (request.llm_scam_type or request.detected_patterns):
         scam_type = request.llm_scam_type or _scam_type_from_patterns(request.detected_patterns)
         llm_weight = _llm_pattern_weight(request.llm_confidence)
@@ -197,13 +702,14 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
         transcript_match = _match_transcript_pattern(transcript)
         if transcript_match:
             pattern_name, match_count = transcript_match
-            score += min(30, 10 + match_count * 5)
+            keyword_weight = min(30, 10 + match_count * 5)
+            score += keyword_weight
             scam_type = pattern_name
             explanations.append(
                 Explanation(
                     label="Scam script detected",
                     detail=f"Transcript contains signals associated with {pattern_name.replace('_', ' ')}.",
-                    weight=30,
+                    weight=keyword_weight,
                 )
             )
     elif request.active_call:
@@ -226,40 +732,58 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
-    risk_score = min(score, 100)
-    if risk_score >= 75:
-        risk_level = "critical"
-        action = "pause_transfer"
-    elif risk_score >= 45:
-        risk_level = "elevated"
-        action = "step_up_verification"
-    else:
-        risk_level = "low"
-        action = "allow_with_notice"
+    return min(score, 100), explanations, scam_type
 
-    return ShieldAnalyzeResponse(
-        risk_score=risk_score,
-        risk_level=risk_level,
-        action=action,
-        scam_type=scam_type,
-        explanations=explanations,
-        intervention_message=_build_intervention_message(risk_level, request.recipient_name),
+
+def _has_invasive_check_evidence(request: ShieldAnalyzeRequest) -> bool:
+    return any(
+        [
+            request.ekyc_verification_status != "not_checked",
+            request.ekyc_liveness_passed is not None,
+            request.ekyc_liveness_score is not None,
+            request.ekyc_mask_detected,
+            request.ekyc_face_match_score is not None,
+            request.ekyc_injection_risk_score is not None,
+            request.audio_source is not None,
+            bool(request.stt_transcript),
+            request.voice_verification_status != "not_checked",
+            request.voice_match_score is not None,
+            bool(request.detected_patterns),
+            request.llm_scam_type is not None,
+            request.voice_stress_score is not None,
+            request.face_emotion_score is not None,
+            request.scripted_behavior_score is not None,
+            request.coercion_score is not None,
+        ]
     )
 
 
-def _build_intervention_message(risk_level: str, recipient_name: str) -> str:
-    if risk_level == "critical":
+def _build_intervention_message(action: str, recipient_name: str) -> str:
+    if action == "withhold_24h_notify_trusted_authority":
         return (
-            f"We paused this transfer to {recipient_name}. The call and transcript look similar "
-            "to a coercion scam. Please hang up, contact the organization through an official "
-            "number, and confirm with a trusted contact before continuing."
+            f"We are holding this transfer to {recipient_name} for 24 hours and notifying the "
+            "bank fraud desk. The camera and voice check matched high-risk scam or coercion "
+            "signals. Hang up, do not share codes, and use an official bank channel for help."
         )
-    if risk_level == "elevated":
+    if action == "require_camera_voice_check":
         return (
-            f"This transfer to {recipient_name} has warning signs. Take a moment to verify the "
-            "recipient independently before approving."
+            f"This transfer to {recipient_name} needs a short camera and voice safety check "
+            "before it can continue. Please move away from the caller, open the camera, and "
+            "answer the prompts in your own words."
+        )
+    if action == "allow_after_challenge":
+        return (
+            f"The extra safety check for {recipient_name} did not find enough evidence to hold "
+            "the transfer. Continue only if you independently trust the recipient."
         )
     return "No strong manipulation pattern was detected, but continue only if you trust the recipient."
+
+
+def _build_trusted_authority_message(recipient_name: str) -> str:
+    return (
+        f"Notify the bank fraud desk that a high-risk transfer to {recipient_name} was held "
+        "for 24 hours after the invasive camera and voice challenge failed."
+    )
 
 
 def _is_international_number(caller_number: str) -> bool:
@@ -311,6 +835,33 @@ def _build_llm_detail(request: ShieldAnalyzeRequest) -> str:
         pieces.append(f"Patterns: {', '.join(request.detected_patterns)}.")
     if request.llm_confidence is not None:
         pieces.append(f"Confidence: {request.llm_confidence:.2f}.")
+    return " ".join(pieces)
+
+
+def _voice_verification_weight(request: ShieldAnalyzeRequest) -> int:
+    status = request.voice_verification_status.lower()
+    if status == "failed":
+        return 25
+    if status == "review":
+        return 12
+    if request.voice_match_score is None:
+        return 0
+    threshold = request.voice_match_threshold or 0.75
+    if request.voice_match_score < 0.55:
+        return 25
+    if request.voice_match_score < threshold:
+        return 12
+    return 0
+
+
+def _build_voice_verification_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = [f"Status: {request.voice_verification_status}."]
+    if request.voice_reference_source:
+        pieces.append(f"Reference: {request.voice_reference_source}.")
+    if request.voice_match_score is not None:
+        pieces.append(f"Voice match score: {request.voice_match_score:.2f}.")
+    if request.voice_match_threshold is not None:
+        pieces.append(f"Threshold: {request.voice_match_threshold:.2f}.")
     return " ".join(pieces)
 
 
@@ -428,7 +979,9 @@ def _ekyc_weight(request: ShieldAnalyzeRequest) -> int:
         weight += 25
     elif status == "review":
         weight += 12
-    if request.ekyc_liveness_score is not None:
+    if request.ekyc_liveness_passed is False:
+        weight += 30
+    elif request.ekyc_liveness_score is not None:
         if request.ekyc_liveness_score < 0.5:
             weight += 20
         elif request.ekyc_liveness_score < 0.7:
@@ -450,7 +1003,9 @@ def _ekyc_weight(request: ShieldAnalyzeRequest) -> int:
 
 def _build_ekyc_detail(request: ShieldAnalyzeRequest) -> str:
     pieces = [f"Verification status: {request.ekyc_verification_status}."]
-    if request.ekyc_liveness_score is not None:
+    if request.ekyc_liveness_passed is not None:
+        pieces.append(f"Face liveness: {'live' if request.ekyc_liveness_passed else 'not live'}.")
+    elif request.ekyc_liveness_score is not None:
         pieces.append(f"Liveness score: {request.ekyc_liveness_score:.2f}.")
     pieces.append(f"Mask detected: {str(request.ekyc_mask_detected).lower()}.")
     if request.ekyc_face_match_score is not None:

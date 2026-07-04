@@ -43,6 +43,19 @@ This lets us:
 - store raw vendor responses outside the business payload,
 - avoid leaking VNPT tokens or raw credentials into frontend code.
 
+Current MVP status: Shield challenge mocks now follow this pattern. Raw VNPT-shaped eKYC and SmartVoice JSON fixtures live in `backend/app/data/vnpt_mocks/`; the adapter loads those fixtures, normalizes them into Shield scoring fields, and returns `provider_raw_responses` for demo inspection.
+
+The same boundary is now plug-in ready for real calls. With `VNPT_PROVIDER_MODE=mock`, the backend remains fully offline. With `VNPT_PROVIDER_MODE=real` and `VNPT_ACCESS_TOKEN`, `VNPT_TOKEN_ID`, `VNPT_TOKEN_KEY`, and `VNPT_EKYC_TOKEN` set server-side, the Shield challenge calls:
+
+- `POST /ai/v1/face/liveness`
+- `POST /ai/v1/face/mask`
+- `POST /ai/v1/face/compare`
+- `POST /stt-service/v3/standard`
+
+The adapter keeps credentials out of the frontend, sends image refs as base64 if they resolve to local files, sends STT as binary audio, then normalizes the provider JSON into the existing Shield scoring fields. VNPT face liveness is treated as boolean: not-live fails Stage 2, live adds no liveness risk. Once real payloads are recorded, tune `ekyc_face_match_score`, `stt_confidence`, and intervention thresholds against actual VNPT score distributions.
+
+For `face/compare`, the request schema accepts `ekyc_document_ref` separately from `ekyc_image_ref`. The browser demo now uses mock document portrait refs from `mock_payload/customer_document_faces/`; production should send a document/front-ID image plus a live face image.
+
 ## Cross-Check Summary
 
 | VNPT product | Public contract status | Current mock coverage | Main schema gap | Recommended schema update |
@@ -50,7 +63,7 @@ This lets us:
 | SmartReader | Full endpoint contracts for upload, OCR, table OCR, VAT invoice OCR, business registration OCR | Grow `ocr`, fake receipts | Missing file hash, client session, endpoint ID, warnings, VAT invoice native fields | Add provider trace and extend OCR extracted fields |
 | SmartVoice STT | Full endpoint contracts for REST, async, gRPC, WebSocket STT | Shield `stt_transcript`, Grow `voice_entry` | Missing audio ID, audio URL/hash, transcript model, alternatives, async status | Add provider trace and STT metadata fields |
 | SmartVoice TTS | Full endpoint contracts for TTS submit/status/download | Shield intervention docs, Smartbot advice text | No TTS output schema for generated intervention audio | Add `intervention_tts` or response-side TTS block |
-| SmartVoice voice verification | Endpoint contracts for voice upload/encode/verify | Not currently modeled | Missing audio verification score/similarity | Optional `voice_verification` block |
+| SmartVoice voice verification | Endpoint contracts for voice upload/encode/verify | Shield challenge `voice_verification_status`, `voice_match_score`, `voice_match_threshold` | Missing persistent enrollment and voice reference DB | Add provider trace/persistent enrollment store later |
 | eKYC | Full endpoint contracts for ID OCR, liveness, mask, face compare, face verify/search | Shield `ekyc_*` flat fields | Missing client session, file hashes, result/msg/prob, card liveness, face swapping, fake liveness, tampering warnings | Add nested `ekyc_result` while keeping flat fields for MVP |
 | SmartUX | Public SDK methods only, no REST contract | Shield `smartux_*` fields | Missing SDK session/event metadata | Add optional SDK trace fields, keep current risk fields |
 | SmartBot | Product/API/RAG mention only, no public endpoint contract | Shield `llm_*`, Grow `smartbot_advice` | Missing bot session, policy/model version, RAG source refs | Add optional Smartbot trace metadata |
@@ -205,12 +218,40 @@ Recommended response-side block:
 
 This belongs in Shield response/intervention orchestration, not in incoming transaction risk input.
 
+### SmartVoice Voice Verification
+
+Current fields:
+
+- `voice_reference_source`
+- `voice_verification_status`
+- `voice_match_score`
+- `voice_match_threshold`
+
+VNPT contract flow:
+
+- upload reference and challenge audio with `/v1/voice-id/audio/upload`
+- encode uploaded audio URLs with `/v1/voice-id/audio/encode`
+- compare encoded IDs with `/voiceid/api/v1/audio/verify`
+
+Recommended Shield behavior:
+
+```json
+{
+  "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
+  "voice_verification_status": "passed",
+  "voice_match_score": 0.91,
+  "voice_match_threshold": 0.75
+}
+```
+
+Voice verification should answer only whether the challenge voice resembles the enrolled customer sample. It should not replace scam-script detection, coercion detection, or eKYC. In the MVP scorer, a score below `0.55` fails Stage 2, a score below `0.75` enters review, and a score at or above threshold adds no voice-identity risk.
+
 ### eKYC
 
 Current fields:
 
 - `ekyc_verification_status`
-- `ekyc_liveness_score`
+- `ekyc_liveness_passed`
 - `ekyc_mask_detected`
 - `ekyc_face_match_score`
 - `ekyc_injection_risk_score`

@@ -309,6 +309,7 @@ def build_shield_scenario(rng: random.Random, index: int, category: str) -> dict
             "audio_source": make_audio_source(category, index) if consent_granted else None,
             "stt_transcript": transcript if consent_granted else "",
             "stt_confidence": make_confidence(rng, 0.86, 0.98) if consent_granted else None,
+            **make_voice_verification_signals(rng, category, consent_granted),
             "detected_patterns": detected_patterns_for_category(category),
             "llm_scam_type": llm_scam_type,
             "llm_confidence": make_confidence(rng, 0.78, 0.96) if llm_scam_type else None,
@@ -1070,6 +1071,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
         "otp_theft": {
             "status": "passed",
@@ -1082,6 +1084,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
         "investment": {
             "status": "passed",
@@ -1094,6 +1097,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
         "remote_support": {
             "status": "review",
@@ -1111,6 +1115,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": True,
             "accessibility": True,
             "screen_sharing": True,
+            "liveness_passed": True,
         },
         "legitimate_supplier": {
             "status": "passed",
@@ -1123,6 +1128,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
     }
     spec = specs[category]
@@ -1133,6 +1139,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
         "accessibility_service_risk": spec["accessibility"],
         "screen_sharing_detected": spec["screen_sharing"],
         "ekyc_verification_status": spec["status"],
+        "ekyc_liveness_passed": spec["liveness_passed"],
         "ekyc_liveness_score": make_confidence(rng, *spec["liveness"]),
         "ekyc_mask_detected": False,
         "ekyc_face_match_score": make_confidence(rng, *spec["face_match"]),
@@ -1145,6 +1152,30 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
 
 def make_audio_source(category: str, index: int) -> str:
     return f"fixtures/audio/synthetic/{category}-{index:04d}.wav"
+
+
+def make_voice_verification_signals(
+    rng: random.Random,
+    category: str,
+    consent_granted: bool,
+) -> dict[str, Any]:
+    if not consent_granted:
+        return {
+            "voice_reference_source": None,
+            "voice_verification_status": "not_checked",
+            "voice_match_score": None,
+            "voice_match_threshold": None,
+        }
+
+    score_range = (0.84, 0.98)
+    if category == "remote_support":
+        score_range = (0.76, 0.94)
+    return {
+        "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
+        "voice_verification_status": "passed",
+        "voice_match_score": make_confidence(rng, *score_range),
+        "voice_match_threshold": 0.75,
+    }
 
 
 def make_confidence(rng: random.Random, low: float, high: float) -> float:
