@@ -258,6 +258,7 @@ class GrowAnalyzeResponse(BaseModel):
     loan_readiness: str
     explanations: list[Explanation]
     recommended_action: str
+    credit_explainability: CreditExplainability | None = None
 
 
 class GrowProcessRequest(BaseModel):

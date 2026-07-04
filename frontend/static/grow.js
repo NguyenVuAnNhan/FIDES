@@ -1,5 +1,4 @@
 const growForm = document.querySelector("#grow-form");
-const growScenario = document.querySelector("#grow-scenario");
 const growUpload = document.querySelector("#grow-upload");
 const growUploadLabel = document.querySelector("#grow-upload-label");
 const growReceiptPreview = document.querySelector("#grow-receipt-preview");
@@ -8,53 +7,25 @@ const growBack = document.querySelector("#grow-back");
 const growNext = document.querySelector("#grow-next");
 const growStatus = document.querySelector("#grow-status");
 const growStepExtractBody = document.querySelector("#grow-step-extract-body");
-const growStepFinanceBody = document.querySelector("#grow-step-finance-body");
 const growStepCreditBody = document.querySelector("#grow-step-credit-body");
 const growInputSource = growForm.elements.namedItem("input_source");
 
 const WIZARD_STEPS = [
   { id: 1, nextLabel: "Run analysis" },
-  { id: 2, nextLabel: "Continue to financial health" },
-  { id: 3, nextLabel: "Continue to credit & capital" },
-  { id: 4, nextLabel: "Start new case" },
+  { id: 2, nextLabel: "Continue to credit score" },
+  { id: 3, nextLabel: "Start new case" },
 ];
 
-let activeGrowItems = [];
 let currentStep = 1;
 let lastProcessResponse = null;
 
 initGrowPage();
 
-async function initGrowPage() {
-  try {
-    await loadDemoDataset();
-    populateScenarioSelect(growScenario, window.fidesDemoDataset.grow_invoices);
-    growScenario.dispatchEvent(new Event("change"));
-    setWizardStep(1);
-  } catch (error) {
-    console.error(error);
-    setGrowStatus("Failed to load Grow demo scenarios.");
-  }
-}
-
-growScenario.addEventListener("change", () => {
-  const selected = getSelectedDemoItem("grow_invoices", growScenario.value);
-  if (!selected) {
-    return;
-  }
-
-  activeGrowItems = selected.payload.items ?? [];
-  fillForm(growForm, selected.payload);
-  if (growUpload) {
-    growUpload.value = "";
-  }
-  setUploadLabel("Using demo fixture receipt.");
-  updateGrowReceiptPreview(selected.payload.input_source);
-  lastProcessResponse = null;
-  clearResultPanels();
+function initGrowPage() {
+  resetCaptureForm();
   setWizardStep(1);
-  setGrowStatus("");
-});
+  setGrowStatus("Upload a receipt image to begin.");
+}
 
 if (growUpload) {
   growUpload.addEventListener("change", async () => {
@@ -68,8 +39,11 @@ if (growUpload) {
     try {
       const uploaded = await uploadReceipt(file);
       growInputSource.value = uploaded.input_source;
-      activeGrowItems = [];
-      setUploadLabel(`Uploaded: ${file.name} → ${uploaded.input_source}`);
+      setFieldValue(growForm, "invoice_id", "");
+      setFieldValue(growForm, "business_name", "");
+      setFieldValue(growForm, "customer_name", "");
+      setFieldValue(growForm, "invoice_total", "0");
+      setUploadLabel(`Uploaded: ${file.name}`);
       updateGrowReceiptPreview(uploaded.input_source);
       lastProcessResponse = null;
       clearResultPanels();
@@ -95,12 +69,14 @@ growNext.addEventListener("click", async () => {
     return;
   }
 
-  if (currentStep < 4) {
+  if (currentStep < 3) {
     setWizardStep(currentStep + 1);
     return;
   }
 
-  growScenario.dispatchEvent(new Event("change"));
+  resetCaptureForm();
+  setWizardStep(1);
+  setGrowStatus("Upload a receipt image to begin.");
 });
 
 growForm.addEventListener("submit", (event) => {
@@ -109,8 +85,13 @@ growForm.addEventListener("submit", (event) => {
 
 async function runGrowAnalysis() {
   const payload = buildMinimalGrowRequest(new FormData(growForm));
+  if (!payload.input_source) {
+    setGrowStatus("Upload a receipt image before running analysis.");
+    return;
+  }
+
   growNext.disabled = true;
-  setGrowStatus("Running PaddleOCR on receipt image, then ledger, cashflow, and credit scoring...");
+  setGrowStatus("Running PaddleOCR on receipt image, then LightGBM credit scoring...");
 
   try {
     lastProcessResponse = await postJson("/api/grow/process-invoice", payload);
@@ -120,7 +101,7 @@ async function runGrowAnalysis() {
       confidence != null ? ` Confidence ${Math.round(confidence * 100)}%.` : "";
     renderWizardResults(lastProcessResponse);
     setGrowStatus(
-      `Analysis complete via ${provider}.${confidenceText} Review each step to see how Grow built the trust profile.`,
+      `Analysis complete via ${provider}.${confidenceText} Review OCR extraction and credit score.`,
     );
     setWizardStep(2);
   } catch (error) {
@@ -128,6 +109,25 @@ async function runGrowAnalysis() {
   } finally {
     growNext.disabled = false;
   }
+}
+
+function resetCaptureForm() {
+  if (growUpload) {
+    growUpload.value = "";
+  }
+  growInputSource.value = "";
+  setFieldValue(growForm, "invoice_id", "");
+  setFieldValue(growForm, "business_name", "");
+  setFieldValue(growForm, "customer_name", "");
+  setFieldValue(growForm, "invoice_total", "0");
+  const paidOnTime = growForm.elements.namedItem("paid_on_time");
+  if (paidOnTime) {
+    paidOnTime.checked = true;
+  }
+  setUploadLabel("No receipt uploaded yet.");
+  updateGrowReceiptPreview("");
+  lastProcessResponse = null;
+  clearResultPanels();
 }
 
 function formatApiError(message) {
@@ -177,19 +177,8 @@ function renderWizardResults(response) {
     </div>
   `;
 
-  growStepFinanceBody.innerHTML = `
-    <div class="grow-stage">
-      ${renderGrowLedgerStage(request, request.cashflow_forecast ?? {})}
-    </div>
-    ${renderEInvoiceBlock(request.einvoice_status)}
-  `;
-
-  const profile = request.alternative_credit_profile ?? {};
-  const capital = request.capital_connection ?? {};
-  const offers = capital.partner_offers ?? [];
-  const recommended =
-    offers.find((offer) => offer.offer_id === capital.recommended_offer_id) ?? offers[0];
-  const contributions = profile.explainability?.feature_contributions?.slice(0, 3) ?? [];
+  const explainability = analysis.credit_explainability ?? {};
+  const contributions = explainability.feature_contributions?.slice(0, 7) ?? [];
 
   growStepCreditBody.innerHTML = `
     <div class="metric-row">
@@ -200,10 +189,7 @@ function renderWizardResults(response) {
     </div>
     <p class="grow-summary">${escapeHtml(analysis.recommended_action)}</p>
     <div class="grow-stage">
-      ${renderGrowCreditStage(profile, contributions)}
-    </div>
-    <div class="grow-stage">
-      ${renderGrowCapitalStage(capital, recommended, analysis)}
+      ${renderGrowCreditStage(explainability, contributions, analysis.trust_score)}
     </div>
     ${renderExplanations(analysis.explanations)}
   `;
@@ -225,24 +211,6 @@ function renderLedgerBlock(ledger) {
       <div><dt>Source</dt><dd>${escapeHtml(formatValue(ledger.source_type))}</dd></div>
       <div><dt>Confidence</dt><dd>${ledger.confidence != null ? ledger.confidence.toFixed(2) : "n/a"}</dd></div>
     </dl>
-  `;
-}
-
-function renderEInvoiceBlock(einvoice) {
-  if (!einvoice) {
-    return "";
-  }
-
-  const errors = einvoice.validation_errors?.length
-    ? `<p class="stage-muted">Validation: ${escapeHtml(einvoice.validation_errors.join(", "))}</p>`
-    : "";
-
-  return `
-    <div class="grow-stage">
-      <h4>E-invoice compliance</h4>
-      <p class="stage-lead">Status: <strong>${escapeHtml(formatValue(einvoice.status))}</strong> for ${escapeHtml(einvoice.invoice_id)}.</p>
-      ${errors}
-    </div>
   `;
 }
 
@@ -270,7 +238,6 @@ function setWizardStep(step) {
 
 function clearResultPanels() {
   growStepExtractBody.innerHTML = "";
-  growStepFinanceBody.innerHTML = "";
   growStepCreditBody.innerHTML = "";
 }
 
@@ -279,20 +246,16 @@ function setGrowStatus(message) {
 }
 
 function buildMinimalGrowRequest(form) {
-  const items = activeGrowItems.length
-    ? activeGrowItems
-    : [{ description: "Goods and services", amount: Number(form.get("invoice_total")) }];
-
   return {
-    business_id: String(form.get("business_id")),
-    business_name: String(form.get("business_name")),
-    input_mode: String(form.get("input_mode")),
+    business_id: String(form.get("business_id") || "biz_demo"),
+    business_name: String(form.get("business_name") || ""),
+    input_mode: String(form.get("input_mode") || "invoice_photo"),
     input_source: emptyToNull(form.get("input_source")),
-    invoice_id: String(form.get("invoice_id")),
-    customer_name: String(form.get("customer_name")),
-    invoice_total: Number(form.get("invoice_total")),
+    invoice_id: String(form.get("invoice_id") || ""),
+    customer_name: String(form.get("customer_name") || ""),
+    invoice_total: Number(form.get("invoice_total") || 0),
     paid_on_time: form.get("paid_on_time") === "on",
-    items,
+    items: [],
   };
 }
 
@@ -314,7 +277,7 @@ function renderGrowOcrStage(ocr, extracted, request) {
     <h4>Fields read from receipt image</h4>
     <p class="stage-lead">
       Invoice ${escapeHtml(extracted.invoice_id || request.invoice_id)} extracted by
-      <strong>${escapeHtml(provider)}</strong> (not demo JSON).
+      <strong>${escapeHtml(provider)}</strong> from the uploaded image.
     </p>
     <p class="stage-muted">Source: ${escapeHtml(request.input_source || "n/a")}</p>
     <dl class="stage-facts">
@@ -333,78 +296,31 @@ function renderGrowOcrStage(ocr, extracted, request) {
   `;
 }
 
-function renderGrowLedgerStage(request, forecast) {
-  const summary = request.cashflow_summary;
-  const tax = request.tax_summary;
-
-  const cashflowLine = summary
-    ? `${escapeHtml(summary.period)} net cashflow ${formatMoney(summary.net_cashflow)} (in ${formatMoney(summary.total_inflow)}, out ${formatMoney(summary.total_outflow)}).`
-    : "";
-
-  const forecastLine = forecast.forecast_period_days
-    ? `${forecast.forecast_period_days}-day liquidity risk: <strong>${escapeHtml(formatValue(forecast.liquidity_risk_level))}</strong>${
-        forecast.shortfall_amount
-          ? `; projected shortfall ${formatMoney(forecast.shortfall_amount)}`
-          : "; no shortfall projected"
-      }.`
-    : "";
-
-  const taxLine = tax
-    ? `Tax draft: VAT estimate ${formatMoney(tax.vat_estimate)}, filing ${escapeHtml(formatValue(tax.filing_status))}.`
-    : "";
-
-  return `
-    ${cashflowLine ? `<p class="stage-lead">${cashflowLine}</p>` : ""}
-    ${forecastLine ? `<p>${forecastLine}</p>` : ""}
-    ${taxLine ? `<p>${taxLine}</p>` : ""}
-  `;
-}
-
-function renderGrowCreditStage(profile, contributions) {
-  if (!profile.alternative_credit_score) {
-    return `<p class="stage-muted">Alternative credit profile not available.</p>`;
+function renderGrowCreditStage(explainability, contributions, trustScore) {
+  if (!contributions.length) {
+    return `<p class="stage-muted">Credit explainability not available.</p>`;
   }
 
+  const modelVersion = explainability.model_version || "n/a";
+  const baseline = explainability.baseline_score ?? "n/a";
+
   return `
-    <h4>Alternative credit profile</h4>
+    <h4>LightGBM credit model</h4>
     <p class="stage-lead">
-      Score <strong>${profile.alternative_credit_score}/100</strong>
-      · trust graph ${profile.trust_graph_score?.toFixed(2) ?? "n/a"}
-      · vnSocial ${profile.vn_social_reputation_score?.toFixed(2) ?? "n/a"}
+      Model <strong>${escapeHtml(modelVersion)}</strong>
+      · baseline ${escapeHtml(String(baseline))}
+      · final <strong>${trustScore}/100</strong>
     </p>
-    ${
-      contributions.length
-        ? `<div class="shap-list">${contributions
-            .map(
-              (item) => `
-                <div class="shap-row">
-                  <span class="shap-label">${escapeHtml(formatValue(item.feature))}</span>
-                  <span class="shap-value ${item.direction}">${item.shap_value > 0 ? "+" : ""}${item.shap_value}</span>
-                </div>
-              `,
-            )
-            .join("")}</div>`
-        : ""
-    }
-  `;
-}
-
-function renderGrowCapitalStage(capital, recommended, result) {
-  const advice = capital.smartbot_advice?.message;
-
-  return `
-    <h4>Partner capital connection</h4>
-    ${
-      recommended
-        ? `<div class="offer-card">
-            <strong>${escapeHtml(recommended.partner_name)} · ${escapeHtml(formatValue(recommended.product_type))}</strong>
-            <span>Up to ${formatMoney(recommended.max_amount)} · ${escapeHtml(formatValue(recommended.eligibility_status))}</span>
-            <span>${escapeHtml(recommended.reason)}</span>
-          </div>`
-        : `<p class="stage-muted">No partner offer matched.</p>`
-    }
-    ${advice ? `<p class="smartbot-advice">${escapeHtml(advice)}</p>` : ""}
-    <p class="stage-muted">Final readiness: ${escapeHtml(formatValue(result.loan_readiness))}.</p>
+    <div class="shap-list">${contributions
+      .map(
+        (item) => `
+          <div class="shap-row">
+            <span class="shap-label">${escapeHtml(formatValue(item.feature))}</span>
+            <span class="shap-value ${item.direction}">${item.shap_value > 0 ? "+" : ""}${item.shap_value}</span>
+          </div>
+        `,
+      )
+      .join("")}</div>
   `;
 }
 

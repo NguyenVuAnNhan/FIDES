@@ -124,17 +124,39 @@ Generate curated fake receipt PNGs:
 python3 scripts/generate_receipt_fixtures.py
 ```
 
+Files are written to `frontend/static/fixtures/receipts/` for upload/OCR testing.
+
 ## Grow OCR flow
 
 `POST /api/grow/process-invoice` no longer loads curated demo JSON for scoring inputs.
 
-1. Resolve `input_source` under `frontend/static/fixtures/receipts/` (path-safe).
+1. Resolve `input_source` under allowed receipt paths (path-safe).
 2. Run **PaddleOCR** on the PNG.
 3. Parse fields (`seller`, `buyer`, `invoice_id`, `total`, line items).
-4. Build ledger / cashflow / credit / capital from OCR output.
-5. Return `{ request, analysis }` for the Grow wizard.
+4. Normalize a ledger entry from OCR output.
+5. Score with **LightGBM** and return `{ request, analysis }` for the Grow wizard.
 
 Form fields `business_id` and `paid_on_time` still come from the UI; invoice identity and amounts come from OCR.
+
+## Grow ML credit scoring
+
+Grow uses a **LightGBM** model trained on synthetic invoice features with rule-based labels.
+
+Features (7):
+
+- `paid_on_time`, `invoice_total`, `log_invoice_total`, `item_count`, `avg_line_amount`, `tax_ratio`, `ocr_confidence`
+
+Train or retrain:
+
+```bash
+source .venv/bin/activate
+python scripts/train_grow_credit_model.py
+python scripts/smoke_grow_ml.py
+```
+
+Model artifacts: `backend/app/data/models/grow_credit_lgb.txt` and `grow_credit_model_meta.json`.
+
+The live Grow pipeline keeps only implemented stages: **PaddleOCR → ledger → LightGBM + SHAP**. Mock trust graph, vnSocial, cashflow, tax, e-invoice, and partner capital blocks were removed from the pipeline and wizard.
 
 ## Next Build Steps
 

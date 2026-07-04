@@ -25,8 +25,12 @@ python scripts/generate_receipt_fixtures.py
 mkdir -p frontend/static/uploads/receipts
 touch frontend/static/uploads/receipts/.gitkeep
 
+echo "==> Training Grow credit model"
+python scripts/train_grow_credit_model.py
+
 echo "==> Running Grow smoke checks"
 python scripts/test_receipt_parser.py
+python scripts/smoke_grow_ml.py
 python scripts/smoke_grow.py
 
 if [[ "${1:-}" == "--no-run" ]]; then

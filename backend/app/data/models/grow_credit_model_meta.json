@@ -1,0 +1,15 @@
+{
+  "model_version": "grow_credit_lgb_v1",
+  "feature_names": [
+    "paid_on_time",
+    "invoice_total",
+    "log_invoice_total",
+    "item_count",
+    "avg_line_amount",
+    "tax_ratio",
+    "ocr_confidence"
+  ],
+  "training_samples": 3000,
+  "valid_rmse": 0.19666729101656566,
+  "best_iteration": 243
+}
