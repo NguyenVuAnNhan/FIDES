@@ -75,9 +75,17 @@ class ShieldAnalyzeResponse(BaseModel):
     trusted_authority_notification: bool = False
     trusted_authority_message: str | None = None
     transaction_hold_hours: int = Field(default=0, ge=0)
+    challenge_profile: str | None = None
+    mock_provider_calls: list[Explanation] = Field(default_factory=list)
     scam_type: str | None
     explanations: list[Explanation]
     intervention_message: str
+
+
+class ShieldChallengeRequest(BaseModel):
+    transaction: ShieldAnalyzeRequest
+    challenge_profile: str = "clear_user"
+    spoken_response: str = ""
 
 
 class InvoiceItem(BaseModel):

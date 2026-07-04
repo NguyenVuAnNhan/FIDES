@@ -43,7 +43,7 @@ That is enough for the first demo. A later response can add a richer structured 
 | Stage | Action | Meaning |
 | --- | --- | --- |
 | Stage 1 clear | `allow_with_notice` | Outer context did not trip; transfer proceeds with a normal reminder. |
-| Stage 1 tripped, Stage 2 missing | `require_camera_voice_check` | Ask the user to open the camera and speak into the app with consent. |
+| Stage 1 tripped, Stage 2 missing | `require_camera_voice_check` | Ask the user to open the camera and speak into the app with consent, then call `POST /api/shield/challenge` with a mock challenge profile. |
 | Stage 1 tripped, Stage 2 cleared | `allow_after_challenge` | The transfer proceeds after the invasive check does not find enough evidence to hold. |
 | Stage 1 tripped, Stage 2 failed | `withhold_24h_notify_trusted_authority` | Hold the transfer for 24 hours and notify the bank fraud desk or trusted escalation path. |
 

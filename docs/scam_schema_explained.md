@@ -373,6 +373,24 @@ action = require_camera_voice_check
 ```
 
 This means the app should ask the user, with consent, to open the camera and speak into the app.
+In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with:
+
+```json
+{
+  "transaction": { "...": "original ShieldAnalyzeRequest" },
+  "challenge_profile": "clear_user",
+  "spoken_response": "User's challenge phrase or demo transcript"
+}
+```
+
+The backend does not automatically pass the challenge. It calls mocked provider APIs and re-runs Shield analysis from their outputs:
+
+- mock eKYC API: liveness, mask/spoof, face match, injection risk
+- mock SmartVoice API: speech-to-text transcript and confidence
+- mock Smartbot API: scam-script classification and confidence
+- mock coercion API: voice stress, visual distress, scripted behavior, aggregate coercion
+
+Available demo profiles are `clear_user`, `coerced_authority`, `deepfake_injection`, and `scripted_remote_support`.
 
 ### Stage 2: Invasive Camera And Voice Challenge
 
@@ -430,6 +448,8 @@ It also includes staged fields:
 - `trusted_authority_notification`
 - `trusted_authority_message`
 - `transaction_hold_hours`
+- `challenge_profile`
+- `mock_provider_calls`
 
 This is a good MVP design because judges can inspect why the low-friction circuit tripped separately from why the invasive challenge passed or failed.
 

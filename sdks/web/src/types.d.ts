@@ -28,6 +28,11 @@ export type ShieldTransactionInput = {
   consent_granted?: boolean;
 };
 
+export type ShieldChallengeOptions = Record<string, unknown> & {
+  challenge_profile?: "clear_user" | "coerced_authority" | "deepfake_injection" | "scripted_remote_support";
+  spoken_response?: string;
+};
+
 export type TelemetrySnapshot = {
   native_telemetry_available: boolean;
   native_telemetry_source: string;
@@ -54,7 +59,7 @@ export declare class FidesWebSdk {
   buildTelemetrySnapshot(overrides?: Record<string, unknown>): TelemetrySnapshot;
   buildShieldPayload(transaction: ShieldTransactionInput, overrides?: Record<string, unknown>): Record<string, unknown>;
   analyzeShield(transaction: ShieldTransactionInput, overrides?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  challengeShield(transaction: ShieldTransactionInput, options?: ShieldChallengeOptions): Promise<Record<string, unknown>>;
   analyzeGrow(payload: Record<string, unknown>): Promise<Record<string, unknown>>;
   postJson(path: string, payload: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
-

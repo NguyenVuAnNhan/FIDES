@@ -25,6 +25,7 @@ Open http://127.0.0.1:8000.
 - `GET /api/demo/dataset`
 - `GET /api/demo/synthetic-dataset`
 - `POST /api/shield/analyze`
+- `POST /api/shield/challenge`
 - `POST /api/grow/analyze-invoice`
 
 ## SDK Scaffolds

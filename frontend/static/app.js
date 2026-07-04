@@ -6,6 +6,7 @@ const shieldResult = document.querySelector("#shield-result");
 const growResult = document.querySelector("#grow-result");
 const growReceiptPreview = document.querySelector("#grow-receipt-preview");
 let activeGrowItems = [];
+let lastShieldPayload = null;
 
 loadDemoDataset();
 
@@ -30,8 +31,46 @@ growScenario.addEventListener("change", () => {
 
 shieldForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const form = new FormData(shieldForm);
-  const payload = {
+  const payload = buildShieldPayload(new FormData(shieldForm));
+  lastShieldPayload = payload;
+
+  shieldResult.className = "result empty";
+  shieldResult.textContent = "Analyzing Shield risk...";
+  const response = await postJson("/api/shield/analyze", payload);
+  shieldResult.className = "result";
+  shieldResult.innerHTML = renderShield(response);
+});
+
+shieldResult.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-shield-challenge]");
+  if (!button) {
+    return;
+  }
+
+  button.disabled = true;
+  await runShieldChallenge();
+});
+
+async function runShieldChallenge() {
+  const payload = lastShieldPayload ?? buildShieldPayload(new FormData(shieldForm));
+  const challengeProfile = shieldResult.querySelector("[data-shield-challenge-profile]")?.value ?? "clear_user";
+  const spokenResponse = shieldResult.querySelector("[data-shield-spoken-response]")?.value ?? "";
+  const challengeRequest = {
+    transaction: payload,
+    challenge_profile: challengeProfile,
+    spoken_response: spokenResponse,
+  };
+
+  shieldResult.className = "result empty";
+  shieldResult.textContent = "Running camera and voice challenge...";
+  const response = await postJson("/api/shield/challenge", challengeRequest);
+  lastShieldPayload = payload;
+  shieldResult.className = "result";
+  shieldResult.innerHTML = renderShield(response);
+}
+
+function buildShieldPayload(form) {
+  return {
     transaction_amount: Number(form.get("transaction_amount")),
     recipient_name: String(form.get("recipient_name")),
     recipient_account: String(form.get("recipient_account")),
@@ -84,13 +123,7 @@ shieldForm.addEventListener("submit", async (event) => {
     coercion_confidence: numberOrNull(form.get("coercion_confidence")),
     transcript: String(form.get("transcript")),
   };
-
-  shieldResult.className = "result empty";
-  shieldResult.textContent = "Analyzing Shield risk...";
-  const response = await postJson("/api/shield/analyze", payload);
-  shieldResult.className = "result";
-  shieldResult.innerHTML = renderShield(response);
-});
+}
 
 growForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -170,8 +203,36 @@ function renderShield(result) {
     </div>
     ${renderShieldCircuitBreaker(result)}
     <p>${escapeHtml(result.intervention_message)}</p>
+    ${renderShieldChallengeAction(result)}
     ${renderTrustedAuthorityNotice(result)}
     ${renderExplanations(result.explanations)}
+  `;
+}
+
+function renderShieldChallengeAction(result) {
+  if (result.action !== "require_camera_voice_check") {
+    return "";
+  }
+
+  return `
+    <div class="challenge-actions">
+      <label class="challenge-field">
+        Mock API outcome
+        <select data-shield-challenge-profile>
+          <option value="clear_user">Clear user</option>
+          <option value="coerced_authority">Coerced authority script</option>
+          <option value="deepfake_injection">Deepfake injection</option>
+          <option value="scripted_remote_support">Scripted remote support</option>
+        </select>
+      </label>
+      <label class="challenge-field wide-challenge-field">
+        Spoken response
+        <textarea data-shield-spoken-response rows="3">Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai. Toi da tu kiem tra nguoi nhan va muon tiep tuc.</textarea>
+      </label>
+      <button type="button" class="secondary-button" data-shield-challenge="run">
+        Submit Camera/Voice Challenge
+      </button>
+    </div>
   `;
 }
 

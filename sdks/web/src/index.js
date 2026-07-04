@@ -135,6 +135,19 @@ export class FidesWebSdk {
     return this.postJson("/api/shield/analyze", this.buildShieldPayload(transaction, overrides));
   }
 
+  async challengeShield(transaction, options = {}) {
+    const {
+      challenge_profile = "clear_user",
+      spoken_response = "",
+      ...payloadOverrides
+    } = options;
+    return this.postJson("/api/shield/challenge", {
+      transaction: this.buildShieldPayload(transaction, payloadOverrides),
+      challenge_profile,
+      spoken_response,
+    });
+  }
+
   async analyzeGrow(payload) {
     return this.postJson("/api/grow/analyze-invoice", payload);
   }
