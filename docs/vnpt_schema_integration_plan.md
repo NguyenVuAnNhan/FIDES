@@ -63,7 +63,7 @@ For `face/compare`, the request schema accepts `ekyc_document_ref` separately fr
 | SmartReader | Full endpoint contracts for upload, OCR, table OCR, VAT invoice OCR, business registration OCR | Grow `ocr`, fake receipts | Missing file hash, client session, endpoint ID, warnings, VAT invoice native fields | Add provider trace and extend OCR extracted fields |
 | SmartVoice STT | Full endpoint contracts for REST, async, gRPC, WebSocket STT | Shield `stt_transcript`, Grow `voice_entry` | Missing audio ID, audio URL/hash, transcript model, alternatives, async status | Add provider trace and STT metadata fields |
 | SmartVoice TTS | Full endpoint contracts for TTS submit/status/download | Shield intervention docs, Smartbot advice text | No TTS output schema for generated intervention audio | Add `intervention_tts` or response-side TTS block |
-| SmartVoice voice verification | Endpoint contracts for voice upload/encode/verify | Not currently modeled | Missing audio verification score/similarity | Optional `voice_verification` block |
+| SmartVoice voice verification | Endpoint contracts for voice upload/encode/verify | Shield challenge `voice_verification_status`, `voice_match_score`, `voice_match_threshold` | Missing persistent enrollment and voice reference DB | Add provider trace/persistent enrollment store later |
 | eKYC | Full endpoint contracts for ID OCR, liveness, mask, face compare, face verify/search | Shield `ekyc_*` flat fields | Missing client session, file hashes, result/msg/prob, card liveness, face swapping, fake liveness, tampering warnings | Add nested `ekyc_result` while keeping flat fields for MVP |
 | SmartUX | Public SDK methods only, no REST contract | Shield `smartux_*` fields | Missing SDK session/event metadata | Add optional SDK trace fields, keep current risk fields |
 | SmartBot | Product/API/RAG mention only, no public endpoint contract | Shield `llm_*`, Grow `smartbot_advice` | Missing bot session, policy/model version, RAG source refs | Add optional Smartbot trace metadata |
@@ -217,6 +217,34 @@ Recommended response-side block:
 ```
 
 This belongs in Shield response/intervention orchestration, not in incoming transaction risk input.
+
+### SmartVoice Voice Verification
+
+Current fields:
+
+- `voice_reference_source`
+- `voice_verification_status`
+- `voice_match_score`
+- `voice_match_threshold`
+
+VNPT contract flow:
+
+- upload reference and challenge audio with `/v1/voice-id/audio/upload`
+- encode uploaded audio URLs with `/v1/voice-id/audio/encode`
+- compare encoded IDs with `/voiceid/api/v1/audio/verify`
+
+Recommended Shield behavior:
+
+```json
+{
+  "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
+  "voice_verification_status": "passed",
+  "voice_match_score": 0.91,
+  "voice_match_threshold": 0.75
+}
+```
+
+Voice verification should answer only whether the challenge voice resembles the enrolled customer sample. It should not replace scam-script detection, coercion detection, or eKYC. In the MVP scorer, a score below `0.55` fails Stage 2, a score below `0.75` enters review, and a score at or above threshold adds no voice-identity risk.
 
 ### eKYC
 

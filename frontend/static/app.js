@@ -57,11 +57,14 @@ async function runShieldChallenge() {
   const ekycDocumentRef =
     shieldResult.querySelector("[data-shield-document-ref]")?.value ?? "mock_payload/customer_document_faces/doc_face_1";
   const sttAudioRef = shieldResult.querySelector("[data-shield-audio-ref]")?.value ?? "mock_payload/stt_audio_1";
+  const voiceReferenceRef =
+    shieldResult.querySelector("[data-shield-voice-ref]")?.value ?? "mock_payload/customer_voice_samples/voice_ref_1";
   const challengeRequest = {
     transaction: payload,
     ekyc_image_ref: ekycImageRef,
     ekyc_document_ref: ekycDocumentRef,
     stt_audio_ref: sttAudioRef,
+    voice_reference_ref: voiceReferenceRef,
     client_session: "shield-demo-browser-session",
   };
 
@@ -115,6 +118,10 @@ function buildShieldPayload(form) {
     audio_source: emptyToNull(form.get("audio_source")),
     stt_transcript: String(form.get("stt_transcript")),
     stt_confidence: numberOrNull(form.get("stt_confidence")),
+    voice_reference_source: emptyToNull(form.get("voice_reference_source")),
+    voice_verification_status: String(form.get("voice_verification_status") ?? "not_checked"),
+    voice_match_score: numberOrNull(form.get("voice_match_score")),
+    voice_match_threshold: numberOrNull(form.get("voice_match_threshold")),
     detected_patterns: parseList(form.get("detected_patterns")),
     llm_scam_type: emptyToNull(form.get("llm_scam_type")),
     llm_confidence: numberOrNull(form.get("llm_confidence")),
@@ -264,6 +271,13 @@ function renderShieldChallengeAction(result) {
         <select data-shield-audio-ref>
           <option value="mock_payload/stt_audio_1">stt_audio_1 · passes STT</option>
           <option value="mock_payload/stt_audio_2">stt_audio_2 · fails STT</option>
+        </select>
+      </label>
+      <label class="challenge-field">
+        Customer voice sample
+        <select data-shield-voice-ref>
+          <option value="mock_payload/customer_voice_samples/voice_ref_1">voice_ref_1 · enrolled customer</option>
+          <option value="mock_payload/customer_voice_samples/voice_ref_2">voice_ref_2 · alternate sample</option>
         </select>
       </label>
       <button type="button" class="secondary-button" data-shield-challenge="run">

@@ -4,7 +4,7 @@
 
 Shield scenarios model this MVP pipeline:
 
-`consent -> audio/visual source -> SmartVoice speech-to-text -> Smartbot scam-pattern classification -> coercion/distress signals -> Shield risk decision`
+`consent -> audio/visual source -> SmartVoice speech-to-text + voice verification -> Smartbot scam-pattern classification -> coercion/distress signals -> Shield risk decision`
 
 The dataset does not require real audio for every synthetic record. Instead, it stores stable mock references and the derived outputs needed to demo the product behavior.
 
@@ -16,6 +16,10 @@ The dataset does not require real audio for every synthetic record. Instead, it 
 | `audio_source` | string or null | Dataset fixture reference | Path or ID for the call audio. Real audio can be added later for curated cases. |
 | `stt_transcript` | string | Mock SmartVoice output | Transcript produced from the call audio. This is preferred over `transcript` when present. |
 | `stt_confidence` | number or null | Mock SmartVoice output | Speech-to-text confidence from `0.0` to `1.0`. |
+| `voice_reference_source` | string or null | Mock SmartVoice voice verification | Stored customer voice sample or enrollment reference. |
+| `voice_verification_status` | string | Mock SmartVoice voice verification | One of `not_checked`, `passed`, `review`, `failed`, or `skipped`. |
+| `voice_match_score` | number or null | Mock SmartVoice voice verification | Similarity/match score from `0.0` to `1.0`. |
+| `voice_match_threshold` | number or null | Shield config/mock provider | Threshold used to interpret `voice_match_score`; currently `0.75` in challenge mocks. |
 | `detected_patterns` | string array | Mock Smartbot output | Fine-grained scam-script signals found by the language model. |
 | `llm_scam_type` | string or null | Mock Smartbot output | Top-level scam class, such as `fake_authority`, `otp_theft`, `investment`, or `remote_support`. |
 | `llm_confidence` | number or null | Mock Smartbot output | Language-model confidence from `0.0` to `1.0`. |
@@ -68,9 +72,10 @@ The backend keeps backward compatibility:
 1. If `stt_transcript` exists, Shield analyzes it.
 2. Otherwise, Shield falls back to `transcript`.
 3. If `llm_scam_type` or `detected_patterns` exists and `consent_granted` is true, Shield uses the Smartbot classification as the primary scam-script signal.
-4. If no Smartbot output exists and `consent_granted` is true, Shield falls back to keyword pattern matching over the transcript.
-5. If `consent_granted` is false, Shield skips audio/transcript analysis. If the outer context circuit trips, the response asks for a consented camera and voice challenge before a final allow/hold decision.
-6. If `coercion_score` exists, Shield adds an explainable coercion/distress risk signal using the aggregate score and confidence.
+4. If voice verification fails or the match score is below threshold, Shield adds a Stage 2 voice-identity risk signal.
+5. If no Smartbot output exists and `consent_granted` is true, Shield falls back to keyword pattern matching over the transcript.
+6. If `consent_granted` is false, Shield skips audio/transcript analysis. If the outer context circuit trips, the response asks for a consented camera and voice challenge before a final allow/hold decision.
+7. If `coercion_score` exists, Shield adds an explainable coercion/distress risk signal using the aggregate score and confidence.
 
 ## Real-Life Mapping
 
@@ -79,6 +84,7 @@ In production:
 - `consent_granted` should come from an explicit consent flow.
 - `audio_source` should be short-lived and access-controlled, or replaced by a processing job ID.
 - `stt_transcript` and `stt_confidence` would come from SmartVoice.
+- `voice_verification_status` and `voice_match_score` would come from SmartVoice voice verification over a stored customer reference and the current challenge audio.
 - `detected_patterns`, `llm_scam_type`, and `llm_confidence` would come from Smartbot or another guarded language-model classifier.
 - `voice_stress_score` and `voice_stress_labels` could come from consented audio analysis.
 - `face_emotion_score` and `face_emotion_labels` require camera/video consent and should be framed as visual distress or behavioral cues, not definitive emotion or intent detection.

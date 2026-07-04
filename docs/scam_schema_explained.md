@@ -250,6 +250,10 @@ These fields model the SmartVoice and Smartbot pipeline.
   "audio_source": "fixtures/audio/fake-police-001.wav",
   "stt_transcript": "Toi la cong an...",
   "stt_confidence": 0.94,
+  "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
+  "voice_verification_status": "passed",
+  "voice_match_score": 0.91,
+  "voice_match_threshold": 0.75,
   "detected_patterns": [
     "fake_authority",
     "case_involvement",
@@ -268,6 +272,10 @@ Meaning:
 - `audio_source`: fixture path or future processing job reference.
 - `stt_transcript`: SmartVoice speech-to-text output.
 - `stt_confidence`: speech-to-text confidence.
+- `voice_reference_source`: stored customer voice sample or enrollment reference.
+- `voice_verification_status`: `not_checked`, `passed`, `review`, `failed`, or `skipped`.
+- `voice_match_score`: SmartVoice voice verification score/similarity.
+- `voice_match_threshold`: threshold used by Shield to interpret the match score.
 - `detected_patterns`: fine-grained Smartbot scam signals.
 - `llm_scam_type`: top-level scam type.
 - `llm_confidence`: scam classification confidence.
@@ -277,12 +285,14 @@ Production source:
 
 - User consent flow.
 - SmartVoice or STT provider.
+- SmartVoice voice verification.
 - Smartbot or guarded LLM classifier.
 
 MVP behavior:
 
 - If `stt_transcript` exists, Shield uses it.
 - Otherwise, Shield falls back to `transcript`.
+- If voice verification returns `failed` or a score below threshold, Shield adds Stage 2 voice-identity risk.
 - If `llm_scam_type` or `detected_patterns` exists, Shield uses the Smartbot classification.
 - Otherwise, it falls back to keyword matching.
 - If consent is false, audio/transcript analysis is skipped.
@@ -382,6 +392,7 @@ In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with
   "ekyc_image_ref": "mock_payload/ekyc_img_1",
   "ekyc_document_ref": "mock_payload/customer_document_faces/doc_face_1",
   "stt_audio_ref": "mock_payload/stt_audio_1",
+  "voice_reference_ref": "mock_payload/customer_voice_samples/voice_ref_1",
   "client_session": "shield-demo-browser-session"
 }
 ```
@@ -390,6 +401,7 @@ The backend does not automatically pass the challenge. In default `mock` mode, i
 
 - mock eKYC API: liveness, mask/spoof, face match, injection risk
 - mock SmartVoice API: speech-to-text transcript and confidence
+- mock SmartVoice voice verification API: customer voice match score
 - mock Smartbot API: scam-script classification and confidence
 - mock coercion API: voice stress, visual distress, scripted behavior, aggregate coercion
 
@@ -401,10 +413,12 @@ The current mock artifacts are:
 - `mock_payload/customer_document_faces/doc_face_2`: alternate mock document/front-ID portrait source.
 - `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
 - `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
+- `mock_payload/customer_voice_samples/voice_ref_1`: enrolled customer voice reference.
+- `mock_payload/customer_voice_samples/voice_ref_2`: alternate voice reference for mismatch demos.
 
-Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_passed`, `ekyc_face_match_score`, `stt_transcript`, and `stt_confidence`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
+Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_passed`, `ekyc_face_match_score`, `stt_transcript`, `stt_confidence`, and `voice_match_score`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
 
-For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token headers in `.env`. The same challenge route then calls real VNPT eKYC liveness, mask, face-compare, and SmartVoice STT endpoints. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the audio file sent as a binary STT body; `client_session` is passed through to VNPT for request correlation.
+For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token headers in `.env`. The same challenge route then calls real VNPT eKYC liveness, mask, face-compare, SmartVoice STT, and SmartVoice voice verification endpoints. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the audio file sent as a binary STT body and used as the challenge voice sample; `voice_reference_ref` is the stored customer voice sample; `client_session` is passed through for request correlation.
 
 ### Stage 2: Invasive Camera And Voice Challenge
 
@@ -415,6 +429,7 @@ Stage 2 runs only after Stage 1 trips. It uses higher-friction checks:
 - mask/spoof signal
 - face-match score
 - biometric injection risk
+- SmartVoice voice verification
 - SmartVoice transcript
 - Smartbot scam classification
 - transcript keyword fallback

@@ -66,6 +66,7 @@ def _run_mock_challenge_apis(
     provider_mode = vnpt_client.mode
     ekyc_fields, ekyc_call, ekyc_raw = _ekyc_api(challenge, vnpt_client)
     smartvoice_fields, smartvoice_call, smartvoice_raw = _smartvoice_api(challenge, vnpt_client)
+    voice_fields, voice_call, voice_raw = _voice_verification_api(challenge, vnpt_client)
     smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]))
     coercion_fields, coercion_call = _mock_coercion_api(challenge.ekyc_image_ref, challenge.stt_audio_ref)
 
@@ -74,6 +75,7 @@ def _run_mock_challenge_apis(
         "audio_source": challenge.stt_audio_ref,
         **ekyc_fields,
         **smartvoice_fields,
+        **voice_fields,
         **smartbot_fields,
         **coercion_fields,
         "transcript": smartvoice_fields["stt_transcript"],
@@ -83,8 +85,9 @@ def _run_mock_challenge_apis(
         "ekyc_face_mask": ekyc_raw["face_mask"],
         "ekyc_face_compare": ekyc_raw["face_compare"],
         "smartvoice_stt": smartvoice_raw,
+        "smartvoice_voice_verification": voice_raw,
     }
-    return fields, [ekyc_call, smartvoice_call, smartbot_call, coercion_call], raw_responses, provider_mode
+    return fields, [ekyc_call, smartvoice_call, voice_call, smartbot_call, coercion_call], raw_responses, provider_mode
 
 
 def _challenge_profile_from_artifacts(ekyc_image_ref: str, stt_audio_ref: str) -> str:
@@ -263,6 +266,59 @@ def _smartvoice_api(
             weight=0,
         ),
         stt_response,
+    )
+
+
+def _voice_verification_api(
+    challenge: ShieldChallengeRequest,
+    vnpt_client: VnptClient,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    if vnpt_client.enabled:
+        voice_response = vnpt_client.smartvoice_voice_verify(
+            challenge.voice_reference_ref,
+            challenge.stt_audio_ref,
+            challenge.client_session,
+        )
+        provider_label = "VNPT SmartVoice Voice Verification API"
+        source_detail = "called VNPT voice upload, encode, and verify endpoints"
+    else:
+        reference_artifact = _artifact_name(challenge.voice_reference_ref or "no_voice_reference")
+        challenge_artifact = _artifact_name(challenge.stt_audio_ref)
+        voice_response = _load_vnpt_mock(
+            "smartvoice",
+            f"{reference_artifact}_{challenge_artifact}_voice_verify.json",
+        )
+        provider_label = "Mock SmartVoice Voice Verification API"
+        source_detail = "loaded VNPT-like voice verification response"
+
+    voice_object = _object(voice_response)
+    result_object = voice_object.get("result") if isinstance(voice_object.get("result"), dict) else {}
+    score = _provider_score(result_object.get("score") or result_object.get("similarity"), default=0.0)
+    threshold = 0.75
+    provider_ok = _truthy_provider_bool(voice_object.get("ok", True))
+    status = "passed"
+    if voice_response.get("skipped"):
+        status = "skipped"
+    elif not provider_ok:
+        status = "review"
+    elif score < 0.55:
+        status = "failed"
+    elif score < threshold:
+        status = "review"
+
+    detail = (
+        f"{provider_label} {source_detail} for reference {challenge.voice_reference_ref} "
+        f"and challenge audio {challenge.stt_audio_ref}. Status={status}, score={score:.2f}."
+    )
+    return (
+        {
+            "voice_reference_source": challenge.voice_reference_ref,
+            "voice_verification_status": status,
+            "voice_match_score": score,
+            "voice_match_threshold": threshold,
+        },
+        Explanation(label=provider_label, detail=detail, weight=0),
+        voice_response,
     )
 
 
@@ -620,6 +676,17 @@ def _score_invasive_check(request: ShieldAnalyzeRequest) -> tuple[int, list[Expl
             )
         )
 
+    voice_verification_weight = _voice_verification_weight(request)
+    if voice_verification_weight:
+        score += voice_verification_weight
+        explanations.append(
+            Explanation(
+                label="Voice verification risk",
+                detail=_build_voice_verification_detail(request),
+                weight=voice_verification_weight,
+            )
+        )
+
     if request.consent_granted and (request.llm_scam_type or request.detected_patterns):
         scam_type = request.llm_scam_type or _scam_type_from_patterns(request.detected_patterns)
         llm_weight = _llm_pattern_weight(request.llm_confidence)
@@ -679,6 +746,8 @@ def _has_invasive_check_evidence(request: ShieldAnalyzeRequest) -> bool:
             request.ekyc_injection_risk_score is not None,
             request.audio_source is not None,
             bool(request.stt_transcript),
+            request.voice_verification_status != "not_checked",
+            request.voice_match_score is not None,
             bool(request.detected_patterns),
             request.llm_scam_type is not None,
             request.voice_stress_score is not None,
@@ -766,6 +835,33 @@ def _build_llm_detail(request: ShieldAnalyzeRequest) -> str:
         pieces.append(f"Patterns: {', '.join(request.detected_patterns)}.")
     if request.llm_confidence is not None:
         pieces.append(f"Confidence: {request.llm_confidence:.2f}.")
+    return " ".join(pieces)
+
+
+def _voice_verification_weight(request: ShieldAnalyzeRequest) -> int:
+    status = request.voice_verification_status.lower()
+    if status == "failed":
+        return 25
+    if status == "review":
+        return 12
+    if request.voice_match_score is None:
+        return 0
+    threshold = request.voice_match_threshold or 0.75
+    if request.voice_match_score < 0.55:
+        return 25
+    if request.voice_match_score < threshold:
+        return 12
+    return 0
+
+
+def _build_voice_verification_detail(request: ShieldAnalyzeRequest) -> str:
+    pieces = [f"Status: {request.voice_verification_status}."]
+    if request.voice_reference_source:
+        pieces.append(f"Reference: {request.voice_reference_source}.")
+    if request.voice_match_score is not None:
+        pieces.append(f"Voice match score: {request.voice_match_score:.2f}.")
+    if request.voice_match_threshold is not None:
+        pieces.append(f"Threshold: {request.voice_match_threshold:.2f}.")
     return " ".join(pieces)
 
 

@@ -50,6 +50,10 @@ class ShieldAnalyzeRequest(BaseModel):
     audio_source: str | None = None
     stt_transcript: str = ""
     stt_confidence: float | None = Field(default=None, ge=0, le=1)
+    voice_reference_source: str | None = None
+    voice_verification_status: str = "not_checked"
+    voice_match_score: float | None = Field(default=None, ge=0, le=1)
+    voice_match_threshold: float | None = Field(default=None, ge=0, le=1)
     detected_patterns: list[str] = Field(default_factory=list)
     llm_scam_type: str | None = None
     llm_confidence: float | None = Field(default=None, ge=0, le=1)
@@ -93,6 +97,7 @@ class ShieldChallengeRequest(BaseModel):
     ekyc_image_ref: str = "mock_payload/ekyc_img_1"
     ekyc_document_ref: str | None = None
     stt_audio_ref: str = "mock_payload/stt_audio_1"
+    voice_reference_ref: str | None = "mock_payload/customer_voice_samples/voice_ref_1"
     client_session: str = "shield-demo-session"
 
 
