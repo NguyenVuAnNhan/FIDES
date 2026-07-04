@@ -40,12 +40,20 @@
 
           <div class="wizard-panel is-active" data-step="1">
             <h3 class="wizard-panel-title">1. Capture invoice evidence</h3>
-            <p class="wizard-panel-lead">Choose a demo business case and confirm the invoice details before Grow runs the pipeline.</p>
+            <p class="wizard-panel-lead">
+              Pick a demo case or upload your own receipt image. Grow runs
+              <strong>PaddleOCR</strong> on the image, then builds ledger, cashflow, and credit.
+            </p>
             <div class="wizard-grid">
               <label class="wide">
                 Invoice case
                 <select id="grow-scenario"></select>
               </label>
+              <label class="wide">
+                Or upload receipt image (PNG / JPG / WEBP)
+                <input id="grow-upload" type="file" accept="image/png,image/jpeg,image/webp" />
+              </label>
+              <p class="wide stage-muted" id="grow-upload-label">Using demo fixture receipt.</p>
               <div class="wide receipt-preview">
                 <img id="grow-receipt-preview" alt="Receipt preview" />
               </div>
@@ -69,7 +77,7 @@
           </div>
 
           <div class="wizard-panel" data-step="2" id="grow-step-extract" hidden>
-            <h3 class="wizard-panel-title">2. SmartReader extraction &amp; ledger</h3>
+            <h3 class="wizard-panel-title">2. PaddleOCR extraction &amp; ledger</h3>
             <div class="wizard-panel-body" id="grow-step-extract-body"></div>
           </div>
 

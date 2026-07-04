@@ -1,5 +1,7 @@
 const growForm = document.querySelector("#grow-form");
 const growScenario = document.querySelector("#grow-scenario");
+const growUpload = document.querySelector("#grow-upload");
+const growUploadLabel = document.querySelector("#grow-upload-label");
 const growReceiptPreview = document.querySelector("#grow-receipt-preview");
 const growWizardSteps = document.querySelector("#grow-wizard-steps");
 const growBack = document.querySelector("#grow-back");
@@ -8,6 +10,7 @@ const growStatus = document.querySelector("#grow-status");
 const growStepExtractBody = document.querySelector("#grow-step-extract-body");
 const growStepFinanceBody = document.querySelector("#grow-step-finance-body");
 const growStepCreditBody = document.querySelector("#grow-step-credit-body");
+const growInputSource = growForm.elements.namedItem("input_source");
 
 const WIZARD_STEPS = [
   { id: 1, nextLabel: "Run analysis" },
@@ -42,12 +45,43 @@ growScenario.addEventListener("change", () => {
 
   activeGrowItems = selected.payload.items ?? [];
   fillForm(growForm, selected.payload);
+  if (growUpload) {
+    growUpload.value = "";
+  }
+  setUploadLabel("Using demo fixture receipt.");
   updateGrowReceiptPreview(selected.payload.input_source);
   lastProcessResponse = null;
   clearResultPanels();
   setWizardStep(1);
   setGrowStatus("");
 });
+
+if (growUpload) {
+  growUpload.addEventListener("change", async () => {
+    const file = growUpload.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    growNext.disabled = true;
+    setGrowStatus(`Uploading ${file.name}...`);
+    try {
+      const uploaded = await uploadReceipt(file);
+      growInputSource.value = uploaded.input_source;
+      activeGrowItems = [];
+      setUploadLabel(`Uploaded: ${file.name} → ${uploaded.input_source}`);
+      updateGrowReceiptPreview(uploaded.input_source);
+      lastProcessResponse = null;
+      clearResultPanels();
+      setWizardStep(1);
+      setGrowStatus("Receipt uploaded. Click Run analysis to run PaddleOCR on this image.");
+    } catch (error) {
+      setGrowStatus(`Upload failed: ${formatApiError(error.message)}`);
+    } finally {
+      growNext.disabled = false;
+    }
+  });
+}
 
 growBack.addEventListener("click", () => {
   if (currentStep > 1) {
@@ -106,6 +140,25 @@ function formatApiError(message) {
     // Keep the original message when the body is not JSON.
   }
   return message;
+}
+
+async function uploadReceipt(file) {
+  const body = new FormData();
+  body.append("file", file);
+  const response = await fetch("/api/grow/upload-receipt", {
+    method: "POST",
+    body,
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return response.json();
+}
+
+function setUploadLabel(text) {
+  if (growUploadLabel) {
+    growUploadLabel.textContent = text;
+  }
 }
 
 function renderWizardResults(response) {
@@ -253,11 +306,18 @@ function renderGrowOcrStage(ocr, extracted, request) {
   const provider = ocr.provider || "OCR";
 
   return `
-    <h4>${escapeHtml(provider)} extraction</h4>
-    <p class="stage-lead">Invoice ${escapeHtml(extracted.invoice_id || request.invoice_id)} read from the receipt image with ${confidence} confidence.</p>
+    <div class="metric-row">
+      <span class="pill strong">${escapeHtml(provider)}</span>
+      <span class="pill">${escapeHtml(formatValue(ocr.status))}</span>
+      <span class="pill">Confidence ${escapeHtml(confidence)}</span>
+    </div>
+    <h4>Fields read from receipt image</h4>
+    <p class="stage-lead">
+      Invoice ${escapeHtml(extracted.invoice_id || request.invoice_id)} extracted by
+      <strong>${escapeHtml(provider)}</strong> (not demo JSON).
+    </p>
+    <p class="stage-muted">Source: ${escapeHtml(request.input_source || "n/a")}</p>
     <dl class="stage-facts">
-      <div><dt>Provider</dt><dd>${escapeHtml(provider)}</dd></div>
-      <div><dt>Confidence</dt><dd>${escapeHtml(confidence)}</dd></div>
       <div><dt>Seller</dt><dd>${escapeHtml(extracted.seller_name || request.business_name)}</dd></div>
       <div><dt>Buyer</dt><dd>${escapeHtml(extracted.buyer_name || request.customer_name)}</dd></div>
       <div><dt>Total</dt><dd>${formatMoney(extracted.total_amount ?? request.invoice_total)}</dd></div>

@@ -13,7 +13,12 @@ if str(ROOT) not in sys.path:
 
 from backend.app.models import GrowProcessRequest
 from backend.app.services.grow_pipeline_service import GrowOcrError, process_invoice
-from backend.app.services.ocr.paths import ReceiptPathError, resolve_receipt_path
+from backend.app.services.ocr.paths import (
+    UPLOADS_ROOT,
+    ReceiptPathError,
+    ensure_uploads_dir,
+    resolve_receipt_path,
+)
 
 DATASET_PATH = ROOT / "backend/app/data/demo_dataset.json"
 FIXTURES_DIR = ROOT / "frontend/static/fixtures/receipts"
@@ -63,6 +68,18 @@ def main() -> int:
         failures.append("non-receipt path was not rejected")
     except ReceiptPathError:
         print("[ok] non-receipt path rejected")
+
+    ensure_uploads_dir()
+    upload_sample = UPLOADS_ROOT / "smoke-upload.png"
+    fixture_sample = FIXTURES_DIR / "grow-coffee-strong.png"
+    if fixture_sample.exists():
+        upload_sample.write_bytes(fixture_sample.read_bytes())
+        resolved_upload = resolve_receipt_path(f"/static/uploads/receipts/{upload_sample.name}")
+        if resolved_upload != upload_sample.resolve():
+            failures.append("upload path did not resolve correctly")
+        else:
+            print("[ok] upload receipt path resolved")
+        upload_sample.unlink(missing_ok=True)
 
     for record in dataset["grow_invoices"]:
         scenario_id = record["id"]

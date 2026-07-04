@@ -9,11 +9,26 @@ This scaffold uses a FastAPI backend and a lightweight static frontend served by
 
 ## Run Locally
 
+One-command setup and run (recommended):
+
+```bash
+./scripts/bootstrap.sh
+```
+
+Setup only (no server):
+
+```bash
+./scripts/bootstrap.sh --no-run
+```
+
+Manual:
+
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
+python scripts/generate_receipt_fixtures.py
 uvicorn backend.app.main:app --reload
 ```
 
@@ -46,6 +61,7 @@ If `paddlepaddle` fails to install on your platform, check the [PaddlePaddle ins
 - `GET /api/demo/dataset`
 - `GET /api/demo/synthetic-dataset`
 - `POST /api/shield/analyze`
+- `POST /api/grow/upload-receipt` — upload PNG/JPG/WEBP receipt; returns `input_source`
 - `POST /api/grow/process-invoice` — minimal input; runs PaddleOCR on receipt PNG then credit pipeline
 - `POST /api/grow/analyze-invoice` — full payload scoring (compat)
 

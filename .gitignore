@@ -6,4 +6,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
+frontend/static/uploads/receipts/*
+!frontend/static/uploads/receipts/.gitkeep
 
