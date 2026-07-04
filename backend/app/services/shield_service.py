@@ -31,16 +31,9 @@ SUSPICIOUS_CALL_PREFIXES = ("+882", "+883", "+870", "+979", "1900")
 OUTER_BREAKER_THRESHOLD = 45
 INVASIVE_FAIL_THRESHOLD = 25
 TRANSACTION_HOLD_HOURS = 24
-SUPPORTED_CHALLENGE_PROFILES = {
-    "clear_user",
-    "coerced_authority",
-    "deepfake_injection",
-    "scripted_remote_support",
-}
-
 
 def run_mock_camera_voice_challenge(challenge: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
-    profile = _normalize_challenge_profile(challenge.challenge_profile)
+    profile = _challenge_profile_from_artifacts(challenge.ekyc_image_ref, challenge.stt_audio_ref)
     provider_fields, provider_calls = _run_mock_challenge_apis(challenge, profile)
     challenged_request = challenge.transaction.model_copy(update=provider_fields)
     response = analyze_shield_risk(challenged_request)
@@ -54,25 +47,18 @@ def run_mock_camera_voice_challenge(challenge: ShieldChallengeRequest) -> Shield
     )
 
 
-def _normalize_challenge_profile(profile: str) -> str:
-    normalized = profile.strip().lower() or "clear_user"
-    if normalized in SUPPORTED_CHALLENGE_PROFILES:
-        return normalized
-    return "clear_user"
-
-
 def _run_mock_challenge_apis(
     challenge: ShieldChallengeRequest,
     profile: str,
 ) -> tuple[dict[str, object], list[Explanation]]:
-    ekyc_fields, ekyc_call = _mock_ekyc_api(profile)
-    smartvoice_fields, smartvoice_call = _mock_smartvoice_api(challenge.spoken_response, profile)
-    smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]), profile)
-    coercion_fields, coercion_call = _mock_coercion_api(profile)
+    ekyc_fields, ekyc_call = _mock_ekyc_api(challenge.ekyc_image_ref)
+    smartvoice_fields, smartvoice_call = _mock_smartvoice_api(challenge.stt_audio_ref)
+    smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]))
+    coercion_fields, coercion_call = _mock_coercion_api(challenge.ekyc_image_ref, challenge.stt_audio_ref)
 
     fields = {
         "consent_granted": True,
-        "audio_source": f"mock://shield-challenge/{profile}.wav",
+        "audio_source": challenge.stt_audio_ref,
         **ekyc_fields,
         **smartvoice_fields,
         **smartbot_fields,
@@ -82,42 +68,51 @@ def _run_mock_challenge_apis(
     return fields, [ekyc_call, smartvoice_call, smartbot_call, coercion_call]
 
 
-def _mock_ekyc_api(profile: str) -> tuple[dict[str, object], Explanation]:
+def _challenge_profile_from_artifacts(ekyc_image_ref: str, stt_audio_ref: str) -> str:
+    ekyc_passed = _artifact_name(ekyc_image_ref) == "ekyc_img_1"
+    stt_passed = _artifact_name(stt_audio_ref) == "stt_audio_1"
+    if ekyc_passed and stt_passed:
+        return "clear_user"
+    if not ekyc_passed and stt_passed:
+        return "ekyc_failed"
+    if ekyc_passed and not stt_passed:
+        return "stt_failed"
+    return "ekyc_and_stt_failed"
+
+
+def _artifact_name(ref: str) -> str:
+    return ref.rstrip("/").split("/")[-1]
+
+
+def _mock_ekyc_api(ekyc_image_ref: str) -> tuple[dict[str, object], Explanation]:
+    artifact = _artifact_name(ekyc_image_ref)
     profiles = {
-        "clear_user": {
+        "ekyc_img_1": {
             "status": "passed",
             "liveness": 0.94,
             "mask": False,
             "face_match": 0.91,
             "injection": 0.04,
-            "detail": "Mock eKYC returned passed liveness, face match, and low injection risk.",
+            "detail": f"Mock eKYC read {ekyc_image_ref} and returned passed liveness plus low injection risk.",
         },
-        "coerced_authority": {
-            "status": "passed",
-            "liveness": 0.9,
-            "mask": False,
-            "face_match": 0.88,
-            "injection": 0.07,
-            "detail": "Mock eKYC verified the user but did not clear coercion risk.",
-        },
-        "deepfake_injection": {
+        "ekyc_img_2": {
             "status": "failed",
             "liveness": 0.32,
             "mask": True,
             "face_match": 0.42,
             "injection": 0.86,
-            "detail": "Mock eKYC flagged failed liveness, possible mask, and high injection risk.",
+            "detail": f"Mock eKYC read {ekyc_image_ref} and returned failed liveness, mask, and high injection risk.",
         },
-        "scripted_remote_support": {
+        "unknown": {
             "status": "review",
-            "liveness": 0.74,
+            "liveness": 0.5,
             "mask": False,
-            "face_match": 0.79,
-            "injection": 0.22,
-            "detail": "Mock eKYC asked for review but did not detect biometric injection.",
+            "face_match": 0.6,
+            "injection": 0.45,
+            "detail": f"Mock eKYC did not recognize {ekyc_image_ref}; defaulting to review.",
         },
     }
-    selected = profiles[profile]
+    selected = profiles.get(artifact, profiles["unknown"])
     return (
         {
             "ekyc_verification_status": selected["status"],
@@ -130,43 +125,53 @@ def _mock_ekyc_api(profile: str) -> tuple[dict[str, object], Explanation]:
     )
 
 
-def _mock_smartvoice_api(spoken_response: str, profile: str) -> tuple[dict[str, object], Explanation]:
-    transcript = spoken_response.strip() or _default_challenge_transcript(profile)
-    confidences = {
-        "clear_user": 0.92,
-        "coerced_authority": 0.9,
-        "deepfake_injection": 0.73,
-        "scripted_remote_support": 0.88,
+def _mock_smartvoice_api(stt_audio_ref: str) -> tuple[dict[str, object], Explanation]:
+    artifact = _artifact_name(stt_audio_ref)
+    profiles = {
+        "stt_audio_1": {
+            "transcript": (
+                "Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai. "
+                "Toi da tu kiem tra nguoi nhan va muon tiep tuc."
+            ),
+            "confidence": 0.92,
+            "detail": f"Mock SmartVoice read {stt_audio_ref} and returned a clean challenge transcript.",
+        },
+        "stt_audio_2": {
+            "transcript": (
+                "Toi dang lam theo yeu cau cua cong an. Tai khoan cua toi lien quan vu an "
+                "nen toi phai chuyen tien de xac minh va giu bi mat."
+            ),
+            "confidence": 0.9,
+            "detail": f"Mock SmartVoice read {stt_audio_ref} and returned a risky coached transcript.",
+        },
+        "unknown": {
+            "transcript": "",
+            "confidence": 0.0,
+            "detail": f"Mock SmartVoice did not recognize {stt_audio_ref}; no transcript available.",
+        },
     }
+    selected = profiles.get(artifact, profiles["unknown"])
     return (
         {
-            "stt_transcript": transcript,
-            "stt_confidence": confidences[profile],
+            "stt_transcript": selected["transcript"],
+            "stt_confidence": selected["confidence"],
         },
         Explanation(
             label="Mock SmartVoice API",
-            detail=f"Speech-to-text returned a transcript with confidence {confidences[profile]:.2f}.",
+            detail=str(selected["detail"]),
             weight=0,
         ),
     )
 
 
-def _mock_smartbot_api(transcript: str, profile: str) -> tuple[dict[str, object], Explanation]:
-    profile_scam_types = {
-        "clear_user": None,
-        "coerced_authority": "fake_authority",
-        "deepfake_injection": None,
-        "scripted_remote_support": "remote_support",
-    }
-    scam_type = profile_scam_types[profile]
+def _mock_smartbot_api(transcript: str) -> tuple[dict[str, object], Explanation]:
+    scam_type = None
     transcript_match = _match_transcript_pattern(transcript.lower())
-    if scam_type is None and transcript_match:
+    if transcript_match:
         scam_type = transcript_match[0]
 
-    detected_patterns = detected_patterns_for_challenge(profile, scam_type)
-    confidence = None
-    if scam_type:
-        confidence = 0.91 if profile != "scripted_remote_support" else 0.88
+    detected_patterns = detected_patterns_for_challenge(scam_type)
+    confidence = 0.91 if scam_type else None
 
     detail = (
         f"Smartbot classified {scam_type.replace('_', ' ')}."
@@ -183,9 +188,35 @@ def _mock_smartbot_api(transcript: str, profile: str) -> tuple[dict[str, object]
     )
 
 
-def _mock_coercion_api(profile: str) -> tuple[dict[str, object], Explanation]:
-    profiles = {
-        "clear_user": {
+def _mock_coercion_api(ekyc_image_ref: str, stt_audio_ref: str) -> tuple[dict[str, object], Explanation]:
+    stt_failed = _artifact_name(stt_audio_ref) != "stt_audio_1"
+    ekyc_failed = _artifact_name(ekyc_image_ref) != "ekyc_img_1"
+    if stt_failed:
+        selected = {
+            "voice": 0.83,
+            "voice_labels": ["elevated_pitch", "speech_hesitation"],
+            "face": 0.77 if not ekyc_failed else 0.68,
+            "face_labels": ["fear", "low_eye_contact"],
+            "scripted": 0.81,
+            "scripted_labels": ["monotone_reading", "repeats_caller_phrasing"],
+            "coercion": 0.84,
+            "confidence": 0.86,
+            "detail": f"Mock coercion API used {stt_audio_ref} and found distress plus scripted behavior.",
+        }
+    elif ekyc_failed:
+        selected = {
+            "voice": 0.28,
+            "voice_labels": ["steady_voice"],
+            "face": 0.46,
+            "face_labels": ["visual_artifact"],
+            "scripted": 0.18,
+            "scripted_labels": [],
+            "coercion": 0.22,
+            "confidence": 0.78,
+            "detail": f"Mock coercion API used {ekyc_image_ref} and found biometric artifact risk without coercion.",
+        }
+    else:
+        selected = {
             "voice": 0.18,
             "voice_labels": ["steady_voice"],
             "face": 0.16,
@@ -194,43 +225,8 @@ def _mock_coercion_api(profile: str) -> tuple[dict[str, object], Explanation]:
             "scripted_labels": ["free_response"],
             "coercion": 0.14,
             "confidence": 0.82,
-            "detail": "Mock coercion API found calm speech and unscripted response.",
-        },
-        "coerced_authority": {
-            "voice": 0.83,
-            "voice_labels": ["elevated_pitch", "speech_hesitation"],
-            "face": 0.77,
-            "face_labels": ["fear", "low_eye_contact"],
-            "scripted": 0.81,
-            "scripted_labels": ["monotone_reading", "repeats_caller_phrasing"],
-            "coercion": 0.84,
-            "confidence": 0.86,
-            "detail": "Mock coercion API found distress and scripted behavior.",
-        },
-        "deepfake_injection": {
-            "voice": 0.38,
-            "voice_labels": ["synthetic_audio_artifact"],
-            "face": 0.46,
-            "face_labels": ["visual_artifact"],
-            "scripted": 0.25,
-            "scripted_labels": [],
-            "coercion": 0.32,
-            "confidence": 0.78,
-            "detail": "Mock coercion API did not find coercion, but biometric artifacts remain.",
-        },
-        "scripted_remote_support": {
-            "voice": 0.76,
-            "voice_labels": ["speech_hesitation", "fast_breathing"],
-            "face": 0.68,
-            "face_labels": ["distress", "reduced_attention"],
-            "scripted": 0.88,
-            "scripted_labels": ["screen_instruction_following", "repeats_caller_phrasing"],
-            "coercion": 0.78,
-            "confidence": 0.84,
-            "detail": "Mock coercion API found remote-support scripting and distress.",
-        },
-    }
-    selected = profiles[profile]
+            "detail": f"Mock coercion API used {ekyc_image_ref} and {stt_audio_ref}; no distress pattern found.",
+        }
     return (
         {
             "voice_stress_score": selected["voice"],
@@ -246,44 +242,21 @@ def _mock_coercion_api(profile: str) -> tuple[dict[str, object], Explanation]:
     )
 
 
-def _default_challenge_transcript(profile: str) -> str:
-    transcripts = {
-        "clear_user": (
-            "Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai. "
-            "Toi da tu kiem tra nguoi nhan va muon tiep tuc."
-        ),
-        "coerced_authority": (
-            "Toi dang lam theo yeu cau cua cong an. Tai khoan cua toi lien quan vu an "
-            "nen toi phai chuyen tien de xac minh va giu bi mat."
-        ),
-        "deepfake_injection": "Toi dang tu xac nhan giao dich nay va muon tiep tuc.",
-        "scripted_remote_support": (
-            "Nhan vien ho tro dang dieu khien man hinh de sua loi. Toi can chuyen tien test "
-            "he thong va se duoc hoan lai."
-        ),
-    }
-    return transcripts[profile]
-
-
-def detected_patterns_for_challenge(profile: str, scam_type: str | None) -> list[str]:
-    profile_patterns = {
-        "clear_user": [],
-        "coerced_authority": [
+def detected_patterns_for_challenge(scam_type: str | None) -> list[str]:
+    if scam_type == "fake_authority":
+        return [
             "fake_authority",
             "case_involvement",
             "transfer_for_verification",
             "secrecy_pressure",
-        ],
-        "deepfake_injection": [],
-        "scripted_remote_support": [
+        ]
+    if scam_type == "remote_support":
+        return [
             "remote_support",
             "screen_control",
             "refund_promise",
             "transfer_test",
-        ],
-    }
-    if profile_patterns[profile]:
-        return profile_patterns[profile]
+        ]
     return [scam_type] if scam_type else []
 
 

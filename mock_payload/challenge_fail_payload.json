@@ -1,0 +1,13 @@
+{
+  "transaction": {
+    "transaction_amount": 65000000,
+    "recipient_name": "Tran Van B",
+    "recipient_account": "9704 2222 8800",
+    "active_call": true,
+    "caller_type": "unknown",
+    "caller_number": "+84 909 000 555",
+    "recipient_known": false
+  },
+  "ekyc_image_ref": "mock_payload/ekyc_img_2",
+  "stt_audio_ref": "mock_payload/stt_audio_2"
+}

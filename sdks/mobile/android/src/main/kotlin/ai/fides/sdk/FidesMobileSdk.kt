@@ -112,8 +112,8 @@ class FidesMobileSdk(
         transaction: ShieldTransaction,
         consent: FidesConsent,
         overrides: Map<String, Any?> = emptyMap(),
-        challengeProfile: String = "clear_user",
-        spokenResponse: String = "",
+        ekycImageRef: String = "mock_payload/ekyc_img_1",
+        sttAudioRef: String = "mock_payload/stt_audio_1",
         completion: (FidesSdkResult<String>) -> Unit
     ) {
         transport.postJson(
@@ -121,8 +121,8 @@ class FidesMobileSdk(
             path = "/api/shield/challenge",
             body = mapOf(
                 "transaction" to buildShieldPayload(transaction, consent, overrides),
-                "challenge_profile" to challengeProfile,
-                "spoken_response" to spokenResponse
+                "ekyc_image_ref" to ekycImageRef,
+                "stt_audio_ref" to sttAudioRef
             ),
             completion = completion
         )

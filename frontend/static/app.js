@@ -53,12 +53,12 @@ shieldResult.addEventListener("click", async (event) => {
 
 async function runShieldChallenge() {
   const payload = lastShieldPayload ?? buildShieldPayload(new FormData(shieldForm));
-  const challengeProfile = shieldResult.querySelector("[data-shield-challenge-profile]")?.value ?? "clear_user";
-  const spokenResponse = shieldResult.querySelector("[data-shield-spoken-response]")?.value ?? "";
+  const ekycImageRef = shieldResult.querySelector("[data-shield-ekyc-ref]")?.value ?? "mock_payload/ekyc_img_1";
+  const sttAudioRef = shieldResult.querySelector("[data-shield-audio-ref]")?.value ?? "mock_payload/stt_audio_1";
   const challengeRequest = {
     transaction: payload,
-    challenge_profile: challengeProfile,
-    spoken_response: spokenResponse,
+    ekyc_image_ref: ekycImageRef,
+    stt_audio_ref: sttAudioRef,
   };
 
   shieldResult.className = "result empty";
@@ -217,17 +217,18 @@ function renderShieldChallengeAction(result) {
   return `
     <div class="challenge-actions">
       <label class="challenge-field">
-        Mock API outcome
-        <select data-shield-challenge-profile>
-          <option value="clear_user">Clear user</option>
-          <option value="coerced_authority">Coerced authority script</option>
-          <option value="deepfake_injection">Deepfake injection</option>
-          <option value="scripted_remote_support">Scripted remote support</option>
+        eKYC image payload
+        <select data-shield-ekyc-ref>
+          <option value="mock_payload/ekyc_img_1">ekyc_img_1 · passes eKYC</option>
+          <option value="mock_payload/ekyc_img_2">ekyc_img_2 · fails eKYC</option>
         </select>
       </label>
-      <label class="challenge-field wide-challenge-field">
-        Spoken response
-        <textarea data-shield-spoken-response rows="3">Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai. Toi da tu kiem tra nguoi nhan va muon tiep tuc.</textarea>
+      <label class="challenge-field">
+        STT audio payload
+        <select data-shield-audio-ref>
+          <option value="mock_payload/stt_audio_1">stt_audio_1 · passes STT</option>
+          <option value="mock_payload/stt_audio_2">stt_audio_2 · fails STT</option>
+        </select>
       </label>
       <button type="button" class="secondary-button" data-shield-challenge="run">
         Submit Camera/Voice Challenge

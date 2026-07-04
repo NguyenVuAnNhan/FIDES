@@ -29,8 +29,8 @@ export type ShieldTransactionInput = {
 };
 
 export type ShieldChallengeOptions = Record<string, unknown> & {
-  challenge_profile?: "clear_user" | "coerced_authority" | "deepfake_injection" | "scripted_remote_support";
-  spoken_response?: string;
+  ekyc_image_ref?: string;
+  stt_audio_ref?: string;
 };
 
 export type TelemetrySnapshot = {

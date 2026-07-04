@@ -137,14 +137,14 @@ export class FidesWebSdk {
 
   async challengeShield(transaction, options = {}) {
     const {
-      challenge_profile = "clear_user",
-      spoken_response = "",
+      ekyc_image_ref = "mock_payload/ekyc_img_1",
+      stt_audio_ref = "mock_payload/stt_audio_1",
       ...payloadOverrides
     } = options;
     return this.postJson("/api/shield/challenge", {
       transaction: this.buildShieldPayload(transaction, payloadOverrides),
-      challenge_profile,
-      spoken_response,
+      ekyc_image_ref,
+      stt_audio_ref,
     });
   }
 

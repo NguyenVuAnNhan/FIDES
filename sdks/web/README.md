@@ -46,8 +46,8 @@ Browser SDK scaffold for FIDES Shield and Grow.
       caller_number: "+882 13 456 789",
       recipient_known: false
     }, {
-      challenge_profile: "coerced_authority",
-      spoken_response: "Toi dang lam theo yeu cau cua cong an va phai chuyen tien de xac minh."
+      ekyc_image_ref: "mock_payload/ekyc_img_2",
+      stt_audio_ref: "mock_payload/stt_audio_2"
     });
 
     console.log(challengeResult);

@@ -47,6 +47,8 @@ The current dataset includes:
 
 The full mock data and future database inventory is tracked in `docs/mock_data_inventory.md`. VNPT API contract alignment and recommended schema updates are documented in `docs/vnpt_schema_integration_plan.md`.
 
+Shield camera/voice challenge fixtures live in `mock_payload/`: `ekyc_img_1` passes mock eKYC, `ekyc_img_2` fails mock eKYC, `stt_audio_1` passes the spoken challenge, and `stt_audio_2` fails it. Example request bodies are included in the same folder.
+
 For a full explanation of the Shield scam schema and two-stage circuit-breaker flow, see `docs/scam_schema_explained.md`.
 
 The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.

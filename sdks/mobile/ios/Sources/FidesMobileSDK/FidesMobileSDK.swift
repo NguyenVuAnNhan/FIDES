@@ -177,8 +177,8 @@ public final class FidesMobileSDK {
         transaction: ShieldTransaction,
         consent: FidesConsent,
         overrides: [String: Any] = [:],
-        challengeProfile: String = "clear_user",
-        spokenResponse: String = "",
+        ekycImageRef: String = "mock_payload/ekyc_img_1",
+        sttAudioRef: String = "mock_payload/stt_audio_1",
         completion: @escaping (Result<Data, Error>) -> Void
     ) {
         transport.postJSON(
@@ -186,8 +186,8 @@ public final class FidesMobileSDK {
             path: "/api/shield/challenge",
             body: [
                 "transaction": buildShieldPayload(transaction: transaction, consent: consent, overrides: overrides),
-                "challenge_profile": challengeProfile,
-                "spoken_response": spokenResponse
+                "ekyc_image_ref": ekycImageRef,
+                "stt_audio_ref": sttAudioRef
             ],
             completion: completion
         )

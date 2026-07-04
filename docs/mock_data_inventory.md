@@ -15,6 +15,7 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `scripts/generate_synthetic_dataset.py` | Seeded madlib generator for Shield and Grow records. |
 | `frontend/static/fixtures/receipts/` | Fake receipt PNGs for Grow OCR demos. |
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
+| `mock_payload/` | Fake Shield challenge payload assets for eKYC image and STT audio pass/fail demos. |
 | `docs/graph_database_schema.md` | Future graph database design. |
 | `sdks/web/` | Web SDK scaffold for in-page telemetry and Shield/Grow calls. |
 | `sdks/mobile/` | Android/iOS SDK scaffold for host-app telemetry and Shield/Grow calls. |

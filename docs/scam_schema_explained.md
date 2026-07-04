@@ -378,8 +378,8 @@ In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with
 ```json
 {
   "transaction": { "...": "original ShieldAnalyzeRequest" },
-  "challenge_profile": "clear_user",
-  "spoken_response": "User's challenge phrase or demo transcript"
+  "ekyc_image_ref": "mock_payload/ekyc_img_1",
+  "stt_audio_ref": "mock_payload/stt_audio_1"
 }
 ```
 
@@ -390,7 +390,12 @@ The backend does not automatically pass the challenge. It calls mocked provider 
 - mock Smartbot API: scam-script classification and confidence
 - mock coercion API: voice stress, visual distress, scripted behavior, aggregate coercion
 
-Available demo profiles are `clear_user`, `coerced_authority`, `deepfake_injection`, and `scripted_remote_support`.
+The current mock artifacts are:
+
+- `mock_payload/ekyc_img_1`: eKYC passes.
+- `mock_payload/ekyc_img_2`: eKYC fails.
+- `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
+- `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
 
 ### Stage 2: Invasive Camera And Voice Challenge
 

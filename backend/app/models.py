@@ -84,8 +84,8 @@ class ShieldAnalyzeResponse(BaseModel):
 
 class ShieldChallengeRequest(BaseModel):
     transaction: ShieldAnalyzeRequest
-    challenge_profile: str = "clear_user"
-    spoken_response: str = ""
+    ekyc_image_ref: str = "mock_payload/ekyc_img_1"
+    stt_audio_ref: str = "mock_payload/stt_audio_1"
 
 
 class InvoiceItem(BaseModel):
