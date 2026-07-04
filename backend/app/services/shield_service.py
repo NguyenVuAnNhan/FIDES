@@ -28,13 +28,113 @@ SCAM_PATTERNS = {
 }
 
 SUSPICIOUS_CALL_PREFIXES = ("+882", "+883", "+870", "+979", "1900")
+OUTER_BREAKER_THRESHOLD = 45
+INVASIVE_FAIL_THRESHOLD = 25
+TRANSACTION_HOLD_HOURS = 24
 
 
 def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
-    transcript = _effective_transcript(request).lower()
+    stage_one_score, stage_one_flags = _score_outer_context(request)
+    circuit_breaker_triggered = stage_one_score >= OUTER_BREAKER_THRESHOLD
+
+    if not circuit_breaker_triggered:
+        return ShieldAnalyzeResponse(
+            risk_score=stage_one_score,
+            risk_level="low",
+            action="allow_with_notice",
+            circuit_breaker_stage="outer_context_clear",
+            circuit_breaker_triggered=False,
+            invasive_check_required=False,
+            stage_one_score=stage_one_score,
+            stage_two_score=None,
+            stage_one_flags=stage_one_flags,
+            stage_two_flags=[],
+            scam_type=None,
+            explanations=stage_one_flags,
+            intervention_message=_build_intervention_message("allow_with_notice", request.recipient_name),
+        )
+
+    if not _has_invasive_check_evidence(request):
+        challenge_explanation = Explanation(
+            label="Camera and voice challenge required",
+            detail=(
+                "The outer circuit breaker tripped, so Shield needs a consented camera "
+                "and voice check before the transfer can continue."
+            ),
+            weight=0,
+        )
+        return ShieldAnalyzeResponse(
+            risk_score=stage_one_score,
+            risk_level="elevated",
+            action="require_camera_voice_check",
+            circuit_breaker_stage="invasive_check_required",
+            circuit_breaker_triggered=True,
+            invasive_check_required=True,
+            stage_one_score=stage_one_score,
+            stage_two_score=None,
+            stage_one_flags=stage_one_flags,
+            stage_two_flags=[],
+            scam_type=None,
+            explanations=[*stage_one_flags, challenge_explanation],
+            intervention_message=_build_intervention_message(
+                "require_camera_voice_check", request.recipient_name
+            ),
+        )
+
+    stage_two_score, stage_two_flags, scam_type = _score_invasive_check(request)
+    stage_two_failed = stage_two_score >= INVASIVE_FAIL_THRESHOLD
+
+    if stage_two_failed:
+        risk_score = min(100, stage_one_score + stage_two_score)
+        return ShieldAnalyzeResponse(
+            risk_score=risk_score,
+            risk_level="critical",
+            action="withhold_24h_notify_trusted_authority",
+            circuit_breaker_stage="withhold_and_notify",
+            circuit_breaker_triggered=True,
+            invasive_check_required=False,
+            stage_one_score=stage_one_score,
+            stage_two_score=stage_two_score,
+            stage_one_flags=stage_one_flags,
+            stage_two_flags=stage_two_flags,
+            trusted_authority_notification=True,
+            trusted_authority_message=_build_trusted_authority_message(request.recipient_name),
+            transaction_hold_hours=TRANSACTION_HOLD_HOURS,
+            scam_type=scam_type,
+            explanations=[*stage_one_flags, *stage_two_flags],
+            intervention_message=_build_intervention_message(
+                "withhold_24h_notify_trusted_authority", request.recipient_name
+            ),
+        )
+
+    cleared_explanation = Explanation(
+        label="Camera and voice challenge cleared",
+        detail=(
+            "The outer circuit breaker tripped, but the consented eKYC, voice, and "
+            "distress checks did not show enough evidence to hold the transfer."
+        ),
+        weight=0,
+    )
+    return ShieldAnalyzeResponse(
+        risk_score=min(44, 10 + stage_two_score),
+        risk_level="low",
+        action="allow_after_challenge",
+        circuit_breaker_stage="invasive_check_cleared",
+        circuit_breaker_triggered=True,
+        invasive_check_required=False,
+        stage_one_score=stage_one_score,
+        stage_two_score=stage_two_score,
+        stage_one_flags=stage_one_flags,
+        stage_two_flags=stage_two_flags,
+        scam_type=scam_type,
+        explanations=[*stage_one_flags, *stage_two_flags, cleared_explanation],
+        intervention_message=_build_intervention_message("allow_after_challenge", request.recipient_name),
+    )
+
+
+def _score_outer_context(request: ShieldAnalyzeRequest) -> tuple[int, list[Explanation]]:
     score = 10
     explanations: list[Explanation] = []
-    scam_type: str | None = None
 
     if request.transaction_amount >= 50_000_000:
         score += 25
@@ -139,17 +239,6 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
-    ekyc_weight = _ekyc_weight(request)
-    if ekyc_weight:
-        score += ekyc_weight
-        explanations.append(
-            Explanation(
-                label="eKYC verification risk",
-                detail=_build_ekyc_detail(request),
-                weight=ekyc_weight,
-            )
-        )
-
     smartux_weight = _smartux_weight(request)
     if smartux_weight:
         score += smartux_weight
@@ -158,6 +247,26 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
                 label="SmartUX native telemetry risk",
                 detail=_build_smartux_detail(request),
                 weight=smartux_weight,
+            )
+        )
+
+    return min(score, 100), explanations
+
+
+def _score_invasive_check(request: ShieldAnalyzeRequest) -> tuple[int, list[Explanation], str | None]:
+    transcript = _effective_transcript(request).lower()
+    score = 0
+    explanations: list[Explanation] = []
+    scam_type: str | None = None
+
+    ekyc_weight = _ekyc_weight(request)
+    if ekyc_weight:
+        score += ekyc_weight
+        explanations.append(
+            Explanation(
+                label="eKYC verification risk",
+                detail=_build_ekyc_detail(request),
+                weight=ekyc_weight,
             )
         )
 
@@ -197,13 +306,14 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
         transcript_match = _match_transcript_pattern(transcript)
         if transcript_match:
             pattern_name, match_count = transcript_match
-            score += min(30, 10 + match_count * 5)
+            keyword_weight = min(30, 10 + match_count * 5)
+            score += keyword_weight
             scam_type = pattern_name
             explanations.append(
                 Explanation(
                     label="Scam script detected",
                     detail=f"Transcript contains signals associated with {pattern_name.replace('_', ' ')}.",
-                    weight=30,
+                    weight=keyword_weight,
                 )
             )
     elif request.active_call:
@@ -226,40 +336,55 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             )
         )
 
-    risk_score = min(score, 100)
-    if risk_score >= 75:
-        risk_level = "critical"
-        action = "pause_transfer"
-    elif risk_score >= 45:
-        risk_level = "elevated"
-        action = "step_up_verification"
-    else:
-        risk_level = "low"
-        action = "allow_with_notice"
+    return min(score, 100), explanations, scam_type
 
-    return ShieldAnalyzeResponse(
-        risk_score=risk_score,
-        risk_level=risk_level,
-        action=action,
-        scam_type=scam_type,
-        explanations=explanations,
-        intervention_message=_build_intervention_message(risk_level, request.recipient_name),
+
+def _has_invasive_check_evidence(request: ShieldAnalyzeRequest) -> bool:
+    return any(
+        [
+            request.ekyc_verification_status != "not_checked",
+            request.ekyc_liveness_score is not None,
+            request.ekyc_mask_detected,
+            request.ekyc_face_match_score is not None,
+            request.ekyc_injection_risk_score is not None,
+            request.audio_source is not None,
+            bool(request.stt_transcript),
+            bool(request.detected_patterns),
+            request.llm_scam_type is not None,
+            request.voice_stress_score is not None,
+            request.face_emotion_score is not None,
+            request.scripted_behavior_score is not None,
+            request.coercion_score is not None,
+        ]
     )
 
 
-def _build_intervention_message(risk_level: str, recipient_name: str) -> str:
-    if risk_level == "critical":
+def _build_intervention_message(action: str, recipient_name: str) -> str:
+    if action == "withhold_24h_notify_trusted_authority":
         return (
-            f"We paused this transfer to {recipient_name}. The call and transcript look similar "
-            "to a coercion scam. Please hang up, contact the organization through an official "
-            "number, and confirm with a trusted contact before continuing."
+            f"We are holding this transfer to {recipient_name} for 24 hours and notifying the "
+            "bank fraud desk. The camera and voice check matched high-risk scam or coercion "
+            "signals. Hang up, do not share codes, and use an official bank channel for help."
         )
-    if risk_level == "elevated":
+    if action == "require_camera_voice_check":
         return (
-            f"This transfer to {recipient_name} has warning signs. Take a moment to verify the "
-            "recipient independently before approving."
+            f"This transfer to {recipient_name} needs a short camera and voice safety check "
+            "before it can continue. Please move away from the caller, open the camera, and "
+            "answer the prompts in your own words."
+        )
+    if action == "allow_after_challenge":
+        return (
+            f"The extra safety check for {recipient_name} did not find enough evidence to hold "
+            "the transfer. Continue only if you independently trust the recipient."
         )
     return "No strong manipulation pattern was detected, but continue only if you trust the recipient."
+
+
+def _build_trusted_authority_message(recipient_name: str) -> str:
+    return (
+        f"Notify the bank fraud desk that a high-risk transfer to {recipient_name} was held "
+        "for 24 hours after the invasive camera and voice challenge failed."
+    )
 
 
 def _is_international_number(caller_number: str) -> bool:

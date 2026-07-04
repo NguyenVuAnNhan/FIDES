@@ -65,6 +65,16 @@ class ShieldAnalyzeResponse(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     risk_level: str
     action: str
+    circuit_breaker_stage: str = "outer_context"
+    circuit_breaker_triggered: bool = False
+    invasive_check_required: bool = False
+    stage_one_score: int = Field(default=0, ge=0, le=100)
+    stage_two_score: int | None = Field(default=None, ge=0, le=100)
+    stage_one_flags: list[Explanation] = Field(default_factory=list)
+    stage_two_flags: list[Explanation] = Field(default_factory=list)
+    trusted_authority_notification: bool = False
+    trusted_authority_message: str | None = None
+    transaction_hold_hours: int = Field(default=0, ge=0)
     scam_type: str | None
     explanations: list[Explanation]
     intervention_message: str

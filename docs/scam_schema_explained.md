@@ -339,30 +339,99 @@ MVP behavior:
 
 The current scorer is intentionally transparent and rule-based. It does not claim to be a trained fraud model.
 
-It adds risk weight from:
+Shield now uses a two-stage circuit-breaker flow.
+
+### Stage 1: Outer Context Circuit
+
+Stage 1 uses cheap, low-friction signals that can be checked before interrupting the user:
 
 - high-value transfer
+- unknown recipient
 - active call
 - suspicious caller context
-- unknown recipient
+- international or high-risk caller prefix
 - vnSocial reports
 - SIMO status
 - graph-derived recipient risk
 - remote-control signal
-- eKYC risk
 - SmartUX/native telemetry risk
-- Smartbot scam classification or transcript keyword match
-- coercion/distress signals
 
-Then it maps the final score:
+The outer breaker score starts at `10`. If the score reaches `45`, the circuit breaker trips.
+
+If the breaker does not trip, Shield returns:
 
 ```text
-0-44   -> low       -> allow_with_notice
-45-74  -> elevated  -> step_up_verification
-75-100 -> critical  -> pause_transfer
+circuit_breaker_stage = outer_context_clear
+action = allow_with_notice
 ```
 
-This is a good MVP design because judges can inspect exactly why a case was flagged.
+If the breaker trips and no camera/voice challenge evidence is present yet, Shield returns:
+
+```text
+circuit_breaker_stage = invasive_check_required
+action = require_camera_voice_check
+```
+
+This means the app should ask the user, with consent, to open the camera and speak into the app.
+
+### Stage 2: Invasive Camera And Voice Challenge
+
+Stage 2 runs only after Stage 1 trips. It uses higher-friction checks:
+
+- eKYC status
+- liveness score
+- mask/spoof signal
+- face-match score
+- biometric injection risk
+- SmartVoice transcript
+- Smartbot scam classification
+- transcript keyword fallback
+- voice stress
+- visual distress
+- scripted-behavior signal
+- aggregate coercion score
+
+The Stage 2 fail threshold is `25`. If Stage 2 fails, Shield returns:
+
+```text
+circuit_breaker_stage = withhold_and_notify
+action = withhold_24h_notify_trusted_authority
+transaction_hold_hours = 24
+trusted_authority_notification = true
+```
+
+For the MVP, "trusted authority" means the bank fraud desk or equivalent trusted escalation path. In a production bank deployment, this could also fan out to a pre-consented trusted contact, but that should be governed by a separate consent workflow.
+
+If Stage 2 does not fail, the transfer is released:
+
+```text
+circuit_breaker_stage = invasive_check_cleared
+action = allow_after_challenge
+```
+
+The response still includes the familiar top-level fields:
+
+- `risk_score`
+- `risk_level`
+- `action`
+- `scam_type`
+- `explanations`
+- `intervention_message`
+
+It also includes staged fields:
+
+- `circuit_breaker_stage`
+- `circuit_breaker_triggered`
+- `invasive_check_required`
+- `stage_one_score`
+- `stage_two_score`
+- `stage_one_flags`
+- `stage_two_flags`
+- `trusted_authority_notification`
+- `trusted_authority_message`
+- `transaction_hold_hours`
+
+This is a good MVP design because judges can inspect why the low-friction circuit tripped separately from why the invasive challenge passed or failed.
 
 ## What The Schema Does Not Do
 
@@ -401,4 +470,3 @@ This schema lets us demo the full FIDES thesis without needing every production 
 - It can be populated by synthetic records, real API outputs, or future SDK integrations.
 
 In short, the schema is a risk-fusion contract. It tells FIDES what the bank app, AI services, graph service, eKYC provider, and SDK consumer have observed, then lets Shield produce one explainable decision.
-

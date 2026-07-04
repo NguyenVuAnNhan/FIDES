@@ -36,7 +36,7 @@ These are required for a convincing end-to-end demo.
 | Native telemetry | Remote-control, screen-sharing, accessibility risk, SmartUX signals | Flat Shield payload | SDK consumer telemetry |
 | eKYC/deepfake signals | Liveness, mask/spoof, face match, injection risk | Flat Shield payload | eKYC SDK/API |
 | Coercion signals | Voice stress, face emotion, scripted behavior | Flat Shield payload | SmartVoice/SmartVision/vnFace style services |
-| Intervention response | Risk action and behavioral-science message | Shield response | Intervention orchestration service |
+| Circuit-breaker response | Stage 1/Stage 2 decision, hold state, notification flag, behavioral-science message | Shield response | Intervention orchestration service |
 | Grow input records | Business, invoice, customer, items, payment status | Flat Grow payload | Ledger/invoice database |
 | OCR extraction | SmartReader invoice fields and confidence | Grow `ocr` block | SmartReader OCR API |
 | Voice bookkeeping | SmartVoice transcript and parsed fields | Grow `voice_entry` block | SmartVoice STT + parser |

@@ -40,13 +40,13 @@ Synthetic demo fixtures live in `backend/app/data/demo_dataset.json`.
 
 The current dataset includes:
 
-- Five Shield scenarios: fake police scam, OTP theft, guaranteed-investment scam, remote-control support scam, and a legitimate supplier payment.
+- Six Shield scenarios: fake police scam, stage-one challenge required, OTP theft, guaranteed-investment scam, remote-control support scam, and a legitimate supplier payment.
 - Four Grow invoice cases: strong coffee-shop profile, emerging food-stall profile, late-payment retailer, and high-volume electronics reseller.
 - Shared trust profiles for the demo dashboard and future trust-graph work.
 
 The full mock data and future database inventory is tracked in `docs/mock_data_inventory.md`. VNPT API contract alignment and recommended schema updates are documented in `docs/vnpt_schema_integration_plan.md`.
 
-For a full explanation of the Shield scam schema and how the field families fit together, see `docs/scam_schema_explained.md`.
+For a full explanation of the Shield scam schema and two-stage circuit-breaker flow, see `docs/scam_schema_explained.md`.
 
 The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.
 

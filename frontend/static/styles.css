@@ -219,6 +219,45 @@ button:hover {
   margin-bottom: 12px;
 }
 
+.stage-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+
+.stage-card,
+.authority-note {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.stage-card strong,
+.authority-note strong {
+  font-size: 13px;
+}
+
+.stage-card span,
+.authority-note span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.wide-stage {
+  grid-column: 1 / -1;
+}
+
+.authority-note {
+  border-color: #fecdca;
+  background: #fff5f4;
+  margin-top: 12px;
+}
+
 .pill {
   border-radius: 8px;
   background: #e9eef5;
@@ -278,7 +317,8 @@ button:hover {
 }
 
 @media (max-width: 640px) {
-  .flow-grid {
+  .flow-grid,
+  .stage-grid {
     grid-template-columns: 1fr;
   }
 

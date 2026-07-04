@@ -12,10 +12,12 @@ Therefore, this belongs in the Shield response or an intervention service, not i
 
 ```text
 Shield request
--> risk score and explanations
--> intervention policy
+-> Stage 1 outer context circuit
+-> camera and voice challenge if Stage 1 trips
+-> Stage 2 invasive check result
+-> release, request challenge, or 24h hold
 -> assistant message / TTS
--> trusted-contact confirmation if needed
+-> bank fraud desk or trusted escalation if needed
 -> feedback event after outcome
 ```
 
@@ -24,10 +26,26 @@ The current MVP already returns:
 - `risk_score`
 - `risk_level`
 - `action`
+- `circuit_breaker_stage`
+- `circuit_breaker_triggered`
+- `invasive_check_required`
+- `stage_one_score`
+- `stage_two_score`
 - `explanations`
 - `intervention_message`
+- `trusted_authority_notification`
+- `transaction_hold_hours`
 
-That is enough for the first demo. A later response can add a structured `intervention_plan`.
+That is enough for the first demo. A later response can add a richer structured `intervention_plan`.
+
+## Circuit-Breaker Actions
+
+| Stage | Action | Meaning |
+| --- | --- | --- |
+| Stage 1 clear | `allow_with_notice` | Outer context did not trip; transfer proceeds with a normal reminder. |
+| Stage 1 tripped, Stage 2 missing | `require_camera_voice_check` | Ask the user to open the camera and speak into the app with consent. |
+| Stage 1 tripped, Stage 2 cleared | `allow_after_challenge` | The transfer proceeds after the invasive check does not find enough evidence to hold. |
+| Stage 1 tripped, Stage 2 failed | `withhold_24h_notify_trusted_authority` | Hold the transfer for 24 hours and notify the bank fraud desk or trusted escalation path. |
 
 ## Future Intervention Plan Schema
 
@@ -62,8 +80,9 @@ Suggested mapping:
 | Risk level | Action | Intervention |
 | --- | --- | --- |
 | `low` | `allow_with_notice` | Small inline reminder. |
-| `elevated` | `step_up_verification` | Reflection questions and recipient verification prompt. |
-| `critical` | `pause_transfer` | Cool-down, TTS/chatbot warning, trusted-contact confirmation, and optional human review. |
+| `low` | `allow_after_challenge` | Transfer proceeds after a cleared camera/voice challenge. |
+| `elevated` | `require_camera_voice_check` | Reflection prompt plus camera and voice check. |
+| `critical` | `withhold_24h_notify_trusted_authority` | 24-hour hold, TTS/chatbot warning, bank fraud desk notification, and optional trusted-contact review. |
 
 ## Behavioral-Science Principles
 
@@ -78,10 +97,10 @@ The intervention should:
 
 ## Trusted Contact Boundary
 
-Trusted-contact confirmation should be a separate workflow:
+Trusted-contact or trusted-authority confirmation should be a separate workflow:
 
 - The user pre-consents to trusted-contact use.
-- The trusted contact receives minimal transaction context.
+- The bank fraud desk or trusted contact receives minimal transaction context.
 - The trusted contact confirms concern, cannot directly control the user's money.
 - The user and bank retain the final decision flow.
 
@@ -96,4 +115,3 @@ Intervention outcome should feed the separate post-intervention feedback pipelin
 - false-positive appeal
 
 That feedback pipeline is documented in `docs/shield_feedback_learning_pipeline.md`.
-

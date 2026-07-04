@@ -69,7 +69,7 @@ The backend keeps backward compatibility:
 2. Otherwise, Shield falls back to `transcript`.
 3. If `llm_scam_type` or `detected_patterns` exists and `consent_granted` is true, Shield uses the Smartbot classification as the primary scam-script signal.
 4. If no Smartbot output exists and `consent_granted` is true, Shield falls back to keyword pattern matching over the transcript.
-5. If `consent_granted` is false, Shield skips audio/transcript analysis and uses transaction plus telecom context only.
+5. If `consent_granted` is false, Shield skips audio/transcript analysis. If the outer context circuit trips, the response asks for a consented camera and voice challenge before a final allow/hold decision.
 6. If `coercion_score` exists, Shield adds an explainable coercion/distress risk signal using the aggregate score and confidence.
 
 ## Real-Life Mapping

@@ -168,8 +168,51 @@ function renderShield(result) {
       <span class="pill ${result.risk_level}">${formatValue(result.risk_level)}</span>
       <span class="pill">${formatValue(result.action)}</span>
     </div>
+    ${renderShieldCircuitBreaker(result)}
     <p>${escapeHtml(result.intervention_message)}</p>
+    ${renderTrustedAuthorityNotice(result)}
     ${renderExplanations(result.explanations)}
+  `;
+}
+
+function renderShieldCircuitBreaker(result) {
+  const stageTwoScore = result.stage_two_score === null || result.stage_two_score === undefined
+    ? "Pending"
+    : `${result.stage_two_score}/100`;
+  const stageTwoLabel = result.invasive_check_required
+    ? "Camera and voice check required"
+    : result.stage_two_score === null || result.stage_two_score === undefined
+      ? "Not needed"
+      : "Camera and voice check complete";
+
+  return `
+    <div class="stage-grid">
+      <div class="stage-card">
+        <strong>Stage 1 · outer circuit</strong>
+        <span>${result.stage_one_score ?? result.risk_score}/100 · ${result.circuit_breaker_triggered ? "tripped" : "clear"}</span>
+      </div>
+      <div class="stage-card">
+        <strong>Stage 2 · invasive challenge</strong>
+        <span>${stageTwoScore} · ${stageTwoLabel}</span>
+      </div>
+      <div class="stage-card wide-stage">
+        <strong>Decision stage</strong>
+        <span>${formatValue(result.circuit_breaker_stage ?? "outer_context")}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderTrustedAuthorityNotice(result) {
+  if (!result.trusted_authority_notification) {
+    return "";
+  }
+
+  return `
+    <div class="authority-note">
+      <strong>Hold ${result.transaction_hold_hours || 24}h · trusted authority notified</strong>
+      <span>${escapeHtml(result.trusted_authority_message ?? "")}</span>
+    </div>
   `;
 }
 
