@@ -38,6 +38,7 @@ class ShieldAnalyzeRequest(BaseModel):
     accessibility_service_risk: bool = False
     screen_sharing_detected: bool = False
     ekyc_verification_status: str = "not_checked"
+    ekyc_liveness_passed: bool | None = None
     ekyc_liveness_score: float | None = Field(default=None, ge=0, le=1)
     ekyc_mask_detected: bool = False
     ekyc_face_match_score: float | None = Field(default=None, ge=0, le=1)

@@ -52,9 +52,9 @@ The same boundary is now plug-in ready for real calls. With `VNPT_PROVIDER_MODE=
 - `POST /ai/v1/face/compare`
 - `POST /stt-service/v3/standard`
 
-The adapter keeps credentials out of the frontend, sends image refs as base64 if they resolve to local files, sends STT as binary audio, then normalizes the provider JSON into the existing Shield scoring fields. Once real payloads are recorded, tune `ekyc_liveness_score`, `ekyc_face_match_score`, `stt_confidence`, and intervention thresholds against actual VNPT score distributions.
+The adapter keeps credentials out of the frontend, sends image refs as base64 if they resolve to local files, sends STT as binary audio, then normalizes the provider JSON into the existing Shield scoring fields. VNPT face liveness is treated as boolean: not-live fails Stage 2, live adds no liveness risk. Once real payloads are recorded, tune `ekyc_face_match_score`, `stt_confidence`, and intervention thresholds against actual VNPT score distributions.
 
-For `face/compare`, the request schema accepts `ekyc_document_ref` separately from `ekyc_image_ref`. The browser demo currently passes the same file for both so the flow remains one-click, but production should send a document/front-ID image plus a live face image.
+For `face/compare`, the request schema accepts `ekyc_document_ref` separately from `ekyc_image_ref`. The browser demo now uses mock document portrait refs from `mock_payload/customer_document_faces/`; production should send a document/front-ID image plus a live face image.
 
 ## Cross-Check Summary
 
@@ -223,7 +223,7 @@ This belongs in Shield response/intervention orchestration, not in incoming tran
 Current fields:
 
 - `ekyc_verification_status`
-- `ekyc_liveness_score`
+- `ekyc_liveness_passed`
 - `ekyc_mask_detected`
 - `ekyc_face_match_score`
 - `ekyc_injection_risk_score`

@@ -35,7 +35,7 @@ If `VNPT_PROVIDER_MODE` is not `real`, or if the token headers are missing, the 
 {
   "transaction": { "...": "ShieldAnalyzeRequest" },
   "ekyc_image_ref": "mock_payload/ekyc_img_1",
-  "ekyc_document_ref": "mock_payload/ekyc_img_1",
+  "ekyc_document_ref": "mock_payload/customer_document_faces/doc_face_1",
   "stt_audio_ref": "mock_payload/stt_audio_1",
   "client_session": "shield-demo-browser-session"
 }
@@ -47,7 +47,7 @@ Field meaning:
 | --- | --- |
 | `transaction` | Original Stage 1 Shield transaction context. |
 | `ekyc_image_ref` | Live face/selfie image reference for liveness and mask checks. |
-| `ekyc_document_ref` | Optional document/front-ID image reference for face compare. |
+| `ekyc_document_ref` | Optional document/front-ID image reference for face compare. Mock assets live in `mock_payload/customer_document_faces/`. |
 | `stt_audio_ref` | Audio file reference for SmartVoice STT. |
 | `client_session` | Correlation ID passed to VNPT eKYC endpoints. |
 
@@ -67,7 +67,7 @@ Real mode currently targets the contracts in `docs/api_references/vnpt/endpoint_
 The adapter normalizes provider JSON into:
 
 - `ekyc_verification_status`
-- `ekyc_liveness_score`
+- `ekyc_liveness_passed`
 - `ekyc_mask_detected`
 - `ekyc_face_match_score`
 - `ekyc_injection_risk_score`
@@ -83,5 +83,7 @@ The API response also includes `provider_mode` and `provider_raw_responses`. For
 3. Switch `.env` to `VNPT_PROVIDER_MODE=real`.
 4. Run `POST /api/shield/challenge` and inspect `mock_provider_raw_responses`.
 5. Tune the eKYC/STT thresholds against actual provider score distributions.
+
+VNPT face liveness is treated as boolean. `object.liveness=false` fails the challenge and triggers the Stage 2 alarm. `object.liveness=true` adds no liveness risk by itself. The legacy `ekyc_liveness_score` field remains only for older synthetic/manual payloads.
 
 The current production gap is upload UX, not backend integration. The route already accepts file refs; a later frontend can replace the dropdowns with file upload controls.

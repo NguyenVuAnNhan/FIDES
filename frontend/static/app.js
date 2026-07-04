@@ -54,11 +54,13 @@ shieldResult.addEventListener("click", async (event) => {
 async function runShieldChallenge() {
   const payload = lastShieldPayload ?? buildShieldPayload(new FormData(shieldForm));
   const ekycImageRef = shieldResult.querySelector("[data-shield-ekyc-ref]")?.value ?? "mock_payload/ekyc_img_1";
+  const ekycDocumentRef =
+    shieldResult.querySelector("[data-shield-document-ref]")?.value ?? "mock_payload/customer_document_faces/doc_face_1";
   const sttAudioRef = shieldResult.querySelector("[data-shield-audio-ref]")?.value ?? "mock_payload/stt_audio_1";
   const challengeRequest = {
     transaction: payload,
     ekyc_image_ref: ekycImageRef,
-    ekyc_document_ref: ekycImageRef,
+    ekyc_document_ref: ekycDocumentRef,
     stt_audio_ref: sttAudioRef,
     client_session: "shield-demo-browser-session",
   };
@@ -101,6 +103,7 @@ function buildShieldPayload(form) {
     accessibility_service_risk: form.get("accessibility_service_risk") === "on",
     screen_sharing_detected: form.get("screen_sharing_detected") === "on",
     ekyc_verification_status: String(form.get("ekyc_verification_status")),
+    ekyc_liveness_passed: nullableBoolean(form.get("ekyc_liveness_passed")),
     ekyc_liveness_score: numberOrNull(form.get("ekyc_liveness_score")),
     ekyc_mask_detected: form.get("ekyc_mask_detected") === "on",
     ekyc_face_match_score: numberOrNull(form.get("ekyc_face_match_score")),
@@ -243,10 +246,17 @@ function renderShieldChallengeAction(result) {
   return `
     <div class="challenge-actions">
       <label class="challenge-field">
-        eKYC image payload
+        Live face payload
         <select data-shield-ekyc-ref>
           <option value="mock_payload/ekyc_img_1">ekyc_img_1 · passes eKYC</option>
           <option value="mock_payload/ekyc_img_2">ekyc_img_2 · fails eKYC</option>
+        </select>
+      </label>
+      <label class="challenge-field">
+        Document face payload
+        <select data-shield-document-ref>
+          <option value="mock_payload/customer_document_faces/doc_face_1">doc_face_1 · document portrait</option>
+          <option value="mock_payload/customer_document_faces/doc_face_2">doc_face_2 · alternate document portrait</option>
         </select>
       </label>
       <label class="challenge-field">
@@ -692,6 +702,17 @@ function emptyToNull(value) {
 function numberOrNull(value) {
   const text = String(value ?? "").trim();
   return text ? Number(text) : null;
+}
+
+function nullableBoolean(value) {
+  const text = String(value ?? "").trim().toLowerCase();
+  if (text === "true") {
+    return true;
+  }
+  if (text === "false") {
+    return false;
+  }
+  return null;
 }
 
 function roundOne(value) {

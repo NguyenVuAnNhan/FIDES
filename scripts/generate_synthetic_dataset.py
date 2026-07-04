@@ -1070,6 +1070,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
         "otp_theft": {
             "status": "passed",
@@ -1082,6 +1083,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
         "investment": {
             "status": "passed",
@@ -1094,6 +1096,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
         "remote_support": {
             "status": "review",
@@ -1111,6 +1114,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": True,
             "accessibility": True,
             "screen_sharing": True,
+            "liveness_passed": True,
         },
         "legitimate_supplier": {
             "status": "passed",
@@ -1123,6 +1127,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
             "installed_remote": False,
             "accessibility": False,
             "screen_sharing": False,
+            "liveness_passed": True,
         },
     }
     spec = specs[category]
@@ -1133,6 +1138,7 @@ def make_native_telemetry_signals(rng: random.Random, category: str) -> dict[str
         "accessibility_service_risk": spec["accessibility"],
         "screen_sharing_detected": spec["screen_sharing"],
         "ekyc_verification_status": spec["status"],
+        "ekyc_liveness_passed": spec["liveness_passed"],
         "ekyc_liveness_score": make_confidence(rng, *spec["liveness"]),
         "ekyc_mask_detected": False,
         "ekyc_face_match_score": make_confidence(rng, *spec["face_match"]),

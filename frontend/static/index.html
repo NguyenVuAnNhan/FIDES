@@ -163,7 +163,15 @@
             </select>
           </label>
           <label>
-            Liveness Score
+            Face Liveness
+            <select name="ekyc_liveness_passed">
+              <option value="">Unknown</option>
+              <option value="true">Live</option>
+              <option value="false">Not live</option>
+            </select>
+          </label>
+          <label>
+            Legacy Liveness Score
             <input name="ekyc_liveness_score" type="number" value="0.91" min="0" max="1" step="0.01" />
           </label>
           <label class="checkbox-row">

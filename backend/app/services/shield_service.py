@@ -201,7 +201,6 @@ def _ekyc_api(
     elif face_match_score < 0.75:
         verification_status = "review"
 
-    liveness_score = 0.94 if face_is_live else 0.32
     injection_risk = _derive_injection_risk(face_is_live, mask_detected, face_match_score)
     detail = (
         f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
@@ -211,7 +210,8 @@ def _ekyc_api(
 
     fields = {
         "ekyc_verification_status": verification_status,
-        "ekyc_liveness_score": liveness_score,
+        "ekyc_liveness_passed": face_is_live,
+        "ekyc_liveness_score": None,
         "ekyc_mask_detected": mask_detected,
         "ekyc_face_match_score": face_match_score,
         "ekyc_injection_risk_score": injection_risk,
@@ -672,6 +672,7 @@ def _has_invasive_check_evidence(request: ShieldAnalyzeRequest) -> bool:
     return any(
         [
             request.ekyc_verification_status != "not_checked",
+            request.ekyc_liveness_passed is not None,
             request.ekyc_liveness_score is not None,
             request.ekyc_mask_detected,
             request.ekyc_face_match_score is not None,
@@ -882,7 +883,9 @@ def _ekyc_weight(request: ShieldAnalyzeRequest) -> int:
         weight += 25
     elif status == "review":
         weight += 12
-    if request.ekyc_liveness_score is not None:
+    if request.ekyc_liveness_passed is False:
+        weight += 30
+    elif request.ekyc_liveness_score is not None:
         if request.ekyc_liveness_score < 0.5:
             weight += 20
         elif request.ekyc_liveness_score < 0.7:
@@ -904,7 +907,9 @@ def _ekyc_weight(request: ShieldAnalyzeRequest) -> int:
 
 def _build_ekyc_detail(request: ShieldAnalyzeRequest) -> str:
     pieces = [f"Verification status: {request.ekyc_verification_status}."]
-    if request.ekyc_liveness_score is not None:
+    if request.ekyc_liveness_passed is not None:
+        pieces.append(f"Face liveness: {'live' if request.ekyc_liveness_passed else 'not live'}.")
+    elif request.ekyc_liveness_score is not None:
         pieces.append(f"Liveness score: {request.ekyc_liveness_score:.2f}.")
     pieces.append(f"Mask detected: {str(request.ekyc_mask_detected).lower()}.")
     if request.ekyc_face_match_score is not None:

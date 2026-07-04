@@ -194,7 +194,7 @@ These fields model device/session risk and identity-confirmation risk.
   "accessibility_service_risk": false,
   "screen_sharing_detected": false,
   "ekyc_verification_status": "passed",
-  "ekyc_liveness_score": 0.91,
+  "ekyc_liveness_passed": true,
   "ekyc_mask_detected": false,
   "ekyc_face_match_score": 0.88,
   "ekyc_injection_risk_score": 0.12,
@@ -213,7 +213,8 @@ Meaning:
 - `accessibility_service_risk`: risky accessibility or overlay behavior was observed.
 - `screen_sharing_detected`: screen sharing or screen-control-like behavior was observed.
 - `ekyc_verification_status`: `not_checked`, `passed`, `review`, or `failed`.
-- `ekyc_liveness_score`: liveness result.
+- `ekyc_liveness_passed`: boolean face liveness result. For VNPT, this is the source of truth.
+- `ekyc_liveness_score`: legacy/manual normalized liveness score, only used when no boolean liveness result is available.
 - `ekyc_mask_detected`: mask/spoof signal.
 - `ekyc_face_match_score`: face comparison confidence.
 - `ekyc_injection_risk_score`: biometric injection risk.
@@ -235,7 +236,7 @@ Important boundary:
 
 MVP behavior:
 
-- eKYC review/failure, weak liveness, weak face match, mask, or high injection risk adds risk.
+- eKYC review/failure, `ekyc_liveness_passed=false`, weak legacy liveness score, weak face match, mask, or high injection risk adds risk.
 - SmartUX anomaly and remote-control scores add risk.
 - Native signals produce explanations but do not require raw biometric data.
 
@@ -379,7 +380,7 @@ In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with
 {
   "transaction": { "...": "original ShieldAnalyzeRequest" },
   "ekyc_image_ref": "mock_payload/ekyc_img_1",
-  "ekyc_document_ref": "mock_payload/ekyc_img_1",
+  "ekyc_document_ref": "mock_payload/customer_document_faces/doc_face_1",
   "stt_audio_ref": "mock_payload/stt_audio_1",
   "client_session": "shield-demo-browser-session"
 }
@@ -396,10 +397,12 @@ The current mock artifacts are:
 
 - `mock_payload/ekyc_img_1`: eKYC passes.
 - `mock_payload/ekyc_img_2`: eKYC fails.
+- `mock_payload/customer_document_faces/doc_face_1`: mock document/front-ID portrait source for face compare.
+- `mock_payload/customer_document_faces/doc_face_2`: alternate mock document/front-ID portrait source.
 - `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
 - `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
 
-Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_score`, `ekyc_face_match_score`, `stt_transcript`, and `stt_confidence`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
+Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_passed`, `ekyc_face_match_score`, `stt_transcript`, and `stt_confidence`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
 
 For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token headers in `.env`. The same challenge route then calls real VNPT eKYC liveness, mask, face-compare, and SmartVoice STT endpoints. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the audio file sent as a binary STT body; `client_session` is passed through to VNPT for request correlation.
 
@@ -408,7 +411,7 @@ For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token head
 Stage 2 runs only after Stage 1 trips. It uses higher-friction checks:
 
 - eKYC status
-- liveness score
+- face liveness boolean
 - mask/spoof signal
 - face-match score
 - biometric injection risk

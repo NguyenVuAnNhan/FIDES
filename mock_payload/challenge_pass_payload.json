@@ -9,5 +9,6 @@
     "recipient_known": false
   },
   "ekyc_image_ref": "mock_payload/ekyc_img_1",
+  "ekyc_document_ref": "mock_payload/customer_document_faces/doc_face_1",
   "stt_audio_ref": "mock_payload/stt_audio_1"
 }
