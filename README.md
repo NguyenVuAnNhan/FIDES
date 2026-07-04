@@ -49,6 +49,10 @@ The full mock data and future database inventory is tracked in `docs/mock_data_i
 
 Shield camera/voice challenge fixtures live in `mock_payload/`: `ekyc_img_1` passes mock eKYC, `ekyc_img_2` fails mock eKYC, `stt_audio_1` passes the spoken challenge, and `stt_audio_2` fails it. Example request bodies are included in the same folder.
 
+VNPT-shaped raw mock responses live in `backend/app/data/vnpt_mocks/`. The Shield mock adapters load those JSON files, normalize them into Shield fields, and expose the raw JSON in the API response for demo inspection.
+
+The Shield challenge is plug-in ready for real VNPT calls. Leave `VNPT_PROVIDER_MODE=mock` for offline demos. To call VNPT, set `VNPT_PROVIDER_MODE=real` plus `VNPT_ACCESS_TOKEN`, `VNPT_TOKEN_ID`, `VNPT_TOKEN_KEY`, and `VNPT_EKYC_TOKEN` in `.env`; the backend will call eKYC face liveness, face mask, face compare, and SmartVoice STT using the local API contracts. Frontend code never receives credentials. See `docs/vnpt_provider_adapter.md` for the operator checklist.
+
 For a full explanation of the Shield scam schema and two-stage circuit-breaker flow, see `docs/scam_schema_explained.md`.
 
 The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.
@@ -91,7 +95,7 @@ python3 scripts/generate_receipt_fixtures.py
 
 ## Next Build Steps
 
-1. Add VNPT provider adapters behind the Shield and Grow services.
+1. Expand the VNPT adapter pattern to Grow SmartReader OCR and SmartVoice bookkeeping.
 2. Keep keys in `.env`; never place them in frontend code.
 3. Add file upload for scam audio and invoice images.
 4. Add a shared trust profile/dashboard once both flows are stable.

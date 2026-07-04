@@ -43,6 +43,19 @@ This lets us:
 - store raw vendor responses outside the business payload,
 - avoid leaking VNPT tokens or raw credentials into frontend code.
 
+Current MVP status: Shield challenge mocks now follow this pattern. Raw VNPT-shaped eKYC and SmartVoice JSON fixtures live in `backend/app/data/vnpt_mocks/`; the adapter loads those fixtures, normalizes them into Shield scoring fields, and returns `provider_raw_responses` for demo inspection.
+
+The same boundary is now plug-in ready for real calls. With `VNPT_PROVIDER_MODE=mock`, the backend remains fully offline. With `VNPT_PROVIDER_MODE=real` and `VNPT_ACCESS_TOKEN`, `VNPT_TOKEN_ID`, `VNPT_TOKEN_KEY`, and `VNPT_EKYC_TOKEN` set server-side, the Shield challenge calls:
+
+- `POST /ai/v1/face/liveness`
+- `POST /ai/v1/face/mask`
+- `POST /ai/v1/face/compare`
+- `POST /stt-service/v3/standard`
+
+The adapter keeps credentials out of the frontend, sends image refs as base64 if they resolve to local files, sends STT as binary audio, then normalizes the provider JSON into the existing Shield scoring fields. Once real payloads are recorded, tune `ekyc_liveness_score`, `ekyc_face_match_score`, `stt_confidence`, and intervention thresholds against actual VNPT score distributions.
+
+For `face/compare`, the request schema accepts `ekyc_document_ref` separately from `ekyc_image_ref`. The browser demo currently passes the same file for both so the flow remains one-click, but production should send a document/front-ID image plus a live face image.
+
 ## Cross-Check Summary
 
 | VNPT product | Public contract status | Current mock coverage | Main schema gap | Recommended schema update |

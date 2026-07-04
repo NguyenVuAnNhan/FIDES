@@ -16,6 +16,7 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `frontend/static/fixtures/receipts/` | Fake receipt PNGs for Grow OCR demos. |
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
 | `mock_payload/` | Fake Shield challenge payload assets for eKYC image and STT audio pass/fail demos. |
+| `backend/app/data/vnpt_mocks/` | VNPT-shaped mock eKYC and SmartVoice JSON responses used by the Shield challenge adapters when `VNPT_PROVIDER_MODE=mock`. |
 | `docs/graph_database_schema.md` | Future graph database design. |
 | `sdks/web/` | Web SDK scaffold for in-page telemetry and Shield/Grow calls. |
 | `sdks/mobile/` | Android/iOS SDK scaffold for host-app telemetry and Shield/Grow calls. |
@@ -235,7 +236,7 @@ Stores per-call metadata and raw response references for VNPT-backed mock output
 MVP:
 
 -   Inline provider trace objects in VNPT-backed payload blocks.
--   Keep raw VNPT-style responses as references, not frontend-facing payloads.
+-   Return raw VNPT-style responses in the demo response for judge inspection; production should replace this with server-side raw response references.
 -   Optional future mock file paths:
     -   `backend/app/data/vnpt_mocks/smartreader/`
     -   `backend/app/data/vnpt_mocks/smartvoice/`
@@ -244,6 +245,7 @@ MVP:
 Later:
 
 -   Provider-call table with provider/product, endpoint ID, endpoint path, client session, file/audio/text IDs, status, raw request/response refs, error details, and timestamps.
+-   Real Shield challenge calls can already be enabled with `VNPT_PROVIDER_MODE=real` and server-side VNPT token headers; the database layer should record the same trace fields once persistent storage is added.
 
 ## External Services To Mock
 

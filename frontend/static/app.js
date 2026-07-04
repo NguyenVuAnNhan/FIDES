@@ -58,7 +58,9 @@ async function runShieldChallenge() {
   const challengeRequest = {
     transaction: payload,
     ekyc_image_ref: ekycImageRef,
+    ekyc_document_ref: ekycImageRef,
     stt_audio_ref: sttAudioRef,
+    client_session: "shield-demo-browser-session",
   };
 
   shieldResult.className = "result empty";
@@ -206,6 +208,30 @@ function renderShield(result) {
     ${renderShieldChallengeAction(result)}
     ${renderTrustedAuthorityNotice(result)}
     ${renderExplanations(result.explanations)}
+    ${renderProviderResponses(result.provider_raw_responses ?? result.mock_provider_raw_responses, result.provider_mode)}
+  `;
+}
+
+function renderProviderResponses(responses, providerMode = "mock") {
+  const entries = Object.entries(responses ?? {});
+  if (!entries.length) {
+    return "";
+  }
+
+  return `
+    <details class="provider-json">
+      <summary>${providerMode === "real" ? "VNPT provider JSON" : "Mock VNPT provider JSON"}</summary>
+      ${entries
+        .map(
+          ([name, payload]) => `
+            <div class="provider-json-block">
+              <strong>${escapeHtml(name)}</strong>
+              <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+            </div>
+          `,
+        )
+        .join("")}
+    </details>
   `;
 }
 

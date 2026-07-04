@@ -379,11 +379,13 @@ In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with
 {
   "transaction": { "...": "original ShieldAnalyzeRequest" },
   "ekyc_image_ref": "mock_payload/ekyc_img_1",
-  "stt_audio_ref": "mock_payload/stt_audio_1"
+  "ekyc_document_ref": "mock_payload/ekyc_img_1",
+  "stt_audio_ref": "mock_payload/stt_audio_1",
+  "client_session": "shield-demo-browser-session"
 }
 ```
 
-The backend does not automatically pass the challenge. It calls mocked provider APIs and re-runs Shield analysis from their outputs:
+The backend does not automatically pass the challenge. In default `mock` mode, it calls mocked provider APIs and re-runs Shield analysis from their outputs:
 
 - mock eKYC API: liveness, mask/spoof, face match, injection risk
 - mock SmartVoice API: speech-to-text transcript and confidence
@@ -396,6 +398,10 @@ The current mock artifacts are:
 - `mock_payload/ekyc_img_2`: eKYC fails.
 - `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
 - `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
+
+Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_score`, `ekyc_face_match_score`, `stt_transcript`, and `stt_confidence`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
+
+For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token headers in `.env`. The same challenge route then calls real VNPT eKYC liveness, mask, face-compare, and SmartVoice STT endpoints. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the audio file sent as a binary STT body; `client_session` is passed through to VNPT for request correlation.
 
 ### Stage 2: Invasive Camera And Voice Challenge
 
@@ -455,6 +461,8 @@ It also includes staged fields:
 - `transaction_hold_hours`
 - `challenge_profile`
 - `mock_provider_calls`
+- `provider_raw_responses`
+- `mock_provider_raw_responses`
 
 This is a good MVP design because judges can inspect why the low-friction circuit tripped separately from why the invasive challenge passed or failed.
 

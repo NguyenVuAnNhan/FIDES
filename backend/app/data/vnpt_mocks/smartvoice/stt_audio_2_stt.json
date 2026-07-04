@@ -1,0 +1,20 @@
+{
+  "message": "Success",
+  "object": {
+    "id": "mock-stt-audio-2",
+    "audio_type": "wav",
+    "audio_url": "mock_payload/stt_audio_2",
+    "audio_hash": "mock_stt_audio_2_hash",
+    "sample_rate": 16000,
+    "transcript_model": "stt_v3_standard",
+    "transcript": "Toi dang lam theo yeu cau cua cong an. Tai khoan cua toi lien quan vu an nen toi phai chuyen tien de xac minh va giu bi mat.",
+    "transcript_list": [
+      {
+        "transcript": "Toi dang lam theo yeu cau cua cong an. Tai khoan cua toi lien quan vu an nen toi phai chuyen tien de xac minh va giu bi mat.",
+        "confidence": 0.9
+      }
+    ],
+    "duration": 5.6,
+    "version": "smartvoice-mock-1.0"
+  }
+}

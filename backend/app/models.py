@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -76,7 +78,10 @@ class ShieldAnalyzeResponse(BaseModel):
     trusted_authority_message: str | None = None
     transaction_hold_hours: int = Field(default=0, ge=0)
     challenge_profile: str | None = None
+    provider_mode: str = "mock"
     mock_provider_calls: list[Explanation] = Field(default_factory=list)
+    provider_raw_responses: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    mock_provider_raw_responses: dict[str, dict[str, Any]] = Field(default_factory=dict)
     scam_type: str | None
     explanations: list[Explanation]
     intervention_message: str
@@ -85,7 +90,9 @@ class ShieldAnalyzeResponse(BaseModel):
 class ShieldChallengeRequest(BaseModel):
     transaction: ShieldAnalyzeRequest
     ekyc_image_ref: str = "mock_payload/ekyc_img_1"
+    ekyc_document_ref: str | None = None
     stt_audio_ref: str = "mock_payload/stt_audio_1"
+    client_session: str = "shield-demo-session"
 
 
 class InvoiceItem(BaseModel):

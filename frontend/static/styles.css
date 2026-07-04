@@ -286,6 +286,35 @@ button:disabled {
   min-height: 86px;
 }
 
+.provider-json {
+  margin-top: 12px;
+}
+
+.provider-json summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.provider-json-block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px;
+}
+
+.provider-json pre {
+  color: #344054;
+  font-size: 12px;
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .pill {
   border-radius: 8px;
   background: #e9eef5;

@@ -1,0 +1,20 @@
+{
+  "message": "Success",
+  "object": {
+    "id": "mock-stt-audio-1",
+    "audio_type": "wav",
+    "audio_url": "mock_payload/stt_audio_1",
+    "audio_hash": "mock_stt_audio_1_hash",
+    "sample_rate": 16000,
+    "transcript_model": "stt_v3_standard",
+    "transcript": "Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai. Toi da tu kiem tra nguoi nhan va muon tiep tuc.",
+    "transcript_list": [
+      {
+        "transcript": "Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai. Toi da tu kiem tra nguoi nhan va muon tiep tuc.",
+        "confidence": 0.92
+      }
+    ],
+    "duration": 4.8,
+    "version": "smartvoice-mock-1.0"
+  }
+}
