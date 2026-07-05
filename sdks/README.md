@@ -29,6 +29,6 @@ They do not contain VNPT credentials, partner-bank credentials, or raw model log
 
 - `AndroidCallStateMonitor` + `analyzeShieldWithCall()`
 - `LiveCheckCapture` (CameraX, 10s, JPEG frame sampling)
-- `LiveCheckCaptureResult.toUploadInput()`
+- **Jetpack Compose UI** in `sample-banking-app` (design screens + Shield flow)
 
 See `mobile/README.md` for the full Android integration flow.

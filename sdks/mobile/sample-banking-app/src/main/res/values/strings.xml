@@ -1,16 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FIDES Sample Bank</string>
-    <string name="confirm_transfer">Confirm transfer</string>
-    <string name="verify_continue">Verify &amp; continue</string>
-    <string name="pick_cccd">Pick CCCD portrait</string>
-    <string name="start_live_check">Start live check (10s)</string>
-    <string name="enable_camera">Enable camera</string>
-    <string name="new_transfer">New transfer</string>
-    <string name="amount_hint">Amount (VND)</string>
-    <string name="recipient_hint">Recipient name</string>
-    <string name="account_hint">Account number</string>
-    <string name="transfer_title">Confirm transfer</string>
-    <string name="identity_title">Identity check</string>
-    <string name="status_idle">Review the transfer and tap Confirm transfer.</string>
+    <string name="app_name">FIDES</string>
 </resources>

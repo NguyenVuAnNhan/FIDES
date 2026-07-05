@@ -115,6 +115,19 @@ val callMonitor = CompositeCallStateMonitor(
 - CameraX 1.3.x
 - AndroidX Lifecycle
 
+## Sample banking app (native UI)
+
+Design UI is implemented in **Jetpack Compose** at `sample-banking-app/`:
+
+- Trang chủ · Thống kê · Khoản vay
+- Xác nhận chuyển khoản → Cảnh báo → Xác minh danh tính → Kết quả
+- Wired to `FidesMobileSdk` + `LiveCheckCapture`
+
+```bash
+cd sdks/mobile
+./gradlew :sample-banking-app:installDebug
+```
+
 ## One-time machine setup (macOS + Homebrew)
 
 Already run on this machine:
@@ -136,22 +149,11 @@ emulator -avd fides_demo -gpu host &
 adb install -r sdks/mobile/sample-banking-app/build/outputs/apk/debug/sample-banking-app-debug.apk
 ```
 
-## Sample banking app
+1. Start FIDES backend: `uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000`
+2. Emulator uses `http://10.0.2.2:8000` (`BuildConfig.FIDES_BASE_URL`).
+3. Open app **FIDES** → **Kiểm tra giao dịch** → flow Shield Path B.
 
-Path B end-to-end demo with `PreviewView`, permissions, CCCD picker, and live check.
-
-```bash
-cd sdks/mobile
-./gradlew :sample-banking-app:assembleDebug
-./gradlew :sample-banking-app:installDebug   # device/emulator connected
-```
-
-1. Start FIDES backend on the host: `uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000`
-2. Emulator uses `http://10.0.2.2:8000` (configured in `BuildConfig.FIDES_BASE_URL`).
-3. Physical device: change `FIDES_BASE_URL` in `sample-banking-app/build.gradle.kts` to your LAN IP.
-4. Open **FIDES Sample Bank** → Confirm transfer → identity check when risk is high.
-
-The sample uses [DemoCallStateMonitor](sample-banking-app/src/main/kotlin/ai/fides/sample/ShieldTransferActivity.kt) to simulate an active call on emulators without telephony.
+The sample uses `DemoCallStateMonitor` to simulate an active call on emulators.
 
 ## Next
 

@@ -80,6 +80,8 @@ The SDK design and platform boundaries are documented in `docs/sdk_scaffold.md`.
 
 Synthetic demo fixtures live in `backend/app/data/demo_dataset.json`.
 
+Native mobile UI (design + Shield Path B): `sdks/mobile/sample-banking-app/` — Jetpack Compose + FIDES SDK.
+
 The current dataset includes:
 
 - Six Shield scenarios: fake police scam, stage-one challenge required, OTP theft, guaranteed-investment scam, remote-control support scam, and a legitimate supplier payment.

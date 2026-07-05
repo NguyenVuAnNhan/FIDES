@@ -4,11 +4,14 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.camera.view.PreviewView
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import ai.fides.sample.databinding.ActivityShieldTransferBinding
 import ai.fides.sdk.DefaultFidesTelemetryProvider
 import ai.fides.sdk.FidesConfig
 import ai.fides.sdk.FidesConsent
@@ -23,55 +26,39 @@ import ai.fides.sdk.capture.LiveCheckCapture
 import ai.fides.sdk.capture.LiveCheckCaptureCallback
 import ai.fides.sdk.capture.LiveCheckCaptureResult
 import ai.fides.sdk.capture.toUploadInput
+import ai.fides.sample.ui.FidesApp
+import ai.fides.sample.ui.theme.FidesTheme
 
-class ShieldTransferActivity : AppCompatActivity() {
-    private lateinit var binding: ActivityShieldTransferBinding
+class ShieldTransferActivity : ComponentActivity() {
     private lateinit var sdk: FidesMobileSdk
     private lateinit var callMonitor: CallStateMonitor
     private lateinit var liveCapture: LiveCheckCapture
+    private lateinit var previewView: PreviewView
 
+    private var uiState by mutableStateOf(ShieldUiState())
     private val consent = FidesConsent(telemetry = true)
-    private var currentTransaction: ShieldTransaction? = null
     private var cccdBytes: ByteArray? = null
-    private var cccdFilename: String = "cccd.jpg"
     private var captureResult: LiveCheckCaptureResult? = null
-    private var identityCheckRequired = false
-    private var cameraBound = false
-
-    private enum class FlowStep {
-        CONFIRM,
-        VERIFY,
-        DONE,
-    }
-
-    private var flowStep = FlowStep.CONFIRM
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
-        val allGranted = REQUIRED_PERMISSIONS.all { grants[it] == true }
-        if (allGranted) {
-            onPermissionsReady()
+        if (REQUIRED_PERMISSIONS.all { grants[it] == true }) {
+            pendingAction?.invoke()
+            pendingAction = null
         } else {
-            setStatus("Permissions denied. Grant camera, microphone, and phone state to continue.")
+            uiState = uiState.copy(errorMessage = "Cần quyền camera, mic và phone state.")
         }
     }
 
     private val cccdPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null) {
-            setStatus("CCCD portrait not selected.")
-            return@registerForActivityResult
-        }
-        loadCccd(uri)
+        if (uri != null) loadCccd(uri)
     }
+
+    private var pendingAction: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityShieldTransferBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        setSupportActionBar(binding.toolbar)
-
         sdk = FidesMobileSdk(
             config = FidesConfig(baseUrl = BuildConfig.FIDES_BASE_URL),
             telemetryProvider = DefaultFidesTelemetryProvider(),
@@ -79,14 +66,28 @@ class ShieldTransferActivity : AppCompatActivity() {
         )
         callMonitor = DemoCallStateMonitor(AndroidCallStateMonitor(applicationContext))
         liveCapture = LiveCheckCapture(this, this)
+        previewView = PreviewView(this)
 
-        binding.buttonPrimary.setOnClickListener { onPrimaryAction() }
-        binding.buttonPickCccd.setOnClickListener { cccdPicker.launch("image/*") }
-        binding.buttonEnableCamera.setOnClickListener { bindCameraPreview() }
-        binding.buttonStartLiveCheck.setOnClickListener { startLiveCheck() }
-
-        refreshCallSignal()
-        resetFlow()
+        setContent {
+            FidesTheme {
+                FidesApp(
+                    state = uiState,
+                    onNavigate = { tab -> uiState = uiState.copy(tab = tab, overlay = AppOverlay.NONE) },
+                    onCheckTransaction = { openTransfer() },
+                    onConfirmTransfer = { confirmTransfer(it) },
+                    onWarningBack = { resetFlow() },
+                    onWarningContinue = {
+                        uiState = uiState.copy(overlay = AppOverlay.VOICE)
+                        ensurePermissions { bindCamera() }
+                    },
+                    onCloseOverlay = { resetFlow() },
+                    onPickCccd = { cccdPicker.launch("image/*") },
+                    onStartLiveCheck = { startLiveCheck() },
+                    onVerify = { verifyIdentity() },
+                    previewViewFactory = { previewView },
+                )
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -94,48 +95,27 @@ class ShieldTransferActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun onPrimaryAction() {
-        when (flowStep) {
-            FlowStep.CONFIRM -> confirmTransfer()
-            FlowStep.VERIFY -> verifyIdentity()
-            FlowStep.DONE -> resetFlow()
-        }
+    private fun openTransfer() {
+        uiState = uiState.copy(overlay = AppOverlay.TRANSFER, errorMessage = null)
     }
 
-    private fun confirmTransfer() {
-        val transaction = readTransaction()
-        currentTransaction = transaction
-        setStatus("Checking transfer context...")
-        binding.buttonPrimary.isEnabled = false
-
+    private fun confirmTransfer(transaction: ShieldTransaction) {
+        uiState = uiState.copy(loading = true, errorMessage = null, transaction = transaction)
         ensurePermissions {
             sdk.analyzeShieldWithCall(transaction, consent, callMonitor) { result ->
                 runOnUiThread {
-                    binding.buttonPrimary.isEnabled = true
                     when (result) {
                         is FidesSdkResult.Failure -> {
-                            setStatus("Analyze failed: ${result.message}")
+                            uiState = uiState.copy(loading = false, errorMessage = result.message)
                         }
                         is FidesSdkResult.Success -> {
                             val response = result.value
-                            binding.analyzeResultText.visibility = View.VISIBLE
-                            binding.analyzeResultText.text = buildString {
-                                append("Risk ${response.riskScore}/100 · ${response.action}\n")
-                                append(response.interventionMessage)
-                            }
-
-                            if (response.requiresIdentityCheck) {
-                                identityCheckRequired = true
-                                flowStep = FlowStep.VERIFY
-                                binding.buttonPrimary.text = getString(R.string.verify_continue)
-                                binding.identityCard.visibility = View.VISIBLE
-                                setStatus("Extra verification required. Pick CCCD, enable camera, then record.")
-                                ensurePermissions { bindCameraPreview() }
-                            } else {
-                                flowStep = FlowStep.DONE
-                                binding.buttonPrimary.text = getString(R.string.new_transfer)
-                                setStatus("Transfer cleared without identity check.")
-                            }
+                            uiState = uiState.copy(
+                                loading = false,
+                                analyzeResponse = response,
+                                overlay = if (response.requiresIdentityCheck) AppOverlay.WARNING else AppOverlay.RESULT,
+                                finalResponse = if (response.requiresIdentityCheck) null else response,
+                            )
                         }
                     }
                 }
@@ -143,145 +123,112 @@ class ShieldTransferActivity : AppCompatActivity() {
         }
     }
 
-    private fun verifyIdentity() {
-        val transaction = currentTransaction ?: return
-        val capture = captureResult
-        val document = cccdBytes
-
-        if (document == null) {
-            setStatus("Pick a CCCD portrait before verifying.")
-            return
-        }
-        if (capture == null) {
-            setStatus("Complete the 10-second live check first.")
-            return
-        }
-
-        setStatus("Uploading live check and running identity verification...")
-        binding.buttonPrimary.isEnabled = false
-
-        val uploadInput = capture.toUploadInput(
-            documentBytes = document,
-            documentFilename = cccdFilename,
-        )
-
-        sdk.runIdentityCheck(transaction, consent, uploadInput) { result ->
-            runOnUiThread {
-                binding.buttonPrimary.isEnabled = true
-                when (result) {
-                    is FidesSdkResult.Failure -> {
-                        setStatus("Identity check failed: ${result.message}")
-                    }
-                    is FidesSdkResult.Success -> {
-                        val response = result.value
-                        binding.finalResultText.visibility = View.VISIBLE
-                        binding.finalResultText.text = buildString {
-                            append("Final decision: ${response.action}\n")
-                            append("Risk ${response.riskScore}/100 · ${response.riskLevel}\n")
-                            append(response.interventionMessage)
-                            response.challengeProfile?.let { append("\nProfile: $it") }
-                        }
-                        flowStep = FlowStep.DONE
-                        binding.buttonPrimary.text = getString(R.string.new_transfer)
-                        setStatus("Identity check complete.")
-                    }
-                }
-            }
-        }
-    }
-
-    private fun bindCameraPreview() {
-        if (cameraBound) {
-            return
-        }
+    private fun bindCamera() {
+        if (uiState.cameraReady) return
         liveCapture.bindPreview(
-            previewView = binding.cameraPreview,
+            previewView = previewView,
             onReady = {
                 runOnUiThread {
-                    cameraBound = true
-                    binding.buttonEnableCamera.isEnabled = false
-                    binding.buttonEnableCamera.text = "Camera ready"
-                    updateLiveCheckButtonState()
-                    setStatus("Camera ready. Pick CCCD if needed, then start live check.")
+                    uiState = uiState.copy(cameraReady = true, liveCheckStatus = "Camera sẵn sàng.")
                 }
             },
             onError = { message ->
                 runOnUiThread {
-                    setStatus("Camera error: $message")
+                    uiState = uiState.copy(errorMessage = message)
                 }
             },
         )
     }
 
     private fun startLiveCheck() {
-        binding.buttonStartLiveCheck.isEnabled = false
+        if (cccdBytes == null) {
+            uiState = uiState.copy(errorMessage = "Chọn ảnh CCCD trước.")
+            return
+        }
         captureResult = null
-        setStatus("Recording live check...")
-
+        uiState = uiState.copy(liveCheckReady = false, liveCheckStatus = "Đang ghi...")
         liveCapture.startRecording(
             callback = object : LiveCheckCaptureCallback {
                 override fun onTick(secondsRemaining: Int) {
                     runOnUiThread {
-                        binding.liveCheckStatusText.text = "Recording… ${secondsRemaining}s remaining"
+                        uiState = uiState.copy(recordingSeconds = secondsRemaining)
                     }
                 }
 
                 override fun onSuccess(result: LiveCheckCaptureResult) {
                     runOnUiThread {
                         captureResult = result
-                        binding.liveCheckStatusText.text =
-                            "Captured ${result.frames.size} frame(s). Tap Verify & continue."
-                        binding.buttonStartLiveCheck.isEnabled = true
-                        setStatus("Live check ready.")
+                        uiState = uiState.copy(
+                            recordingSeconds = null,
+                            liveCheckReady = true,
+                            liveCheckStatus = "Đã ghi ${result.frames.size} frame. Bấm Xác minh.",
+                        )
                     }
                 }
 
                 override fun onFailure(message: String, cause: Throwable?) {
                     runOnUiThread {
-                        binding.buttonStartLiveCheck.isEnabled = true
-                        binding.liveCheckStatusText.text = message
-                        setStatus("Live check failed: $message")
+                        uiState = uiState.copy(
+                            recordingSeconds = null,
+                            errorMessage = message,
+                            liveCheckStatus = message,
+                        )
                     }
                 }
             },
         )
     }
 
+    private fun verifyIdentity() {
+        val transaction = uiState.transaction ?: return
+        val document = cccdBytes ?: return
+        val capture = captureResult ?: return
+
+        uiState = uiState.copy(loading = true)
+        sdk.runIdentityCheck(
+            transaction,
+            consent,
+            capture.toUploadInput(documentBytes = document, documentFilename = uiState.cccdFilename ?: "cccd.jpg"),
+        ) { result ->
+            runOnUiThread {
+                when (result) {
+                    is FidesSdkResult.Failure -> {
+                        uiState = uiState.copy(loading = false, errorMessage = result.message)
+                    }
+                    is FidesSdkResult.Success -> {
+                        uiState = uiState.copy(
+                            loading = false,
+                            finalResponse = result.value,
+                            overlay = AppOverlay.RESULT,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     private fun loadCccd(uri: Uri) {
         try {
             val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
             if (bytes == null || bytes.isEmpty()) {
-                setStatus("Selected CCCD image is empty.")
+                uiState = uiState.copy(errorMessage = "Ảnh CCCD trống.")
                 return
             }
             cccdBytes = bytes
-            cccdFilename = uri.lastPathSegment?.substringAfterLast('/') ?: "cccd.jpg"
-            binding.liveCheckStatusText.text = "CCCD selected: $cccdFilename"
-            updateLiveCheckButtonState()
+            val name = uri.lastPathSegment?.substringAfterLast('/') ?: "cccd.jpg"
+            uiState = uiState.copy(cccdFilename = name, liveCheckStatus = "CCCD: $name")
         } catch (error: Throwable) {
-            setStatus("Could not read CCCD image: ${error.message}")
+            uiState = uiState.copy(errorMessage = error.message)
         }
     }
 
-    private fun updateLiveCheckButtonState() {
-        binding.buttonStartLiveCheck.isEnabled = cameraBound && cccdBytes != null
-    }
-
-    private fun readTransaction(): ShieldTransaction =
-        ShieldTransaction(
-            amount = binding.inputAmount.text?.toString()?.toLongOrNull() ?: 0L,
-            recipientName = binding.inputRecipient.text?.toString().orEmpty(),
-            recipientAccount = binding.inputAccount.text?.toString().orEmpty(),
-            recipientKnown = false,
-        )
-
-    private fun refreshCallSignal() {
-        val call = callMonitor.snapshot()
-        binding.callSignalText.text = if (call.activeCall) {
-            "Background signal: active call detected (${call.callerType}, ${call.callerNumber.ifBlank { "number hidden" }})"
-        } else {
-            "Background signal: no active call detected on this device."
-        }
+    private fun resetFlow() {
+        cccdBytes = null
+        captureResult = null
+        liveCapture.release()
+        liveCapture = LiveCheckCapture(this, this)
+        previewView = PreviewView(this)
+        uiState = ShieldUiState()
     }
 
     private fun ensurePermissions(onReady: () -> Unit) {
@@ -291,48 +238,9 @@ class ShieldTransferActivity : AppCompatActivity() {
         if (missing.isEmpty()) {
             onReady()
         } else {
-            pendingPermissionAction = onReady
+            pendingAction = onReady
             permissionLauncher.launch(missing.toTypedArray())
         }
-    }
-
-    private var pendingPermissionAction: (() -> Unit)? = null
-
-    private fun onPermissionsReady() {
-        refreshCallSignal()
-        pendingPermissionAction?.invoke()
-        pendingPermissionAction = null
-    }
-
-    private fun resetFlow() {
-        flowStep = FlowStep.CONFIRM
-        identityCheckRequired = false
-        currentTransaction = null
-        cccdBytes = null
-        captureResult = null
-        cameraBound = false
-
-        binding.analyzeResultText.visibility = View.GONE
-        binding.finalResultText.visibility = View.GONE
-        binding.identityCard.visibility = View.GONE
-        binding.buttonPrimary.text = getString(R.string.confirm_transfer)
-        binding.buttonEnableCamera.isEnabled = true
-        binding.buttonEnableCamera.text = getString(R.string.enable_camera)
-        binding.buttonStartLiveCheck.isEnabled = false
-        binding.liveCheckStatusText.text = ""
-        binding.inputAmount.setText("65000000")
-        binding.inputRecipient.setText("Tran Van B")
-        binding.inputAccount.setText("9704 2222 8800")
-
-        liveCapture.release()
-        liveCapture = LiveCheckCapture(this, this)
-
-        refreshCallSignal()
-        setStatus(getString(R.string.status_idle))
-    }
-
-    private fun setStatus(message: String) {
-        binding.statusText.text = message
     }
 
     companion object {
@@ -344,22 +252,12 @@ class ShieldTransferActivity : AppCompatActivity() {
     }
 }
 
-/**
- * Uses real telephony when available; otherwise applies demo Path B call context so the
- * emulator can trigger identity check without an actual phone call.
- */
 private class DemoCallStateMonitor(
     private val platformMonitor: AndroidCallStateMonitor,
 ) : CallStateMonitor {
     override fun snapshot(): CallContext {
         val live = platformMonitor.snapshot()
-        if (live.activeCall) {
-            return live
-        }
-        return CallContext(
-            activeCall = true,
-            callerType = "unknown",
-            callerNumber = "+84 909 000 555",
-        )
+        if (live.activeCall) return live
+        return CallContext(activeCall = true, callerType = "unknown", callerNumber = "+84 909 000 555")
     }
 }

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.FidesSample" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">#0f766e</item>
-        <item name="colorPrimaryContainer">#ccfbf1</item>
-        <item name="android:statusBarColor">#0f766e</item>
+    <style name="Theme.FidesSample" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>
