@@ -140,7 +140,6 @@ export class FidesWebSdk {
       ekyc_image_ref,
       ekyc_document_ref = null,
       stt_audio_ref = "mock_payload/stt_audio_1",
-      voice_reference_ref = "mock_payload/customer_voice_samples/voice_ref_1",
       client_session = "fides-sdk-session",
       ...payloadOverrides
     } = options;
@@ -152,7 +151,6 @@ export class FidesWebSdk {
       ekyc_image_ref,
       ekyc_document_ref,
       stt_audio_ref,
-      voice_reference_ref,
       client_session,
     });
   }

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Smoke-test VNPT SmartVoice STT and voice verification."""
+"""Smoke-test VNPT SmartVoice STT (gRPC REST wrapper)."""
 
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import struct
 import sys
@@ -41,7 +40,6 @@ def _pick_audio(explicit: str | None) -> Path:
 
     candidates = [
         ROOT / "uploads" / "smartvoice",
-        ROOT / "mock_payload" / "customer_voice_samples",
     ]
     for candidate in candidates:
         if candidate.is_file():
@@ -57,9 +55,8 @@ def _pick_audio(explicit: str | None) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Smoke-test VNPT SmartVoice wiring.")
+    parser = argparse.ArgumentParser(description="Smoke-test VNPT SmartVoice STT wiring.")
     parser.add_argument("--challenge-audio", help="Path to challenge WAV/MP3")
-    parser.add_argument("--reference-audio", help="Optional enrolled voice sample")
     parser.add_argument("--session", default="fides-smartvoice-smoke", help="client_session value")
     args = parser.parse_args()
 
@@ -71,43 +68,27 @@ def main() -> int:
         return 1
 
     challenge_path = _pick_audio(args.challenge_audio)
-    reference_path = Path(args.reference_audio) if args.reference_audio else challenge_path
-    if not reference_path.is_file():
-        raise SystemExit(f"Reference audio not found: {args.reference_audio}")
-
     challenge_ref = (
         str(challenge_path.relative_to(ROOT)) if challenge_path.is_relative_to(ROOT) else str(challenge_path)
     )
-    reference_ref = (
-        str(reference_path.relative_to(ROOT)) if reference_path.is_relative_to(ROOT) else str(reference_path)
-    )
 
-    stt = client.smartvoice_stt(challenge_ref)
-    voice = client.smartvoice_voice_verify(reference_ref, challenge_ref, args.session)
+    stt = client.smartvoice_stt(challenge_ref, args.session)
 
-    print("\n== stt-service/v3/standard ==")
+    print("\n== stt-service/v1/grpc/standard ==")
     print(json.dumps(stt, indent=2, ensure_ascii=False)[:1500])
-    print("\n== voice-id upload/encode/verify ==")
-    print(json.dumps(voice, indent=2, ensure_ascii=False)[:1500])
 
-    auth_ok = all(
-        item.get("provider_mode") == "real" and item.get("status") != "error" for item in (stt, voice)
-    )
-    provider_issues = any(
-        str(item.get("statusCode", "")).startswith(("4", "401"))
-        or item.get("status") in {"UNAUTHORIZED", "BAD_REQUEST", "error"}
-        for item in (stt, voice)
-    )
+    stt_object = stt.get("object") if isinstance(stt.get("object"), dict) else {}
+    stt_http_ok = stt.get("http_status") == 200 and stt.get("status") != "error"
+    stt_status_ok = str(stt_object.get("status", "")).upper() == "OK"
 
-    if not auth_ok:
-        print("\nFAIL: VNPT SmartVoice transport or auth failed.")
+    if not stt_http_ok:
+        print("\nFAIL: VNPT STT gRPC transport or auth failed.")
         return 1
 
-    if provider_issues:
-        print("\nOK: wiring reached VNPT. Check token permissions or use real speech WAV if transcript is empty.")
-        return 0
-
-    print("\nOK: VNPT SmartVoice STT and voice verification responded successfully.")
+    if stt_status_ok:
+        print("\nOK: VNPT STT gRPC endpoint accepted the audio file.")
+    else:
+        print("\nOK: VNPT STT gRPC auth works. Provider returned a non-OK STT status.")
     return 0
 
 

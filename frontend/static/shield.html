@@ -233,28 +233,6 @@
             <input name="stt_confidence" type="number" value="0.94" min="0" max="1" step="0.01" />
           </label>
           <label>
-            Voice Verification
-            <select name="voice_verification_status">
-              <option value="not_checked">Not checked</option>
-              <option value="passed">Passed</option>
-              <option value="review">Review</option>
-              <option value="failed">Failed</option>
-              <option value="skipped">Skipped</option>
-            </select>
-          </label>
-          <label>
-            Voice Reference
-            <input name="voice_reference_source" value="" />
-          </label>
-          <label>
-            Voice Match Score
-            <input name="voice_match_score" type="number" value="" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Voice Match Threshold
-            <input name="voice_match_threshold" type="number" value="0.75" min="0" max="1" step="0.01" />
-          </label>
-          <label>
             LLM Scam Type
             <input name="llm_scam_type" value="fake_authority" />
           </label>
@@ -313,9 +291,8 @@
           <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
             <h3 class="wizard-panel-title">2. In-app camera &amp; voice check</h3>
             <p class="wizard-panel-lead">
-              Upload a live selfie for VNPT eKYC and a short voice clip for VNPT SmartVoice STT
-              and voice verification. Optionally add a CCCD portrait for face compare and an enrolled
-              voice sample for voice match.
+              Upload a live selfie for VNPT eKYC and a short voice clip for VNPT SmartVoice STT.
+              Optionally add a CCCD portrait for face compare.
             </p>
             <div class="wizard-grid">
               <label class="wide">
@@ -329,10 +306,6 @@
               <label class="wide">
                 Challenge voice (required)
                 <input id="shield-stt-audio" type="file" accept="audio/wav,audio/mpeg,audio/webm,audio/ogg,audio/mp4" />
-              </label>
-              <label class="wide">
-                Enrolled voice sample (optional)
-                <input id="shield-voice-reference" type="file" accept="audio/wav,audio/mpeg,audio/webm,audio/ogg,audio/mp4" />
               </label>
               <div class="wide wizard-inline-actions">
                 <button type="button" class="wizard-secondary" id="shield-record-audio">Record challenge audio</button>

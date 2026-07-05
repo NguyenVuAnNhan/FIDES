@@ -10,7 +10,6 @@ const shieldEkycSelfie = document.querySelector("#shield-ekyc-selfie");
 const shieldEkycDocument = document.querySelector("#shield-ekyc-document");
 const shieldEkycUploadStatus = document.querySelector("#shield-ekyc-upload-status");
 const shieldSttAudio = document.querySelector("#shield-stt-audio");
-const shieldVoiceReference = document.querySelector("#shield-voice-reference");
 const shieldAudioUploadStatus = document.querySelector("#shield-audio-upload-status");
 const shieldRecordAudio = document.querySelector("#shield-record-audio");
 const shieldStopRecordAudio = document.querySelector("#shield-stop-record-audio");
@@ -182,9 +181,6 @@ function resetShieldCase() {
   if (shieldSttAudio) {
     shieldSttAudio.value = "";
   }
-  if (shieldVoiceReference) {
-    shieldVoiceReference.value = "";
-  }
   if (shieldAudioUploadStatus) {
     shieldAudioUploadStatus.textContent = "";
   }
@@ -206,22 +202,15 @@ async function resolveAudioArtifacts() {
     throw new Error("Choose or record challenge audio for VNPT SmartVoice.");
   }
 
-  const referenceFile = shieldVoiceReference?.files?.[0];
   const challengeChanged = uploadedAudioArtifacts?.challengeFileName !== challengeFile.name;
-  const referenceChanged =
-    (uploadedAudioArtifacts?.referenceFileName || null) !== (referenceFile?.name || null);
-  if (uploadedAudioArtifacts && !challengeChanged && !referenceChanged) {
+  if (uploadedAudioArtifacts && !challengeChanged) {
     return {
       stt_audio_ref: uploadedAudioArtifacts.stt_audio_ref,
-      voice_reference_ref: uploadedAudioArtifacts.voice_reference_ref,
     };
   }
 
   const formData = new FormData();
   formData.append("challenge_audio", challengeFile);
-  if (referenceFile) {
-    formData.append("voice_reference", referenceFile);
-  }
 
   if (shieldAudioUploadStatus) {
     shieldAudioUploadStatus.textContent = "Uploading audio to /api/shield/challenge/upload-audio...";
@@ -230,20 +219,15 @@ async function resolveAudioArtifacts() {
   const uploadResponse = await postFormData("/api/shield/challenge/upload-audio", formData);
   uploadedAudioArtifacts = {
     stt_audio_ref: uploadResponse.stt_audio_ref,
-    voice_reference_ref: uploadResponse.voice_reference_ref || null,
     challengeFileName: challengeFile.name,
-    referenceFileName: referenceFile?.name || null,
   };
 
   if (shieldAudioUploadStatus) {
-    shieldAudioUploadStatus.textContent = `Uploaded ${uploadResponse.challenge_filename}${
-      uploadResponse.reference_filename ? ` + ${uploadResponse.reference_filename}` : ""
-    }.`;
+    shieldAudioUploadStatus.textContent = `Uploaded ${uploadResponse.challenge_filename}.`;
   }
 
   return {
     stt_audio_ref: uploadedAudioArtifacts.stt_audio_ref,
-    voice_reference_ref: uploadedAudioArtifacts.voice_reference_ref,
   };
 }
 
@@ -394,10 +378,6 @@ function buildShieldAnalyzePayload(form) {
     audio_source: null,
     stt_transcript: "",
     stt_confidence: null,
-    voice_reference_source: null,
-    voice_verification_status: "not_checked",
-    voice_match_score: null,
-    voice_match_threshold: null,
     detected_patterns: [],
     llm_scam_type: null,
     llm_confidence: null,
@@ -422,10 +402,6 @@ function buildShieldAnalyzePayload(form) {
     payload.audio_source = emptyToNull(form.get("audio_source"));
     payload.stt_transcript = String(form.get("stt_transcript"));
     payload.stt_confidence = numberOrNull(form.get("stt_confidence"));
-    payload.voice_reference_source = emptyToNull(form.get("voice_reference_source"));
-    payload.voice_verification_status = String(form.get("voice_verification_status"));
-    payload.voice_match_score = numberOrNull(form.get("voice_match_score"));
-    payload.voice_match_threshold = numberOrNull(form.get("voice_match_threshold"));
     payload.detected_patterns = parseList(form.get("detected_patterns"));
     payload.llm_scam_type = emptyToNull(form.get("llm_scam_type"));
     payload.llm_confidence = numberOrNull(form.get("llm_confidence"));

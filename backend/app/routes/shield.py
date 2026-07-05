@@ -46,11 +46,8 @@ class ShieldEkycUploadResponse(BaseModel):
 
 class ShieldAudioUploadResponse(BaseModel):
     stt_audio_ref: str
-    voice_reference_ref: str | None = None
     challenge_filename: str
-    reference_filename: str | None = None
     challenge_size_bytes: int = Field(ge=0)
-    reference_size_bytes: int | None = Field(default=None, ge=0)
 
 
 @router.post("/analyze", response_model=ShieldAnalyzeResponse)
@@ -88,22 +85,13 @@ async def upload_ekyc_challenge(
 @router.post("/challenge/upload-audio", response_model=ShieldAudioUploadResponse)
 async def upload_audio_challenge(
     challenge_audio: UploadFile = File(...),
-    voice_reference: UploadFile | None = File(default=None),
 ) -> ShieldAudioUploadResponse:
     challenge_ref, challenge_name, challenge_size = await _save_audio_upload(challenge_audio, "challenge")
-    reference_ref = None
-    reference_name = None
-    reference_size = None
-    if voice_reference is not None and voice_reference.filename:
-        reference_ref, reference_name, reference_size = await _save_audio_upload(voice_reference, "voice-ref")
 
     return ShieldAudioUploadResponse(
         stt_audio_ref=challenge_ref,
-        voice_reference_ref=reference_ref,
         challenge_filename=challenge_name,
-        reference_filename=reference_name,
         challenge_size_bytes=challenge_size,
-        reference_size_bytes=reference_size,
     )
 
 

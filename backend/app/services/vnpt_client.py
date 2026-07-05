@@ -155,7 +155,7 @@ class VnptClient:
             product="ekyc",
         )
 
-    def smartvoice_stt(self, audio_ref: str) -> dict[str, Any]:
+    def smartvoice_stt(self, audio_ref: str, client_session: str) -> dict[str, Any]:
         audio_path = self._resolve_ref(audio_ref)
         if not audio_path.is_file():
             return self._error_response(
@@ -167,81 +167,43 @@ class VnptClient:
                 provider_mode=self.smartvoice_mode,
             )
 
-        headers = {
-            "Enable-Lm": self.settings.vnpt_stt_enable_lm,
-            "Sample-Rate": str(self.settings.vnpt_stt_sample_rate),
-            "bit-per-rate": str(self.settings.vnpt_stt_bit_per_rate),
-            "domain": self.settings.vnpt_stt_domain,
-            "save-log": self.settings.vnpt_stt_save_log,
-            "cap_punct_recovery": self.settings.vnpt_stt_cap_punct_recovery,
+        extra_fields: dict[str, str] = {
+            "clientSession": client_session,
+            "model": "offline",
+            "maxAlternatives": "1",
+            "audioChannelCount": "1",
         }
-        return self._post_binary(
-            "/stt-service/v3/standard",
-            audio_path.read_bytes(),
-            self._audio_content_type(audio_path),
-            headers,
+        if self.settings.vnpt_stt_cap_punct_recovery.lower() in {"true", "1", "yes"}:
+            extra_fields["enableAutomaticPunctuation"] = "true"
+        suffix = audio_path.suffix.lower()
+        if suffix in {".mp3", ".mpeg"}:
+            extra_fields["customConfiguration"] = json.dumps(
+                {
+                    "invert_text": "1",
+                    "cap_punct_recovery": self.settings.vnpt_stt_cap_punct_recovery,
+                    "convert_format": "mp3",
+                }
+            )
+        elif suffix == ".webm":
+            extra_fields["customConfiguration"] = json.dumps(
+                {
+                    "invert_text": "1",
+                    "cap_punct_recovery": self.settings.vnpt_stt_cap_punct_recovery,
+                    "convert_format": "mp3",
+                }
+            )
+
+        return self._post_multipart_file(
+            "/stt-service/v1/grpc/standard",
+            audio_path,
+            self.settings.vnpt_base_url,
+            provider_mode=self.smartvoice_mode,
             product="smartvoice",
+            extra_fields=extra_fields,
+            file_field_name="audioFile",
+            file_content_type=self._audio_content_type(audio_path),
+            timeout=self.settings.vnpt_request_timeout_seconds,
         )
-
-    def smartvoice_voice_verify(
-        self,
-        reference_audio_ref: str | None,
-        challenge_audio_ref: str,
-        client_session: str,
-    ) -> dict[str, Any]:
-        if not reference_audio_ref:
-            return {
-                "message": "Skipped voice verification because no customer voice reference was provided",
-                "object": {
-                    "ok": True,
-                    "result": {
-                        "similarity": 1.0,
-                        "score": 1.0,
-                    },
-                },
-                "provider_mode": self.smartvoice_mode,
-                "skipped": True,
-            }
-
-        reference_upload = self._voice_upload(reference_audio_ref)
-        challenge_upload = self._voice_upload(challenge_audio_ref)
-        reference_url = self._nested_value(reference_upload, ["object", "result"])
-        challenge_url = self._nested_value(challenge_upload, ["object", "result"])
-        if not reference_url or not challenge_url:
-            return self._error_response(
-                "Voice verification upload failed",
-                {
-                    "reference_upload": reference_upload,
-                    "challenge_upload": challenge_upload,
-                },
-                provider_mode=self.smartvoice_mode,
-            )
-
-        reference_encode = self._voice_encode(str(reference_url), registered=1, client_session=client_session)
-        challenge_encode = self._voice_encode(str(challenge_url), registered=0, client_session=client_session)
-        reference_audio_id = self._nested_value(reference_encode, ["object", "result"])
-        challenge_audio_id = self._nested_value(challenge_encode, ["object", "result"])
-        if not reference_audio_id or not challenge_audio_id:
-            return self._error_response(
-                "Voice verification encoding failed",
-                {
-                    "reference_encode": reference_encode,
-                    "challenge_encode": challenge_encode,
-                },
-                provider_mode=self.smartvoice_mode,
-            )
-
-        verification = self._voice_verify_ids(str(reference_audio_id), str(challenge_audio_id))
-        verification.setdefault(
-            "provider_trace",
-            {
-                "reference_upload": reference_upload,
-                "challenge_upload": challenge_upload,
-                "reference_encode": reference_encode,
-                "challenge_encode": challenge_encode,
-            },
-        )
-        return verification
 
     def _post_json(
         self,
@@ -259,88 +221,6 @@ class VnptClient:
         )
         return self._request(path, body, headers, provider_mode=provider_mode, timeout=timeout)
 
-    def _post_binary(
-        self,
-        path: str,
-        body: bytes,
-        content_type: str,
-        extra_headers: dict[str, str],
-        product: str = "smartvoice",
-    ) -> dict[str, Any]:
-        headers = {**self._auth_headers(content_type, product=product), **extra_headers}
-        return self._request(
-            path,
-            body,
-            headers,
-            provider_mode=self.smartvoice_mode,
-            timeout=self.settings.vnpt_request_timeout_seconds,
-        )
-
-    def _voice_upload(self, audio_ref: str) -> dict[str, Any]:
-        audio_path = self._resolve_ref(audio_ref)
-        if not audio_path.exists():
-            return self._error_response(
-                "Local voice sample file not found",
-                {
-                    "audio_ref": audio_ref,
-                    "resolved_path": str(audio_path),
-                },
-                provider_mode=self.smartvoice_mode,
-            )
-        return self._post_multipart_file(
-            "/v1/voice-id/audio/upload",
-            audio_path,
-            self.settings.vnpt_voice_base_url,
-            provider_mode=self.smartvoice_mode,
-            product="smartvoice",
-            file_content_type=self._audio_content_type(audio_path),
-        )
-
-    def _voice_encode(self, audio_url: str, registered: int, client_session: str) -> dict[str, Any]:
-        return self._post_json_to_base(
-            self.settings.vnpt_voice_base_url,
-            "/v1/voice-id/audio/encode",
-            {
-                "audio_url": audio_url,
-                "registered": registered,
-                "client_session": client_session,
-                "data": {
-                    "email": self.settings.vnpt_voice_verify_email,
-                    "name": self.settings.vnpt_voice_verify_name,
-                },
-            },
-            provider_mode=self.smartvoice_mode,
-            product="smartvoice",
-        )
-
-    def _voice_verify_ids(self, audio_id1: str, audio_id2: str) -> dict[str, Any]:
-        query = f"audio_id1={audio_id1}&audio_id2={audio_id2}"
-        return self._get_json(
-            f"/voiceid/api/v1/audio/verify?{query}",
-            self.settings.vnpt_voice_base_url,
-            provider_mode=self.smartvoice_mode,
-            product="smartvoice",
-        )
-
-    def _post_json_to_base(
-        self,
-        base_url: str,
-        path: str,
-        payload: dict[str, Any],
-        provider_mode: str | None = None,
-        product: str = "smartvoice",
-    ) -> dict[str, Any]:
-        body = json.dumps(payload).encode("utf-8")
-        headers = self._auth_headers("application/json", product=product)
-        return self._request(
-            path,
-            body,
-            headers,
-            base_url=base_url,
-            provider_mode=provider_mode,
-            timeout=self.settings.vnpt_request_timeout_seconds,
-        )
-
     def _post_multipart_file(
         self,
         path: str,
@@ -350,6 +230,7 @@ class VnptClient:
         product: str = "smartvoice",
         extra_fields: dict[str, str] | None = None,
         timeout: float | None = None,
+        file_field_name: str = "file",
         file_content_type: str = "application/octet-stream",
     ) -> dict[str, Any]:
         boundary = f"----fides-{uuid.uuid4().hex}"
@@ -367,7 +248,7 @@ class VnptClient:
             [
                 f"--{boundary}\r\n".encode("utf-8"),
                 (
-                    'Content-Disposition: form-data; name="file"; '
+                    f'Content-Disposition: form-data; name="{file_field_name}"; '
                     f'filename="{file_path.name}"\r\n'
                 ).encode("utf-8"),
                 f"Content-Type: {file_content_type}\r\n\r\n".encode("utf-8"),
@@ -384,23 +265,6 @@ class VnptClient:
             base_url=base_url,
             provider_mode=provider_mode,
             timeout=timeout or self.settings.vnpt_request_timeout_seconds,
-        )
-
-    def _get_json(
-        self,
-        path: str,
-        base_url: str,
-        provider_mode: str | None = None,
-        product: str = "smartvoice",
-    ) -> dict[str, Any]:
-        headers = self._auth_headers("application/json", product=product)
-        return self._request(
-            path,
-            None,
-            headers,
-            method="GET",
-            base_url=base_url,
-            provider_mode=provider_mode,
         )
 
     def _request(

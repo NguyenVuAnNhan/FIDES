@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     vnpt_stt_domain: str = "general"
     vnpt_stt_save_log: str = "true"
     vnpt_stt_cap_punct_recovery: str = "true"
-    vnpt_voice_base_url: str = "https://api.idg.vnpt.vn/voice-service"
-    vnpt_voice_verify_email: str = "demo-customer@fides.local"
-    vnpt_voice_verify_name: str = "FIDES Demo Customer"
     vnpt_smartvoice_api_key: str | None = None
     vnpt_smartbot_api_key: str | None = None
     vnpt_smartreader_api_key: str | None = None
