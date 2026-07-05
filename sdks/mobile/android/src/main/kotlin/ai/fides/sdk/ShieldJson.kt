@@ -22,6 +22,22 @@ object ShieldJson {
         )
     }
 
+    fun parseSessionHeartbeatResponse(rawJson: String): ShieldSessionHeartbeatResponse {
+        val json = JSONObject(rawJson)
+        return ShieldSessionHeartbeatResponse(
+            sdkSessionId = json.getString("sdk_session_id"),
+            sessionRiskScore = json.getInt("session_risk_score"),
+            riskLevel = json.getString("risk_level"),
+            callActiveDuringSession = json.optBoolean("call_active_during_session", false),
+            callActiveNow = json.optBoolean("call_active_now", false),
+            heartbeatCount = json.optInt("heartbeat_count", 0),
+            sessionAgeSeconds = json.optInt("session_age_seconds", 0),
+            earlyWarning = json.optBoolean("early_warning", false),
+            interventionMessage = json.optString("intervention_message", ""),
+            explanations = parseExplanations(json.optJSONArray("explanations")),
+        )
+    }
+
     fun parseLiveCheckUploadResponse(rawJson: String): LiveCheckUploadResponse {
         val json = JSONObject(rawJson)
         val frameRefs = json.optJSONArray("challenge_frame_refs")?.let { array ->

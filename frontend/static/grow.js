@@ -48,7 +48,7 @@ if (growUpload) {
       lastProcessResponse = null;
       clearResultPanels();
       setWizardStep(1);
-      setGrowStatus("Receipt uploaded. Click Run analysis to run PaddleOCR on this image.");
+      setGrowStatus("Receipt uploaded. Click Run analysis to run SmartReader OCR on this image.");
     } catch (error) {
       setGrowStatus(`Upload failed: ${formatApiError(error.message)}`);
     } finally {
@@ -91,7 +91,7 @@ async function runGrowAnalysis() {
   }
 
   growNext.disabled = true;
-  setGrowStatus("Running PaddleOCR on receipt image, then LightGBM credit scoring...");
+  setGrowStatus("Running SmartReader OCR on receipt image, then LightGBM credit scoring...");
 
   try {
     lastProcessResponse = await postJson("/api/grow/process-invoice", payload);

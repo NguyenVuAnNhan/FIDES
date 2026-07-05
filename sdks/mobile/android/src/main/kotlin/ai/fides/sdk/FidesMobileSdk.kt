@@ -8,6 +8,9 @@ class FidesMobileSdk(
     private val telemetryProvider: FidesTelemetryProvider,
     private val transport: FidesHttpTransport,
 ) {
+    val sessionId: String
+        get() = telemetryProvider.sessionId
+
     fun buildShieldPayload(
         transaction: ShieldTransaction,
         consent: FidesConsent,
@@ -48,6 +51,32 @@ class FidesMobileSdk(
             body = buildShieldPayloadWithCall(transaction, consent, callStateMonitor, overrides),
         ) { result ->
             completion(result.mapJson(ShieldJson::parseAnalyzeResponse))
+        }
+    }
+
+    fun sendSessionHeartbeat(
+        consent: FidesConsent,
+        callStateMonitor: CallStateMonitor,
+        completion: (FidesSdkResult<ShieldSessionHeartbeatResponse>) -> Unit,
+    ) {
+        val call = callStateMonitor.snapshot()
+        val telemetry = telemetryProvider.snapshot(consent)
+        val body = linkedMapOf<String, Any?>(
+            "sdk_session_id" to telemetryProvider.sessionId,
+            "shield_path" to config.shieldPath,
+            "active_call" to call.activeCall,
+            "caller_type" to call.callerType,
+            "caller_number" to call.callerNumber,
+            "consent_telemetry" to consent.telemetry,
+            "app_foreground" to true,
+        )
+        body.putAll(telemetry.toShieldFields())
+        transport.postJson(
+            baseUrl = config.baseUrl,
+            path = "/api/shield/session/heartbeat",
+            body = body,
+        ) { result ->
+            completion(result.mapJson(ShieldJson::parseSessionHeartbeatResponse))
         }
     }
 
@@ -143,6 +172,62 @@ class FidesMobileSdk(
             body = payload,
             completion = completion,
         )
+    }
+
+    fun uploadGrowReceipt(
+        imageBytes: ByteArray,
+        filename: String,
+        contentType: String = "image/jpeg",
+        completion: (FidesSdkResult<GrowUploadResponse>) -> Unit,
+    ) {
+        transport.postMultipart(
+            baseUrl = config.baseUrl,
+            path = "/api/grow/upload-receipt",
+            parts = listOf(
+                MultipartPart(
+                    fieldName = "file",
+                    filename = filename,
+                    contentType = contentType,
+                    bytes = imageBytes,
+                ),
+            ),
+        ) { result ->
+            completion(result.mapJson(GrowJson::parseUploadResponse))
+        }
+    }
+
+    fun processGrowInvoice(
+        inputSource: String,
+        businessId: String = "biz_demo",
+        completion: (FidesSdkResult<GrowProcessResponse>) -> Unit,
+    ) {
+        transport.postJson(
+            baseUrl = config.baseUrl,
+            path = "/api/grow/process-invoice",
+            body = GrowJson.buildProcessInvoicePayload(
+                inputSource = inputSource,
+                businessId = businessId,
+            ),
+        ) { result ->
+            completion(result.mapJson(GrowJson::parseProcessResponse))
+        }
+    }
+
+    fun processGrowReceipt(
+        imageBytes: ByteArray,
+        filename: String,
+        contentType: String = "image/jpeg",
+        businessId: String = "biz_demo",
+        completion: (FidesSdkResult<GrowProcessResponse>) -> Unit,
+    ) {
+        uploadGrowReceipt(imageBytes, filename, contentType) { uploadResult ->
+            when (uploadResult) {
+                is FidesSdkResult.Failure -> completion(uploadResult)
+                is FidesSdkResult.Success -> {
+                    processGrowInvoice(uploadResult.value.inputSource, businessId, completion)
+                }
+            }
+        }
     }
 
     private inline fun <T> FidesSdkResult<String>.mapJson(parser: (String) -> T): FidesSdkResult<T> =

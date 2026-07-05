@@ -7,8 +7,12 @@ from backend.app.services.smartvoice.paths import PROJECT_ROOT
 from backend.app.services.voice_stress.audio_io import load_mono_audio
 from backend.app.services.voice_stress.emotion2vec_model import (
     DEFAULT_EMOTION2VEC_MODEL,
-    model_load_error,
+    model_load_error as emotion2vec_load_error,
     predict_emotion,
+)
+from backend.app.services.voice_stress.wav2vec_model import (
+    DEFAULT_WAV2VEC_MODEL,
+    model_load_error as wav2vec_load_error,
 )
 from backend.app.services.voice_stress.emotion_types import EmotionPrediction
 from backend.app.services.voice_stress.prosody import (
@@ -18,8 +22,6 @@ from backend.app.services.voice_stress.prosody import (
     prosody_labels,
 )
 from backend.app.services.voice_stress.types import VoiceStressResult
-from backend.app.services.voice_stress.wav2vec_model import DEFAULT_WAV2VEC_MODEL
-
 LOCALE_WEIGHTS = {
     "vi": (0.40, 0.60),
     "en": (0.55, 0.45),
@@ -50,6 +52,7 @@ def analyze_voice_stress(
     hub = active_settings.voice_stress_model_hub
 
     emotion: EmotionPrediction | None = None
+    fallback_attempts: list[dict[str, str | None]] = []
     if use_model:
         emotion = predict_emotion(
             audio_path=str(audio_path),
@@ -59,9 +62,34 @@ def analyze_voice_stress(
             model_name=model_name,
             hub=hub,
         )
+        if emotion is None:
+            fallback_attempts.append(
+                {
+                    "backend": backend,
+                    "model": model_name,
+                    "error": emotion2vec_load_error() or wav2vec_load_error(),
+                }
+            )
+            if mode == "auto" and backend.strip().lower() in {"auto", "emotion2vec"}:
+                emotion = predict_emotion(
+                    audio_path=str(audio_path),
+                    signal=signal,
+                    sample_rate=sample_rate,
+                    backend="wav2vec",
+                    model_name=DEFAULT_WAV2VEC_MODEL,
+                    hub=hub,
+                )
+                if emotion is None:
+                    fallback_attempts.append(
+                        {
+                            "backend": "wav2vec",
+                            "model": DEFAULT_WAV2VEC_MODEL,
+                            "error": wav2vec_load_error(),
+                        }
+                    )
         if emotion is None and mode == "model":
-            error = model_load_error() or "unknown model load error"
-            return _model_failed_result(audio_ref, prosody, error)
+            error = fallback_attempts[-1]["error"] if fallback_attempts else "unknown model load error"
+            return _model_failed_result(audio_ref, prosody, str(error))
 
     model_used = emotion is not None
     arousal = emotion.arousal if emotion else None
@@ -111,7 +139,8 @@ def analyze_voice_stress(
             "mode": mode,
             "locale": locale,
             "backend": emotion.backend if emotion else backend,
-            "model_load_error": model_load_error(),
+            "model_load_error": emotion2vec_load_error() or wav2vec_load_error(),
+            "fallback_attempts": fallback_attempts,
             "top_emotions": top_emotions,
         },
     )
@@ -184,7 +213,9 @@ def _build_detail(
             f"valence={emotion.valence:.2f} top=[{top}]"
         )
     else:
-        parts.append("model=prosody-only fallback")
+        err = emotion2vec_load_error() or wav2vec_load_error()
+        suffix = f" error={err}" if err else ""
+        parts.append(f"model=prosody-only fallback{suffix}")
     return " ".join(parts)
 
 

@@ -12,25 +12,52 @@ from backend.app.services import shield_challenge_service as svc
 
 
 class ShieldEkycHelperTests(unittest.TestCase):
-    def test_parse_liveness_from_message(self) -> None:
-        passed = svc._parse_liveness_passed({"liveness_msg": "Người thật"}, liveness_failed=False)
-        self.assertTrue(passed)
+    def test_face_compare_nomatch_checks_msg_and_result(self) -> None:
+        self.assertTrue(svc._face_compare_nomatch({"msg": "NOMATCH", "result": "MATCH"}))
+        self.assertTrue(svc._face_compare_nomatch({"msg": "MATCH", "result": "NOMATCH"}))
+        self.assertFalse(svc._face_compare_nomatch({"msg": "MATCH", "result": "MATCH"}))
 
-    def test_parse_liveness_rejects_spoof_message(self) -> None:
-        passed = svc._parse_liveness_passed({"liveness_msg": "Khuon mat gia"}, liveness_failed=False)
-        self.assertFalse(passed)
-
-    def test_injection_risk_from_fake_liveness(self) -> None:
-        risk = svc._injection_risk_from_liveness(
-            {"fake_liveness": True, "face_swapping": False},
-            liveness_failed=False,
-            face_is_live=True,
+    def test_resolve_verification_status_nomatch_in_msg(self) -> None:
+        status = svc.resolve_ekyc_verification_status(
+            mask_failed=False,
+            compare_failed=False,
+            compare_skipped=False,
             mask_detected=False,
-            face_match_score=0.9,
+            face_compare_nomatch=True,
+            face_match_score=0.6696,
+        )
+        self.assertEqual(status, "failed")
+
+    def test_resolve_verification_status_low_score_without_nomatch(self) -> None:
+        status = svc.resolve_ekyc_verification_status(
+            mask_failed=False,
+            compare_failed=False,
+            compare_skipped=False,
+            mask_detected=False,
+            face_compare_nomatch=False,
+            face_match_score=0.6696,
+        )
+        self.assertEqual(status, "review")
+
+    def test_resolve_verification_status_high_match_passes(self) -> None:
+        status = svc.resolve_ekyc_verification_status(
+            mask_failed=False,
+            compare_failed=False,
+            compare_skipped=False,
+            mask_detected=False,
+            face_compare_nomatch=False,
+            face_match_score=0.95,
+        )
+        self.assertEqual(status, "passed")
+
+    def test_injection_risk_from_low_face_match(self) -> None:
+        risk = svc._injection_risk_from_ekyc(
+            mask_detected=False,
+            face_match_score=0.4,
             compare_failed=False,
             compare_skipped=False,
         )
-        self.assertGreaterEqual(risk, 0.85)
+        self.assertGreaterEqual(risk, 0.55)
 
     def test_scripted_behavior_does_not_penalize_stt_fail(self) -> None:
         score, labels = svc._scripted_behavior("", True, None)

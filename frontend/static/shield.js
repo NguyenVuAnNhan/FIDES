@@ -29,6 +29,7 @@ const WIZARD_STEPS = [
 
 const LIVE_CHECK_SECONDS = 10;
 const LIVE_FRAME_COUNT = 3;
+const LIVE_FRAME_CAPTURE_SECONDS = [2, 5, 8];
 
 const DEFAULT_TRANSFER = {
   transaction_amount: 65000000,
@@ -69,6 +70,11 @@ const APP_SDK_CONTEXT = {
   smartux_signals: [],
 };
 
+const SDK_SESSION_ID = `fides-web-${Date.now()}`;
+const SESSION_HEARTBEAT_MS = 15000;
+let sessionHeartbeatTimer = null;
+let latestSessionRisk = null;
+
 let currentStep = 1;
 let lastAnalyzeResponse = null;
 let lastAnalyzePayload = null;
@@ -86,6 +92,8 @@ let liveCheckTimer = null;
 let liveCheckVideoBlob = null;
 let liveCheckAudioBlob = null;
 let liveCheckFrameBlobs = [];
+let liveCheckStreamFrameBlobs = [];
+let liveCheckFrameCaptureTimers = [];
 
 initShieldPage();
 
@@ -93,9 +101,63 @@ function initShieldPage() {
   resetTransferForm();
   renderShieldSignals();
   setWizardStep(1);
+  startSessionMonitoring();
   setShieldStatus(
-    "Review the transfer and tap Confirm transfer. FIDES will score background signals automatically.",
+    "FIDES is monitoring this app session in the background. Review the transfer and tap Confirm transfer.",
   );
+}
+
+function startSessionMonitoring() {
+  if (sessionHeartbeatTimer) {
+    clearInterval(sessionHeartbeatTimer);
+  }
+  sendSessionHeartbeat();
+  sessionHeartbeatTimer = setInterval(sendSessionHeartbeat, SESSION_HEARTBEAT_MS);
+}
+
+async function sendSessionHeartbeat() {
+  try {
+    const response = await postJson("/api/shield/session/heartbeat", {
+      sdk_session_id: SDK_SESSION_ID,
+      shield_path: "transfer_monitoring",
+      active_call: APP_SDK_CONTEXT.active_call,
+      caller_type: APP_SDK_CONTEXT.caller_type,
+      caller_number: APP_SDK_CONTEXT.caller_number,
+      consent_telemetry: true,
+      native_telemetry_available: APP_SDK_CONTEXT.native_telemetry_available,
+      remote_control_detected: APP_SDK_CONTEXT.remote_control_detected,
+      installed_remote_access_app_detected: APP_SDK_CONTEXT.installed_remote_access_app_detected,
+      accessibility_service_risk: APP_SDK_CONTEXT.accessibility_service_risk,
+      screen_sharing_detected: APP_SDK_CONTEXT.screen_sharing_detected,
+      smartux_behavior_anomaly_score: APP_SDK_CONTEXT.smartux_behavior_anomaly_score,
+      smartux_remote_control_score: APP_SDK_CONTEXT.smartux_remote_control_score,
+      smartux_signals: APP_SDK_CONTEXT.smartux_signals,
+      app_foreground: true,
+    });
+    latestSessionRisk = response;
+    renderSessionMonitoringBanner(response);
+  } catch (error) {
+    console.warn("Shield session heartbeat failed", error);
+  }
+}
+
+function renderSessionMonitoringBanner(response) {
+  if (!shieldSignals) {
+    return;
+  }
+  const tone = response.early_warning ? "warn" : "neutral";
+  const bannerHtml = `
+    <div class="shield-signal ${tone === "neutral" ? "is-neutral" : ""}" data-session-banner>
+      <strong>App session monitoring</strong>
+      <span>Session risk ${response.session_risk_score}/100 (${formatValue(response.risk_level)}). ${escapeHtml(response.intervention_message)}</span>
+    </div>
+  `;
+  const existing = shieldSignals.querySelector("[data-session-banner]");
+  if (existing) {
+    existing.outerHTML = bannerHtml;
+    return;
+  }
+  shieldSignals.insertAdjacentHTML("afterbegin", bannerHtml);
 }
 
 function resetTransferForm() {
@@ -314,7 +376,8 @@ async function resolveLiveCheckArtifacts() {
   const documentName = documentFile.name;
   const cacheKey = [
     liveCheckVideoBlob.size,
-    liveCheckFrameBlobs.length,
+    ...liveCheckFrameBlobs.map((blob) => blob.size),
+    liveCheckAudioBlob?.size ?? 0,
     documentName,
   ].join(":");
 
@@ -388,6 +451,8 @@ function resetChallengeMedia() {
   liveCheckVideoBlob = null;
   liveCheckAudioBlob = null;
   liveCheckFrameBlobs = [];
+  liveCheckStreamFrameBlobs = [];
+  clearLiveCheckFrameCaptureTimers();
   clearLiveCheckTimer();
   stopLiveCheckRecording(true);
   stopCameraStream();
@@ -491,6 +556,8 @@ async function startLiveCheckRecording() {
   liveCheckVideoBlob = null;
   liveCheckAudioBlob = null;
   liveCheckFrameBlobs = [];
+  liveCheckStreamFrameBlobs = [];
+  clearLiveCheckFrameCaptureTimers();
   liveCheckChunks = [];
   liveCheckAudioChunks = [];
 
@@ -566,6 +633,7 @@ async function startLiveCheckRecording() {
       liveCheckAudioRecorder = null;
     }
   }
+  scheduleLivePreviewFrameCaptures();
   if (shieldStartLiveCheck) {
     shieldStartLiveCheck.hidden = true;
     shieldStartLiveCheck.disabled = true;
@@ -594,6 +662,7 @@ async function startLiveCheckRecording() {
 
 function stopLiveCheckRecording(silent = false) {
   clearLiveCheckTimer();
+  clearLiveCheckFrameCaptureTimers();
   if (liveCheckAudioRecorder && liveCheckAudioRecorder.state !== "inactive") {
     liveCheckAudioRecorder.stop();
   }
@@ -622,7 +691,15 @@ function clearLiveCheckTimer() {
 async function finalizeLiveCheckRecording(videoBlob) {
   liveCheckVideoBlob = videoBlob;
   try {
-    liveCheckFrameBlobs = await extractFramesFromVideoBlob(videoBlob, LIVE_FRAME_COUNT);
+    if (liveCheckStreamFrameBlobs.length >= LIVE_FRAME_COUNT) {
+      liveCheckFrameBlobs = liveCheckStreamFrameBlobs.slice(0, LIVE_FRAME_COUNT);
+    } else {
+      const extractedFrames = await extractFramesFromVideoBlob(videoBlob, LIVE_FRAME_COUNT);
+      liveCheckFrameBlobs =
+        liveCheckStreamFrameBlobs.length > 0
+          ? [...liveCheckStreamFrameBlobs, ...extractedFrames].slice(0, LIVE_FRAME_COUNT)
+          : extractedFrames;
+    }
     renderFrameStrip(liveCheckFrameBlobs);
     setLiveCheckStatus(
       `Live check captured (${Math.round(videoBlob.size / 1024)} KB video${
@@ -665,6 +742,44 @@ function pickAudioMimeType() {
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
 }
 
+function scheduleLivePreviewFrameCaptures() {
+  clearLiveCheckFrameCaptureTimers();
+  liveCheckStreamFrameBlobs = [];
+  LIVE_FRAME_CAPTURE_SECONDS.forEach((seconds) => {
+    const timerId = window.setTimeout(async () => {
+      if (!liveCheckRecorder || liveCheckRecorder.state === "inactive") {
+        return;
+      }
+      const frameBlob = await captureLivePreviewFrame();
+      if (frameBlob) {
+        liveCheckStreamFrameBlobs.push(frameBlob);
+      }
+    }, seconds * 1000);
+    liveCheckFrameCaptureTimers.push(timerId);
+  });
+}
+
+function clearLiveCheckFrameCaptureTimers() {
+  liveCheckFrameCaptureTimers.forEach((timerId) => window.clearTimeout(timerId));
+  liveCheckFrameCaptureTimers = [];
+}
+
+async function captureLivePreviewFrame() {
+  const video = shieldCameraPreview;
+  if (!video || !video.videoWidth || !video.videoHeight) {
+    return null;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvasToBlob(canvas, "image/jpeg", 0.95);
+}
+
 async function extractFramesFromVideoBlob(videoBlob, frameCount) {
   const url = URL.createObjectURL(videoBlob);
   const video = document.createElement("video");
@@ -694,7 +809,7 @@ async function extractFramesFromVideoBlob(videoBlob, frameCount) {
     const timestamp = duration * (index + 1) / (frameCount + 1);
     await seekVideo(video, timestamp);
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const frameBlob = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    const frameBlob = await canvasToBlob(canvas, "image/jpeg", 0.95);
     frames.push(frameBlob);
   }
 
@@ -896,6 +1011,7 @@ function buildShieldAnalyzePayload(form) {
     recipient_name: String(form.get("recipient_name")),
     recipient_account: String(form.get("recipient_account")),
     ...APP_SDK_CONTEXT,
+    sdk_session_id: SDK_SESSION_ID,
     shield_path: String(form.get("shield_path") || "transfer_monitoring"),
     ekyc_verification_status: "not_checked",
     ekyc_liveness_passed: null,

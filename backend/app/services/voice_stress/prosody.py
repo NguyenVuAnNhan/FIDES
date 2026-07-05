@@ -55,6 +55,15 @@ def analyze_prosody(signal: np.ndarray, sample_rate: int) -> ProsodyFeatures:
     )
 
 
+def _normalize_emotion_label(label: str) -> str:
+    text = str(label).strip().lower()
+    if "/" in text:
+        english = text.rsplit("/", 1)[-1].strip()
+        if english:
+            text = english
+    return text
+
+
 def prosody_labels(
     prosody: ProsodyFeatures,
     arousal: float | None = None,
@@ -70,7 +79,7 @@ def prosody_labels(
     if arousal is not None and arousal >= 0.62:
         labels.append("high_arousal")
     if top_emotions:
-        top_label = top_emotions[0][0]
+        top_label = _normalize_emotion_label(top_emotions[0][0])
         if top_label in {"fearful", "sad", "angry", "disgusted"} and top_emotions[0][1] >= 0.35:
             labels.append(f"emotion_{top_label}")
     if not labels and prosody.prosody_stress_score <= 0.28:

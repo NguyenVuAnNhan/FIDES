@@ -46,6 +46,7 @@ data class FidesTelemetrySnapshot(
         "smartux_behavior_anomaly_score" to smartuxBehaviorAnomalyScore,
         "smartux_remote_control_score" to smartuxRemoteControlScore,
         "smartux_signals" to smartuxSignals,
+        "sdk_session_id" to sdkSessionId,
     )
 }
 
@@ -116,12 +117,26 @@ data class ShieldAnalyzeResponse(
         get() = invasiveCheckRequired || action == "require_camera_voice_check"
 }
 
+data class ShieldSessionHeartbeatResponse(
+    val sdkSessionId: String,
+    val sessionRiskScore: Int,
+    val riskLevel: String,
+    val callActiveDuringSession: Boolean,
+    val callActiveNow: Boolean,
+    val heartbeatCount: Int,
+    val sessionAgeSeconds: Int,
+    val earlyWarning: Boolean,
+    val interventionMessage: String,
+    val explanations: List<ShieldExplanation>,
+)
+
 sealed class FidesSdkResult<out T> {
     data class Success<T>(val value: T) : FidesSdkResult<T>()
     data class Failure(val message: String, val cause: Throwable? = null) : FidesSdkResult<Nothing>()
 }
 
 interface FidesTelemetryProvider {
+    val sessionId: String
     fun snapshot(consent: FidesConsent): FidesTelemetrySnapshot
 }
 
@@ -143,7 +158,7 @@ interface FidesHttpTransport {
 
 class DefaultFidesTelemetryProvider(
     private val sdkSource: String = "fides_mobile_sdk",
-    private val sessionId: String = "fides-android-${System.currentTimeMillis()}",
+    override val sessionId: String = "fides-android-${System.currentTimeMillis()}",
 ) : FidesTelemetryProvider {
     override fun snapshot(consent: FidesConsent): FidesTelemetrySnapshot {
         if (!consent.telemetry) {

@@ -12,6 +12,7 @@ import ai.fides.sample.AppOverlay
 import ai.fides.sample.AppTab
 import ai.fides.sample.ShieldUiState
 import ai.fides.sample.ui.components.FidesBottomNav
+import ai.fides.sample.ui.screens.GrowScreen
 import ai.fides.sample.ui.screens.HomeScreen
 import ai.fides.sample.ui.screens.LoanScreen
 import ai.fides.sample.ui.screens.ResultScreen
@@ -30,6 +31,9 @@ fun FidesApp(
     onWarningBack: () -> Unit,
     onWarningContinue: () -> Unit,
     onCloseOverlay: () -> Unit,
+    onRegisterLoan: (amount: Long, termMonths: Int) -> Unit,
+    onPickGrowReceipt: () -> Unit,
+    onAnalyzeGrow: () -> Unit,
     onPickCccd: () -> Unit,
     onStartLiveCheck: () -> Unit,
     onVerify: () -> Unit,
@@ -39,10 +43,22 @@ fun FidesApp(
         Box(modifier = Modifier.weight(1f)) {
             when (state.tab) {
                 AppTab.HOME -> if (state.overlay == AppOverlay.NONE || state.overlay == AppOverlay.WARNING) {
-                    HomeScreen(onCheckTransaction = onCheckTransaction)
+                    HomeScreen(
+                        sessionRiskScore = state.sessionRiskScore,
+                        sessionRiskLevel = state.sessionRiskLevel,
+                        sessionMonitoringMessage = state.sessionMonitoringMessage,
+                        sessionEarlyWarning = state.sessionEarlyWarning,
+                        onCheckTransaction = onCheckTransaction,
+                    )
                 }
                 AppTab.STATS -> StatisticsScreen()
-                AppTab.LOAN -> LoanScreen(onRegister = onCheckTransaction)
+                AppTab.LOAN -> if (state.overlay == AppOverlay.NONE) {
+                    LoanScreen(
+                        initialAmount = state.loanAmount,
+                        initialTermMonths = state.loanTermMonths,
+                        onRegister = onRegisterLoan,
+                    )
+                }
             }
 
             when (state.overlay) {
@@ -93,6 +109,18 @@ fun FidesApp(
                         )
                     }
                 }
+                AppOverlay.GROW -> GrowScreen(
+                    loanAmount = state.loanAmount,
+                    loanTermMonths = state.loanTermMonths,
+                    loading = state.loading,
+                    statusMessage = state.growStatusMessage,
+                    errorMessage = state.errorMessage,
+                    receiptFilename = state.growReceiptFilename,
+                    growResponse = state.growResponse,
+                    onClose = onCloseOverlay,
+                    onPickReceipt = onPickGrowReceipt,
+                    onAnalyze = onAnalyzeGrow,
+                )
                 AppOverlay.NONE -> Unit
             }
         }

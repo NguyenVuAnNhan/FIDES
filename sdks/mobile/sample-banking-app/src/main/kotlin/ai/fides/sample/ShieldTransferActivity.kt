@@ -12,16 +12,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import ai.fides.sdk.DefaultFidesTelemetryProvider
-import ai.fides.sdk.FidesConfig
 import ai.fides.sdk.FidesConsent
-import ai.fides.sdk.FidesMobileSdk
 import ai.fides.sdk.FidesSdkResult
-import ai.fides.sdk.OkHttpFidesTransport
 import ai.fides.sdk.ShieldTransaction
-import ai.fides.sdk.call.AndroidCallStateMonitor
-import ai.fides.sdk.call.CallContext
-import ai.fides.sdk.call.CallStateMonitor
 import ai.fides.sdk.capture.LiveCheckCapture
 import ai.fides.sdk.capture.LiveCheckCaptureCallback
 import ai.fides.sdk.capture.LiveCheckCaptureResult
@@ -30,8 +23,7 @@ import ai.fides.sample.ui.FidesApp
 import ai.fides.sample.ui.theme.FidesTheme
 
 class ShieldTransferActivity : ComponentActivity() {
-    private lateinit var sdk: FidesMobileSdk
-    private lateinit var callMonitor: CallStateMonitor
+    private val app get() = application as FidesSampleApplication
     private lateinit var liveCapture: LiveCheckCapture
     private lateinit var previewView: PreviewView
 
@@ -55,18 +47,30 @@ class ShieldTransferActivity : ComponentActivity() {
         if (uri != null) loadCccd(uri)
     }
 
+    private val growReceiptPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) loadGrowReceipt(uri)
+    }
+
+    private var growReceiptBytes: ByteArray? = null
+    private var growReceiptContentType: String = "image/jpeg"
+
     private var pendingAction: (() -> Unit)? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        sdk = FidesMobileSdk(
-            config = FidesConfig(baseUrl = BuildConfig.FIDES_BASE_URL),
-            telemetryProvider = DefaultFidesTelemetryProvider(),
-            transport = OkHttpFidesTransport(),
-        )
-        callMonitor = DemoCallStateMonitor(AndroidCallStateMonitor(applicationContext))
         liveCapture = LiveCheckCapture(this, this)
         previewView = PreviewView(this)
+
+        app.sessionMonitor.setListener { heartbeat ->
+            runOnUiThread {
+                uiState = uiState.copy(
+                    sessionRiskScore = heartbeat.sessionRiskScore,
+                    sessionRiskLevel = heartbeat.riskLevel,
+                    sessionMonitoringMessage = heartbeat.interventionMessage,
+                    sessionEarlyWarning = heartbeat.earlyWarning,
+                )
+            }
+        }
 
         setContent {
             FidesTheme {
@@ -81,6 +85,9 @@ class ShieldTransferActivity : ComponentActivity() {
                         ensurePermissions { bindCamera() }
                     },
                     onCloseOverlay = { resetFlow() },
+                    onRegisterLoan = { amount, termMonths -> openGrow(amount, termMonths) },
+                    onPickGrowReceipt = { growReceiptPicker.launch("image/*") },
+                    onAnalyzeGrow = { analyzeGrowReceipt() },
                     onPickCccd = { cccdPicker.launch("image/*") },
                     onStartLiveCheck = { startLiveCheck() },
                     onVerify = { verifyIdentity() },
@@ -99,10 +106,121 @@ class ShieldTransferActivity : ComponentActivity() {
         uiState = uiState.copy(overlay = AppOverlay.TRANSFER, errorMessage = null)
     }
 
+    private fun openGrow(amount: Long, termMonths: Int) {
+        growReceiptBytes = null
+        uiState = uiState.copy(
+            overlay = AppOverlay.GROW,
+            loanAmount = amount,
+            loanTermMonths = termMonths,
+            loading = false,
+            errorMessage = null,
+            growStatusMessage = "Chọn ảnh hóa đơn để bắt đầu phân tích Grow.",
+            growReceiptFilename = null,
+            growResponse = null,
+        )
+    }
+
+    private fun loadGrowReceipt(uri: Uri) {
+        try {
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes == null || bytes.isEmpty()) {
+                uiState = uiState.copy(errorMessage = "Ảnh hóa đơn trống.")
+                return
+            }
+            val name = uri.lastPathSegment?.substringAfterLast('/') ?: "receipt.jpg"
+            growReceiptBytes = bytes
+            growReceiptContentType = contentResolver.getType(uri) ?: guessImageContentType(name)
+            uiState = uiState.copy(
+                growReceiptFilename = name,
+                growResponse = null,
+                errorMessage = null,
+                growStatusMessage = "Đã chọn $name. Bấm Phân tích tín dụng hoặc đợi upload tự động.",
+            )
+            uploadGrowReceipt(name, bytes)
+        } catch (error: Throwable) {
+            uiState = uiState.copy(errorMessage = error.message)
+        }
+    }
+
+    private fun uploadGrowReceipt(filename: String, bytes: ByteArray) {
+        uiState = uiState.copy(loading = true, errorMessage = null, growStatusMessage = "Đang upload hóa đơn...")
+        app.sdk.uploadGrowReceipt(bytes, filename, growReceiptContentType) { result ->
+            runOnUiThread {
+                when (result) {
+                    is FidesSdkResult.Failure -> {
+                        uiState = uiState.copy(
+                            loading = false,
+                            errorMessage = formatApiError(result.message),
+                            growStatusMessage = "Upload thất bại.",
+                        )
+                    }
+                    is FidesSdkResult.Success -> {
+                        uiState = uiState.copy(
+                            loading = false,
+                            growStatusMessage = "Upload xong. Đang chạy SmartReader OCR + chấm điểm tín dụng...",
+                        )
+                        processGrowInvoice(result.value.inputSource)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun analyzeGrowReceipt() {
+        val bytes = growReceiptBytes
+        val filename = uiState.growReceiptFilename
+        if (bytes == null || filename == null) {
+            uiState = uiState.copy(errorMessage = "Chọn ảnh hóa đơn trước.")
+            return
+        }
+        uploadGrowReceipt(filename, bytes)
+    }
+
+    private fun processGrowInvoice(inputSource: String) {
+        uiState = uiState.copy(loading = true, errorMessage = null)
+        app.sdk.processGrowInvoice(inputSource) { result ->
+            runOnUiThread {
+                when (result) {
+                    is FidesSdkResult.Failure -> {
+                        uiState = uiState.copy(
+                            loading = false,
+                            errorMessage = formatApiError(result.message),
+                            growStatusMessage = "Phân tích Grow thất bại.",
+                        )
+                    }
+                    is FidesSdkResult.Success -> {
+                        val response = result.value
+                        uiState = uiState.copy(
+                            loading = false,
+                            growResponse = response,
+                            growStatusMessage = "Phân tích xong qua ${response.ocrProvider ?: "OCR"}.",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun guessImageContentType(filename: String): String =
+        when (filename.substringAfterLast('.', "").lowercase()) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            else -> "image/jpeg"
+        }
+
+    private fun formatApiError(message: String): String {
+        return try {
+            val detail = org.json.JSONObject(message).optString("detail")
+            detail.ifBlank { message }
+        } catch (_: Throwable) {
+            message
+        }
+    }
+
     private fun confirmTransfer(transaction: ShieldTransaction) {
         uiState = uiState.copy(loading = true, errorMessage = null, transaction = transaction)
         ensurePermissions {
-            sdk.analyzeShieldWithCall(transaction, consent, callMonitor) { result ->
+            app.sdk.analyzeShieldWithCall(transaction, consent, app.callMonitor) { result ->
                 runOnUiThread {
                     when (result) {
                         is FidesSdkResult.Failure -> {
@@ -185,10 +303,11 @@ class ShieldTransferActivity : ComponentActivity() {
         val capture = captureResult ?: return
 
         uiState = uiState.copy(loading = true)
-        sdk.runIdentityCheck(
+        app.sdk.runIdentityCheck(
             transaction,
             consent,
             capture.toUploadInput(documentBytes = document, documentFilename = uiState.cccdFilename ?: "cccd.jpg"),
+            clientSession = app.sdk.sessionId,
         ) { result ->
             runOnUiThread {
                 when (result) {
@@ -224,11 +343,27 @@ class ShieldTransferActivity : ComponentActivity() {
 
     private fun resetFlow() {
         cccdBytes = null
+        growReceiptBytes = null
         captureResult = null
         liveCapture.release()
         liveCapture = LiveCheckCapture(this, this)
         previewView = PreviewView(this)
-        uiState = ShieldUiState()
+        uiState = uiState.copy(
+            overlay = AppOverlay.NONE,
+            loading = false,
+            errorMessage = null,
+            transaction = null,
+            analyzeResponse = null,
+            finalResponse = null,
+            cccdFilename = null,
+            cameraReady = false,
+            liveCheckStatus = "",
+            recordingSeconds = null,
+            liveCheckReady = false,
+            growStatusMessage = "",
+            growReceiptFilename = null,
+            growResponse = null,
+        )
     }
 
     private fun ensurePermissions(onReady: () -> Unit) {
@@ -249,15 +384,5 @@ class ShieldTransferActivity : ComponentActivity() {
             Manifest.permission.RECORD_AUDIO,
             Manifest.permission.READ_PHONE_STATE,
         )
-    }
-}
-
-private class DemoCallStateMonitor(
-    private val platformMonitor: AndroidCallStateMonitor,
-) : CallStateMonitor {
-    override fun snapshot(): CallContext {
-        val live = platformMonitor.snapshot()
-        if (live.activeCall) return live
-        return CallContext(activeCall = true, callerType = "unknown", callerNumber = "+84 909 000 555")
     }
 }

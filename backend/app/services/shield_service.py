@@ -31,6 +31,7 @@ SUSPICIOUS_CALL_PREFIXES = ("+882", "+883", "+870", "+979", "1900")
 OUTER_BREAKER_THRESHOLD = 45
 INVASIVE_FAIL_THRESHOLD = 25
 TRANSACTION_HOLD_HOURS = 24
+EKYC_FACE_MATCH_PASS_THRESHOLD = 0.75
 
 SMARTBOT_RECOMMENDED_ACTION_MAP = {
     "trigger_circuit_breaker": "withhold_24h_notify_trusted_authority",
@@ -105,6 +106,9 @@ def detected_patterns_for_challenge(scam_type: str | None) -> list[str]:
 
 
 def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
+    from backend.app.services.shield_session_service import merge_session_context
+
+    request = merge_session_context(request)
     stage_one_score, stage_one_flags = _score_outer_context(request)
     circuit_breaker_triggered = stage_one_score >= OUTER_BREAKER_THRESHOLD
 
@@ -163,10 +167,16 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
         )
 
     stage_two_score, stage_two_flags, scam_type = _score_invasive_check(request)
-    stage_two_failed = stage_two_score >= INVASIVE_FAIL_THRESHOLD
+    identity_blocked = ekyc_identity_blocks_transfer(request)
+    stage_two_failed = stage_two_score >= INVASIVE_FAIL_THRESHOLD or identity_blocked
 
     if stage_two_failed:
-        risk_score = min(100, stage_one_score + stage_two_score)
+        risk_score = min(100, max(stage_one_score + stage_two_score, stage_one_score + INVASIVE_FAIL_THRESHOLD))
+        intervention_message = (
+            _build_ekyc_identity_intervention_message(request.recipient_name, request)
+            if identity_blocked
+            else _build_intervention_message("withhold_24h_notify_trusted_authority", request.recipient_name)
+        )
         return ShieldAnalyzeResponse(
             risk_score=risk_score,
             risk_level="critical",
@@ -179,13 +189,15 @@ def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
             stage_one_flags=stage_one_flags,
             stage_two_flags=stage_two_flags,
             trusted_authority_notification=True,
-            trusted_authority_message=_build_trusted_authority_message(request.recipient_name),
+            trusted_authority_message=(
+                _build_ekyc_trusted_authority_message(request.recipient_name)
+                if identity_blocked
+                else _build_trusted_authority_message(request.recipient_name)
+            ),
             transaction_hold_hours=TRANSACTION_HOLD_HOURS,
             scam_type=scam_type,
             explanations=[*stage_one_flags, *stage_two_flags],
-            intervention_message=_build_intervention_message(
-                "withhold_24h_notify_trusted_authority", request.recipient_name
-            ),
+            intervention_message=intervention_message,
         )
 
     cleared_explanation = Explanation(
@@ -485,6 +497,40 @@ def _build_trusted_authority_message(recipient_name: str) -> str:
     )
 
 
+def ekyc_identity_blocks_transfer(request: ShieldAnalyzeRequest) -> bool:
+    """Hard block when live face check cannot verify the user against the ID document."""
+    status = request.ekyc_verification_status.lower()
+    if status == "not_checked":
+        return False
+    if status == "failed":
+        return True
+    if status == "review":
+        return True
+    if request.ekyc_mask_detected:
+        return True
+    if request.ekyc_face_match_score is not None and request.ekyc_face_match_score < EKYC_FACE_MATCH_PASS_THRESHOLD:
+        return True
+    return False
+
+
+def _build_ekyc_identity_intervention_message(recipient_name: str, request: ShieldAnalyzeRequest) -> str:
+    score_detail = ""
+    if request.ekyc_face_match_score is not None:
+        score_detail = f" Face match score: {request.ekyc_face_match_score:.0%}."
+    return (
+        f"We cannot verify your identity against the ID document for this transfer to {recipient_name}. "
+        f"The live face check did not sufficiently match the uploaded ID card.{score_detail} "
+        "This transfer is held. Retry with the correct ID and a clear face check, or use an official bank channel."
+    )
+
+
+def _build_ekyc_trusted_authority_message(recipient_name: str) -> str:
+    return (
+        f"Notify the bank fraud desk that a transfer to {recipient_name} was held for 24 hours "
+        "because the live face check did not match the uploaded ID document."
+    )
+
+
 def _is_international_number(caller_number: str) -> bool:
     normalized = _normalize_phone(caller_number)
     return normalized.startswith("+") and not normalized.startswith("+84")
@@ -675,23 +721,16 @@ def _ekyc_weight(request: ShieldAnalyzeRequest) -> int:
     weight = 0
     status = request.ekyc_verification_status.lower()
     if status == "failed":
-        weight += 25
-    elif status == "review":
-        weight += 12
-    if request.ekyc_liveness_passed is False:
         weight += 30
-    elif request.ekyc_liveness_score is not None:
-        if request.ekyc_liveness_score < 0.5:
-            weight += 20
-        elif request.ekyc_liveness_score < 0.7:
-            weight += 10
+    elif status == "review":
+        weight += 22
     if request.ekyc_mask_detected:
         weight += 10
     if request.ekyc_face_match_score is not None:
         if request.ekyc_face_match_score < 0.5:
-            weight += 18
-        elif request.ekyc_face_match_score < 0.75:
-            weight += 8
+            weight += 22
+        elif request.ekyc_face_match_score < EKYC_FACE_MATCH_PASS_THRESHOLD:
+            weight += 15
     if request.ekyc_injection_risk_score is not None:
         if request.ekyc_injection_risk_score >= 0.75:
             weight += 25
@@ -706,6 +745,8 @@ def _build_ekyc_detail(request: ShieldAnalyzeRequest) -> str:
         pieces.append(f"Face liveness: {'live' if request.ekyc_liveness_passed else 'not live'}.")
     elif request.ekyc_liveness_score is not None:
         pieces.append(f"Liveness score: {request.ekyc_liveness_score:.2f}.")
+    else:
+        pieces.append("Face liveness: not scored.")
     pieces.append(f"Mask detected: {str(request.ekyc_mask_detected).lower()}.")
     if request.ekyc_face_match_score is not None:
         pieces.append(f"Face match score: {request.ekyc_face_match_score:.2f}.")

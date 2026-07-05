@@ -63,7 +63,7 @@ PADDLE_MISSING_TOTAL_LABEL = [
     "86,000,000 VND",
 ]
 
-# Realistic PaddleOCR output from grow-coffee-strong.png (Seller. / split amounts).
+# Realistic OCR text lines from grow-coffee-strong.png (Seller. / split amounts).
 PADDLE_COFFEE_LINES = [
     "FIDESGROW RECEIPT",
     "Synthetic de mo fixture",
@@ -152,19 +152,19 @@ def main() -> int:
     if missing_total.missing_required:
         failures.append(f"missing total label required: {missing_total.missing_required}")
 
-    paddle = parse_receipt_lines(PADDLE_COFFEE_LINES)
-    if paddle.fields.seller_name != "An Nhien Coffee":
-        failures.append(f"paddle seller: {paddle.fields.seller_name!r}")
-    if paddle.fields.invoice_id != "INV-2026-001":
-        failures.append(f"paddle invoice: {paddle.fields.invoice_id!r}")
-    if paddle.fields.total_amount != 32_000_000:
-        failures.append(f"paddle total: {paddle.fields.total_amount}")
-    if paddle.fields.tax_amount != 2_909_091:
-        failures.append(f"paddle tax: {paddle.fields.tax_amount}")
-    if len(paddle.fields.line_items) != 2:
-        failures.append(f"paddle line_items: {paddle.fields.line_items}")
-    elif paddle.fields.line_items[0].amount != 18_000_000:
-        failures.append(f"paddle item0 amount: {paddle.fields.line_items[0].amount}")
+    parsed = parse_receipt_lines(PADDLE_COFFEE_LINES)
+    if parsed.fields.seller_name != "An Nhien Coffee":
+        failures.append(f"coffee seller: {parsed.fields.seller_name!r}")
+    if parsed.fields.invoice_id != "INV-2026-001":
+        failures.append(f"coffee invoice: {parsed.fields.invoice_id!r}")
+    if parsed.fields.total_amount != 32_000_000:
+        failures.append(f"coffee total: {parsed.fields.total_amount}")
+    if parsed.fields.tax_amount != 2_909_091:
+        failures.append(f"coffee tax: {parsed.fields.tax_amount}")
+    if len(parsed.fields.line_items) != 2:
+        failures.append(f"coffee line_items: {parsed.fields.line_items}")
+    elif parsed.fields.line_items[0].amount != 18_000_000:
+        failures.append(f"coffee item0 amount: {parsed.fields.line_items[0].amount}")
 
     empty = parse_receipt_lines(["FIDES GROW RECEIPT", "noise only"])
     if not empty.missing_required:

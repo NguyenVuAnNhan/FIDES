@@ -52,6 +52,11 @@ def _pick_audio(explicit: str | None) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke-test voice stress analyzer.")
     parser.add_argument("--audio", help="Path to challenge WAV/MP3")
+    parser.add_argument(
+        "--require-model",
+        action="store_true",
+        help="Exit non-zero if emotion2vec/wav2vec did not run (prosody-only fallback).",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -80,6 +85,12 @@ def main() -> int:
         "detail": result.detail,
     }
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+    if args.require_model and not result.model_used:
+        print(
+            "ERROR: voice stress model did not run; check torch/torchaudio versions and funasr install.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

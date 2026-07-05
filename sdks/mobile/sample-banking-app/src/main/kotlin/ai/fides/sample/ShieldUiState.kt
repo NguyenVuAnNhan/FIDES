@@ -1,11 +1,12 @@
 package ai.fides.sample
 
+import ai.fides.sdk.GrowProcessResponse
 import ai.fides.sdk.ShieldAnalyzeResponse
 import ai.fides.sdk.ShieldTransaction
 
 enum class AppTab { HOME, STATS, LOAN }
 
-enum class AppOverlay { NONE, TRANSFER, WARNING, VOICE, RESULT }
+enum class AppOverlay { NONE, TRANSFER, WARNING, VOICE, RESULT, GROW }
 
 data class ShieldUiState(
     val tab: AppTab = AppTab.HOME,
@@ -13,6 +14,10 @@ data class ShieldUiState(
     val loading: Boolean = false,
     val statusMessage: String = "",
     val errorMessage: String? = null,
+    val sessionRiskScore: Int? = null,
+    val sessionRiskLevel: String? = null,
+    val sessionMonitoringMessage: String? = null,
+    val sessionEarlyWarning: Boolean = false,
     val transaction: ShieldTransaction? = null,
     val analyzeResponse: ShieldAnalyzeResponse? = null,
     val finalResponse: ShieldAnalyzeResponse? = null,
@@ -21,4 +26,9 @@ data class ShieldUiState(
     val liveCheckStatus: String = "",
     val recordingSeconds: Int? = null,
     val liveCheckReady: Boolean = false,
+    val loanAmount: Long = 10_000_000,
+    val loanTermMonths: Int = 12,
+    val growStatusMessage: String = "",
+    val growReceiptFilename: String? = null,
+    val growResponse: GrowProcessResponse? = null,
 )

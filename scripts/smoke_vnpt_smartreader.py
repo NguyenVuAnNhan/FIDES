@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Smoke-test PaddleOcrProvider on all Grow receipt fixtures."""
+"""Smoke-test VNPT SmartReader OCR on Grow receipt fixtures."""
 
 from __future__ import annotations
 
+import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -20,12 +22,23 @@ EXPECTED_FIXTURES = [
 
 
 def main() -> int:
-    try:
-        from paddleocr import PaddleOCR  # noqa: F401
-    except ImportError as exc:
-        print("PaddleOCR is not installed.")
-        print("Install with: pip install paddlepaddle paddleocr")
-        print(f"Import error: {exc}")
+    parser = argparse.ArgumentParser(description="Smoke-test VNPT SmartReader Grow OCR.")
+    parser.add_argument(
+        "--fixture",
+        help="Run a single fixture filename under frontend/static/fixtures/receipts/",
+    )
+    args = parser.parse_args()
+
+    from backend.app.config import get_settings
+    from backend.app.services.ocr.smartreader_provider import get_smartreader_provider
+    from backend.app.services.vnpt_client import VnptClient
+
+    settings = get_settings()
+    client = VnptClient(settings)
+    print(f"smartreader_enabled={client.smartreader_enabled} provider_mode={client.mode}")
+    if not client.smartreader_enabled:
+        print("FAIL: SmartReader real mode is disabled or credentials are incomplete.")
+        print("Set VNPT_SMARTREADER_MODE=real and VNPT token credentials in .env")
         return 1
 
     if not FIXTURES_DIR.is_dir():
@@ -33,13 +46,12 @@ def main() -> int:
         print("Run: python scripts/generate_receipt_fixtures.py")
         return 1
 
-    from backend.app.services.ocr.paddle_provider import get_paddle_provider
-
-    provider = get_paddle_provider()
+    provider = get_smartreader_provider()
     failures: list[str] = []
+    fixtures = [args.fixture] if args.fixture else EXPECTED_FIXTURES
 
-    print("Running PaddleOcrProvider on receipt fixtures (first run may download models)...")
-    for name in EXPECTED_FIXTURES:
+    print("Running SmartReader OCR on receipt fixtures...")
+    for name in fixtures:
         path = FIXTURES_DIR / name
         if not path.is_file():
             failures.append(f"{name}: missing file")
@@ -58,7 +70,7 @@ def main() -> int:
             f"total={total} items={items} confidence={result.confidence}"
         )
 
-        if result.provider != "PaddleOCR":
+        if result.provider != "SmartReader":
             failures.append(f"{name}: provider={result.provider!r}")
         if result.status != "completed":
             failures.append(f"{name}: status={result.status}")
@@ -73,7 +85,6 @@ def main() -> int:
         if fields.total_amount <= 0:
             failures.append(f"{name}: total_amount={fields.total_amount}")
 
-    # Missing-file path should fail cleanly without raising.
     missing = provider.extract(FIXTURES_DIR / "does-not-exist.png")
     if missing.status != "failed":
         failures.append(f"missing file status expected failed, got {missing.status}")
@@ -81,12 +92,12 @@ def main() -> int:
         print("[ok] missing file returns status=failed")
 
     if failures:
-        print("\nPaddleOCR provider smoke FAILED:")
+        print("\nSmartReader OCR smoke FAILED:")
         for failure in failures:
             print(f"  - {failure}")
         return 1
 
-    print("\nPaddleOCR provider smoke passed.")
+    print("\nSmartReader OCR smoke passed.")
     return 0
 
 

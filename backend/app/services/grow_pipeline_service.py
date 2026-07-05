@@ -10,7 +10,7 @@ from backend.app.models import (
 from backend.app.services.graph.grow_features import build_alternative_credit_profile
 from backend.app.services.graph.grow_ingest import GrowInvoiceIngest, ingest_grow_invoice
 from backend.app.services.grow_service import analyze_invoice
-from backend.app.services.ocr.paddle_provider import get_paddle_provider
+from backend.app.services.ocr.smartreader_provider import SmartReaderOcrProvider, get_ocr_provider
 from backend.app.services.ocr.paths import ReceiptPathError, resolve_receipt_path
 
 
@@ -36,7 +36,7 @@ def _resolve_from_receipt_image(process: GrowProcessRequest) -> GrowAnalyzeReque
     except ReceiptPathError as exc:
         raise GrowOcrError(str(exc)) from exc
 
-    ocr = get_paddle_provider().extract(image_path)
+    ocr = get_ocr_provider().extract(image_path)
     fields = ocr.extracted_fields
     if ocr.status != "completed" or fields is None:
         raise GrowOcrError("OCR failed to extract required invoice fields from the receipt image.")

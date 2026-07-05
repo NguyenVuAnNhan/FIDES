@@ -4,13 +4,20 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from backend.app.models import ShieldAnalyzeRequest, ShieldAnalyzeResponse, ShieldChallengeRequest
+from backend.app.models import (
+    ShieldAnalyzeRequest,
+    ShieldAnalyzeResponse,
+    ShieldChallengeRequest,
+    ShieldSessionHeartbeatRequest,
+    ShieldSessionHeartbeatResponse,
+)
 from backend.app.services.ekyc.paths import ALLOWED_EKYC_EXTENSIONS, ensure_ekyc_upload_dir
 from backend.app.services.shield.paths import ALLOWED_VIDEO_EXTENSIONS, ensure_shield_upload_dir
-from backend.app.services.shield.video import extract_video_frames, resolve_stt_audio_ref
+from backend.app.services.shield.video import resolve_stt_audio_ref
 from backend.app.services.smartvoice.paths import ALLOWED_AUDIO_EXTENSIONS, ensure_smartvoice_upload_dir
 from backend.app.services.shield_challenge_service import run_transfer_monitoring_challenge
 from backend.app.services.shield_service import analyze_shield_risk
+from backend.app.services.shield_session_service import process_session_heartbeat
 
 router = APIRouter(prefix="/api/shield", tags=["shield"])
 
@@ -70,6 +77,12 @@ def analyze(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
     return analyze_shield_risk(request)
 
 
+@router.post("/session/heartbeat", response_model=ShieldSessionHeartbeatResponse)
+def session_heartbeat(request: ShieldSessionHeartbeatRequest) -> ShieldSessionHeartbeatResponse:
+    """Path B: continuous app-session context scoring from app entry."""
+    return process_session_heartbeat(request)
+
+
 @router.post("/challenge", response_model=ShieldAnalyzeResponse)
 def challenge(request: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
     return run_transfer_monitoring_challenge(request)
@@ -125,21 +138,12 @@ async def upload_live_check(
         uploaded_frames.append((frame_ref, frame_name))
 
     if not uploaded_frames:
-        frame_batch = uuid.uuid4().hex
-        extracted_dir = ensure_shield_upload_dir()
-        for index, extracted in enumerate(extract_video_frames(video_ref, extracted_dir, count=3)):
-            target_name = f"extracted-{frame_batch}-frame-{index:02d}.jpg"
-            target_path = extracted_dir / target_name
-            extracted.rename(target_path)
-            uploaded_frames.append((f"uploads/shield/{target_name}", target_name))
-
-    if not uploaded_frames:
         raise HTTPException(
             status_code=422,
-            detail="Live check must include sampled JPEG frames (client-side) or ffmpeg on the server.",
+            detail="Live check must include sampled JPEG frames from the browser camera.",
         )
 
-    primary_ref, primary_name = uploaded_frames[len(uploaded_frames) // 2]
+    primary_ref, primary_name = uploaded_frames[0]
     frame_refs = [item[0] for item in uploaded_frames]
 
     if challenge_audio is not None and challenge_audio.filename:

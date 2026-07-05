@@ -7,7 +7,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
-from backend.app.services.shield.paths import ALLOWED_FRAME_EXTENSIONS, resolve_shield_ref
+from backend.app.services.shield.paths import resolve_shield_ref
 
 
 def ffmpeg_available() -> bool:
@@ -92,35 +92,3 @@ def resolve_stt_audio_ref(video_ref: str, smartvoice_dir: Path) -> tuple[str, st
         return f"uploads/smartvoice/{wav_path.name}", "wav"
 
     return video_ref, "video-webm-fallback"
-
-
-def extract_video_frames(video_ref: str, output_dir: Path, count: int = 3) -> list[Path]:
-    """Sample JPEG frames evenly across the video duration."""
-    if count < 1 or not ffmpeg_available():
-        return []
-
-    video_path = resolve_shield_ref(video_ref)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    pattern = output_dir / "frame-%02d.jpg"
-    try:
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(video_path),
-                "-vf",
-                f"fps=1/{max(1, count)}",
-                "-frames:v",
-                str(count),
-                str(pattern),
-            ],
-            check=True,
-            capture_output=True,
-            timeout=120,
-        )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
-        return []
-
-    frames = sorted(output_dir.glob("frame-*.jpg"))
-    return [path for path in frames if path.suffix.lower() in ALLOWED_FRAME_EXTENSIONS]

@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from pathlib import Path
+
 from backend.app.config import get_settings
 from backend.app.models import Explanation, ShieldAnalyzeResponse, ShieldChallengeRequest
+from backend.app.services.shield.paths import PROJECT_ROOT
 from backend.app.services.shield_service import (
+    EKYC_FACE_MATCH_PASS_THRESHOLD,
     analyze_shield_risk,
     apply_smartbot_response_overlay,
     detected_patterns_for_challenge,
@@ -210,24 +214,6 @@ def _truthy_provider_bool(value: object) -> bool:
     return False
 
 
-LIVE_LIVENESS_MSG_HINTS = ("người thật", "nguoi that", "real person", "live face", "live")
-SPOOF_LIVENESS_MSG_HINTS = ("giả", "gia", "fake", "spoof", "không phải", "khong phai")
-
-
-def _parse_liveness_passed(liveness_object: dict[str, Any], liveness_failed: bool) -> bool:
-    if liveness_failed:
-        return False
-    if _truthy_provider_bool(liveness_object.get("liveness")):
-        return True
-    message = str(liveness_object.get("liveness_msg") or "").strip().lower()
-    if message:
-        if any(hint in message for hint in SPOOF_LIVENESS_MSG_HINTS):
-            return False
-        if any(hint in message for hint in LIVE_LIVENESS_MSG_HINTS):
-            return True
-    return False
-
-
 def _compare_skipped(compare_response: dict[str, Any]) -> bool:
     compare_object = _object(compare_response)
     compare_msg = str(compare_object.get("msg") or "").upper()
@@ -237,26 +223,43 @@ def _compare_skipped(compare_response: dict[str, Any]) -> bool:
     return "no document" in message or "cccd" in message and "required" in message
 
 
-def _injection_risk_from_liveness(
-    liveness_object: dict[str, Any],
+def _face_compare_nomatch(compare_object: dict[str, Any]) -> bool:
+    """VNPT may put NOMATCH in either result or msg depending on the endpoint version."""
+    result = str(compare_object.get("result") or "").upper()
+    msg = str(compare_object.get("msg") or "").upper()
+    return result == "NOMATCH" or msg == "NOMATCH"
+
+
+def resolve_ekyc_verification_status(
     *,
-    liveness_failed: bool,
-    face_is_live: bool,
+    mask_failed: bool,
+    compare_failed: bool,
+    compare_skipped: bool,
+    mask_detected: bool,
+    face_compare_nomatch: bool,
+    face_match_score: float | None,
+    pass_threshold: float = EKYC_FACE_MATCH_PASS_THRESHOLD,
+) -> str:
+    """Identity gate uses face compare (+ mask). VNPT liveness is not a decision input."""
+    if mask_failed or compare_failed or compare_skipped:
+        return "failed"
+    if mask_detected or face_compare_nomatch:
+        return "failed"
+    if face_match_score is not None and face_match_score < 0.5:
+        return "failed"
+    if face_match_score is not None and face_match_score < pass_threshold:
+        return "review"
+    return "passed"
+
+
+def _injection_risk_from_ekyc(
+    *,
     mask_detected: bool,
     face_match_score: float | None,
     compare_failed: bool,
     compare_skipped: bool,
 ) -> float:
-    if liveness_failed:
-        return 0.77
-
     risk = 0.04
-    if _truthy_provider_bool(liveness_object.get("fake_liveness")):
-        risk = max(risk, 0.88)
-    if _truthy_provider_bool(liveness_object.get("face_swapping")):
-        risk = max(risk, 0.82)
-    if not face_is_live:
-        risk = max(risk, 0.72)
     if mask_detected:
         risk = max(risk, 0.45)
     if not compare_skipped and not compare_failed and face_match_score is not None:
@@ -280,17 +283,17 @@ def _ekyc_missing_document_response(
     detail = f"VNPT eKYC API skipped for {image_ref}. {message}"
     fields = {
         "ekyc_verification_status": "failed",
-        "ekyc_liveness_passed": False,
+        "ekyc_liveness_passed": None,
         "ekyc_liveness_score": None,
         "ekyc_mask_detected": False,
         "ekyc_face_match_score": 0.0,
-        "ekyc_injection_risk_score": 0.77,
+        "ekyc_injection_risk_score": 0.55,
     }
     return (
         fields,
         Explanation(label="VNPT eKYC API", detail=detail, weight=0),
         {
-            "face_liveness": failed,
+            "face_liveness": None,
             "face_mask": failed,
             "face_compare": failed,
         },
@@ -406,55 +409,44 @@ def _ekyc_api(
     if not vnpt_client.ekyc_enabled:
         return _ekyc_unconfigured_response(challenge.ekyc_image_ref)
 
-    liveness_response = vnpt_client.face_liveness(challenge.ekyc_image_ref, challenge.client_session)
-    mask_response = vnpt_client.face_mask(challenge.ekyc_image_ref, challenge.client_session)
+    selfie_ref = _first_existing_frame_ref(challenge)
+    mask_response = vnpt_client.face_mask(selfie_ref, challenge.client_session)
     compare_response = vnpt_client.face_compare(
         challenge.ekyc_document_ref,
-        challenge.ekyc_image_ref,
+        selfie_ref,
         challenge.client_session,
     )
     provider_label = "VNPT eKYC API"
-    source_detail = "called VNPT eKYC liveness, mask, and face-compare endpoints"
+    source_detail = "called VNPT eKYC mask and face-compare endpoints (liveness not scored)"
 
-    liveness_object = _object(liveness_response)
     mask_object = _object(mask_response)
     compare_object = _object(compare_response)
 
-    liveness_failed = _vnpt_call_failed(liveness_response)
     mask_failed = _vnpt_call_failed(mask_response)
     compare_failed = _vnpt_call_failed(compare_response)
     compare_skipped = _compare_skipped(compare_response)
 
-    face_is_live = _parse_liveness_passed(liveness_object, liveness_failed)
     mask_detected = False if mask_failed else _truthy_provider_bool(mask_object.get("masked"))
     face_match_score: float | None = None
     if not compare_skipped and not compare_failed:
         face_match_score = _provider_score(compare_object.get("prob"), default=0.5)
-    face_match_result = str(compare_object.get("result", "")).upper()
-    verification_status = "failed"
-    if liveness_failed or mask_failed or compare_failed or compare_skipped:
-        verification_status = "failed"
-    elif not face_is_live or mask_detected or face_match_result == "NOMATCH":
-        verification_status = "failed"
-    elif face_match_score is not None and face_match_score < 0.5:
-        verification_status = "failed"
-    elif face_match_score is not None and face_match_score < 0.75:
-        verification_status = "review"
-    else:
-        verification_status = "passed"
+    face_compare_nomatch = _face_compare_nomatch(compare_object)
+    verification_status = resolve_ekyc_verification_status(
+        mask_failed=mask_failed,
+        compare_failed=compare_failed,
+        compare_skipped=compare_skipped,
+        mask_detected=mask_detected,
+        face_compare_nomatch=face_compare_nomatch,
+        face_match_score=face_match_score,
+    )
 
-    injection_risk = _injection_risk_from_liveness(
-        liveness_object,
-        liveness_failed=liveness_failed,
-        face_is_live=face_is_live,
+    injection_risk = _injection_risk_from_ekyc(
         mask_detected=mask_detected,
         face_match_score=face_match_score,
         compare_failed=compare_failed,
         compare_skipped=compare_skipped,
     )
     provider_notes = []
-    if liveness_failed:
-        provider_notes.append(f"liveness: {_vnpt_error_detail(liveness_response)}")
     if mask_failed:
         provider_notes.append(f"mask: {_vnpt_error_detail(mask_response)}")
     if compare_skipped:
@@ -463,16 +455,15 @@ def _ekyc_api(
         provider_notes.append(f"compare: {_vnpt_error_detail(compare_response)}")
     note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
-        f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
-        f"Status={verification_status}, liveness={liveness_object.get('liveness_msg')}, "
-        f"fake_liveness={liveness_object.get('fake_liveness')}, "
-        f"face_swapping={liveness_object.get('face_swapping')}, "
-        f"compare={compare_object.get('msg')}, prob={face_match_score}.{note_suffix}"
+        f"{provider_label} {source_detail} for {selfie_ref}. "
+        f"Status={verification_status}, liveness=not_scored, "
+        f"compare={compare_object.get('msg')}, result={compare_object.get('result')}, "
+        f"prob={face_match_score}, mask={mask_object.get('masked')}.{note_suffix}"
     )
 
     fields = {
         "ekyc_verification_status": verification_status,
-        "ekyc_liveness_passed": face_is_live,
+        "ekyc_liveness_passed": None,
         "ekyc_liveness_score": None,
         "ekyc_mask_detected": mask_detected,
         "ekyc_face_match_score": face_match_score,
@@ -482,7 +473,7 @@ def _ekyc_api(
         fields,
         Explanation(label=provider_label, detail=detail, weight=0),
         {
-            "face_liveness": liveness_response,
+            "face_liveness": None,
             "face_mask": mask_response,
             "face_compare": compare_response,
         },
@@ -625,6 +616,19 @@ def _smartbot_api(
         Explanation(label=provider_label, detail=detail, weight=0),
         response,
     )
+
+
+def _frame_ref_exists(ref: str) -> bool:
+    path = Path(ref)
+    candidate = path if path.is_absolute() else PROJECT_ROOT / path
+    return candidate.is_file()
+
+
+def _first_existing_frame_ref(challenge: ShieldChallengeRequest) -> str:
+    for candidate in _smartvision_frame_refs(challenge):
+        if _frame_ref_exists(candidate):
+            return candidate
+    return challenge.ekyc_image_ref
 
 
 def _smartvision_frame_refs(challenge: ShieldChallengeRequest) -> list[str]:

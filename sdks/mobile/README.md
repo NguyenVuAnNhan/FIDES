@@ -7,6 +7,7 @@ Native mobile SDK for Android and iOS banking or wallet apps.
 - Accept consent state from the host app.
 - Collect derived telemetry and call context through provider interfaces.
 - Build normalized Path B Shield payloads (`ShieldPayloadBuilder`).
+- Monitor app session context from launch via `ShieldSessionMonitor` + `/api/shield/session/heartbeat`.
 - Capture live identity checks (`LiveCheckCapture` on Android).
 - Upload live-check media and run `/api/shield/challenge`.
 - Call FIDES backend APIs through an injected HTTP transport.
@@ -30,6 +31,30 @@ VNPT credentials stay on the FIDES backend — never embed them in the mobile SD
 ```
 
 Request at runtime before transfer analysis / identity check.
+
+## App session monitoring (Path B)
+
+Start monitoring when the host app launches (typically in `Application.onCreate`):
+
+```kotlin
+class BankApplication : Application() {
+    lateinit var sdk: FidesMobileSdk
+    lateinit var callMonitor: SessionAwareCallStateMonitor
+    lateinit var sessionMonitor: ShieldSessionMonitor
+
+    override fun onCreate() {
+        super.onCreate()
+        sdk = FidesMobileSdk(/* ... */)
+        callMonitor = SessionAwareCallStateMonitor(AndroidCallStateMonitor(this))
+        sessionMonitor = ShieldSessionMonitor(sdk, FidesConsent(telemetry = true), callMonitor)
+        sessionMonitor.start()
+    }
+}
+```
+
+Each heartbeat calls `POST /api/shield/session/heartbeat`. At transfer confirm, include the same
+`sdk_session_id` in `/api/shield/analyze` so the backend merges session context (calls, telemetry)
+collected since app entry.
 
 ## End-to-end (Android)
 
