@@ -100,6 +100,8 @@ class ShieldChallengeRequest(BaseModel):
     ekyc_image_ref: str
     ekyc_document_ref: str | None = None
     stt_audio_ref: str
+    challenge_video_ref: str | None = None
+    challenge_frame_refs: list[str] = Field(default_factory=list)
     client_session: str = "shield-demo-session"
 
 

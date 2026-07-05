@@ -32,7 +32,8 @@ class Settings(BaseSettings):
     vnpt_smartvision_token_id: str | None = None
     vnpt_smartvision_token_key: str | None = None
     vnpt_smartvision_token: str | None = None
-    vnpt_smartvision_emotion_path: str = "/aicommon-service/face-camera/v1/emotion"
+    vnpt_smartvision_detect_face_path: str = "/data-service/v1/smartvision/detect-face"
+    vnpt_smartvision_max_object: int = 1
     vnpt_smartvision_request_timeout_seconds: int = 30
     vnpt_ekyc_token: str | None = None
     vnpt_mac_address: str = "TEST1"

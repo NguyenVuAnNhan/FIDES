@@ -8,7 +8,11 @@ from backend.app.config import get_settings
 from backend.app.models import Explanation, ShieldAnalyzeResponse, ShieldChallengeRequest
 from backend.app.services.shield_service import analyze_shield_risk, detected_patterns_for_challenge, match_transcript_pattern
 from backend.app.services.smartbot.parser import parse_smartbot_response
-from backend.app.services.smartvision.parser import SmartvisionFaceEmotion, parse_smartvision_face_emotion
+from backend.app.services.smartvision.parser import (
+    SmartvisionFaceEmotion,
+    aggregate_smartvision_frames,
+    parse_smartvision_face_emotion,
+)
 from backend.app.services.voice_stress import analyze_voice_stress
 from backend.app.services.vnpt_client import VnptClient
 
@@ -66,7 +70,7 @@ def _run_challenge_apis(
         "consent_transfer_check": True,
         "consent_call_monitoring": False,
         "shield_path": "transfer_monitoring",
-        "audio_source": challenge.stt_audio_ref,
+        "audio_source": challenge.challenge_video_ref or challenge.stt_audio_ref,
         **ekyc_fields,
         **smartvoice_fields,
         **smartbot_fields,
@@ -80,7 +84,8 @@ def _run_challenge_apis(
         "ekyc_face_compare": ekyc_raw["face_compare"],
         "smartvoice_stt": smartvoice_raw,
         "smartbot_conversation": smartbot_raw,
-        "smartvision_face_emotion": smartvision_raw,
+        "smartvision_detect_face": smartvision_raw,
+        "smartvision_frame_count": smartvision_raw.get("frame_count"),
         "voice_stress": voice_stress_raw,
     }
     return fields, [ekyc_call, smartvoice_call, smartbot_call, smartvision_call, coercion_call], raw_responses, provider_mode
@@ -493,40 +498,71 @@ def _smartbot_api(
     )
 
 
+def _smartvision_frame_refs(challenge: ShieldChallengeRequest) -> list[str]:
+    refs: list[str] = []
+    for candidate in [challenge.ekyc_image_ref, *challenge.challenge_frame_refs]:
+        normalized = str(candidate).strip()
+        if normalized and normalized not in refs:
+            refs.append(normalized)
+    return refs
+
+
 def _smartvision_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    frame_refs = _smartvision_frame_refs(challenge)
+    primary_ref = frame_refs[0] if frame_refs else challenge.ekyc_image_ref
+
     if not vnpt_client.smartvision_enabled:
-        return _smartvision_unconfigured_response(challenge.ekyc_image_ref)
+        return _smartvision_unconfigured_response(primary_ref)
 
-    response = vnpt_client.smartvision_face_emotion(challenge.ekyc_image_ref, challenge.client_session)
     provider_label = "VNPT SmartVision API"
-    source_detail = f"called {vnpt_client.settings.vnpt_smartvision_emotion_path}"
-    smartvision_failed = _vnpt_call_failed(response)
-    parsed = (
-        parse_smartvision_face_emotion(response)
-        if not smartvision_failed
-        else SmartvisionFaceEmotion(
-            face_emotion_score=None,
-            face_emotion_labels=[],
-            dominant_emotion=None,
-            parse_source="error",
-        )
-    )
+    source_detail = f"called {vnpt_client.settings.vnpt_smartvision_detect_face_path}"
+    parsed_frames: list[SmartvisionFaceEmotion] = []
+    frame_responses: list[dict[str, Any]] = []
+    provider_notes: list[str] = []
+    any_success = False
 
-    provider_notes = []
-    if smartvision_failed:
-        provider_notes.append(_vnpt_error_detail(response))
-    if not smartvision_failed and parsed.face_emotion_score is None:
-        provider_notes.append("response did not include a usable emotion score")
+    for frame_ref in frame_refs:
+        response = vnpt_client.smartvision_detect_face(frame_ref, challenge.client_session)
+        frame_responses.append({"frame_ref": frame_ref, "response": response})
+        frame_failed = _vnpt_call_failed(response)
+        if frame_failed:
+            provider_notes.append(f"{frame_ref}: {_vnpt_error_detail(response)}")
+            parsed_frames.append(
+                SmartvisionFaceEmotion(
+                    face_emotion_score=None,
+                    face_emotion_labels=[],
+                    dominant_emotion=None,
+                    parse_source="error",
+                )
+            )
+            continue
+
+        any_success = True
+        parsed = parse_smartvision_face_emotion(response)
+        parsed_frames.append(parsed)
+        if parsed.face_emotion_score is None:
+            provider_notes.append(f"{frame_ref}: response did not include a usable emotion score")
+
+    parsed = aggregate_smartvision_frames(parsed_frames)
+    smartvision_failed = not any_success
 
     note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
+    frame_summary = f"{len(frame_refs)} frame(s)" if len(frame_refs) > 1 else primary_ref
     detail = (
-        f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
+        f"{provider_label} {source_detail} on {frame_summary}. "
         f"parse={parsed.parse_source}, dominant={parsed.dominant_emotion}, "
         f"score={parsed.face_emotion_score}, labels={parsed.face_emotion_labels}.{note_suffix}"
     )
+
+    combined_raw: dict[str, Any] = {
+        "frame_count": len(frame_refs),
+        "frames": frame_responses,
+    }
+    if len(frame_responses) == 1:
+        combined_raw["primary"] = frame_responses[0]["response"]
 
     return (
         {
@@ -534,7 +570,7 @@ def _smartvision_api(
             "face_emotion_labels": parsed.face_emotion_labels,
         },
         Explanation(label=provider_label, detail=detail, weight=0),
-        response,
+        combined_raw,
     )
 
 

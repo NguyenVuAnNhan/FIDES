@@ -13,6 +13,13 @@ const shieldSttAudio = document.querySelector("#shield-stt-audio");
 const shieldAudioUploadStatus = document.querySelector("#shield-audio-upload-status");
 const shieldRecordAudio = document.querySelector("#shield-record-audio");
 const shieldStopRecordAudio = document.querySelector("#shield-stop-record-audio");
+const shieldCameraPreview = document.querySelector("#shield-camera-preview");
+const shieldCameraPlaceholder = document.querySelector("#shield-camera-placeholder");
+const shieldStartCamera = document.querySelector("#shield-start-camera");
+const shieldStartLiveCheck = document.querySelector("#shield-start-live-check");
+const shieldStopLiveCheck = document.querySelector("#shield-stop-live-check");
+const shieldLiveCheckStatus = document.querySelector("#shield-live-check-status");
+const shieldFrameStrip = document.querySelector("#shield-frame-strip");
 
 const WIZARD_STEPS = [
   { id: 1, nextLabel: "Analyze transfer" },
@@ -20,13 +27,23 @@ const WIZARD_STEPS = [
   { id: 3, nextLabel: "Start new case" },
 ];
 
+const LIVE_CHECK_SECONDS = 4;
+const LIVE_FRAME_COUNT = 3;
+
 let currentStep = 1;
 let lastAnalyzeResponse = null;
 let lastAnalyzePayload = null;
 let uploadedEkycArtifacts = null;
 let uploadedAudioArtifacts = null;
+let uploadedLiveCheckArtifacts = null;
 let audioRecorder = null;
 let audioRecordChunks = [];
+let cameraStream = null;
+let liveCheckRecorder = null;
+let liveCheckChunks = [];
+let liveCheckTimer = null;
+let liveCheckVideoBlob = null;
+let liveCheckFrameBlobs = [];
 
 initShieldPage();
 
@@ -39,7 +56,9 @@ async function initShieldPage() {
     }
     shieldScenario.dispatchEvent(new Event("change"));
     setWizardStep(1);
-    setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC and SmartVoice with uploaded media.");
+    setShieldStatus(
+      "Path B: analyze transfer context first. Step 2 records live camera + voice for VNPT checks.",
+    );
   } catch (error) {
     console.error(error);
     setShieldStatus("Failed to load Shield demo scenarios.");
@@ -56,8 +75,7 @@ shieldScenario.addEventListener("change", () => {
     }
     lastAnalyzeResponse = null;
     lastAnalyzePayload = null;
-    uploadedEkycArtifacts = null;
-    uploadedAudioArtifacts = null;
+    resetChallengeMedia();
     clearResultPanels();
     setWizardStep(1);
     setShieldStatus("Scenario loaded. Click Analyze transfer.");
@@ -66,6 +84,9 @@ shieldScenario.addEventListener("change", () => {
 
 shieldBack.addEventListener("click", () => {
   if (currentStep > 1) {
+    if (currentStep === 2) {
+      stopCameraStream();
+    }
     setWizardStep(currentStep - 1);
   }
 });
@@ -94,6 +115,15 @@ if (shieldRecordAudio) {
 if (shieldStopRecordAudio) {
   shieldStopRecordAudio.addEventListener("click", stopAudioRecording);
 }
+if (shieldStartCamera) {
+  shieldStartCamera.addEventListener("click", startCameraPreview);
+}
+if (shieldStartLiveCheck) {
+  shieldStartLiveCheck.addEventListener("click", startLiveCheckRecording);
+}
+if (shieldStopLiveCheck) {
+  shieldStopLiveCheck.addEventListener("click", stopLiveCheckRecording);
+}
 
 async function runShieldAnalyze() {
   const payload = buildShieldAnalyzePayload(new FormData(shieldForm));
@@ -108,9 +138,10 @@ async function runShieldAnalyze() {
 
     if (lastAnalyzeResponse.invasive_check_required) {
       setShieldStatus(
-        "Circuit breaker tripped. Upload selfie, voice audio (+ optional CCCD/voice reference) and run in-app check (step 2).",
+        "Circuit breaker tripped. Enable camera, run the 4-second live check, then run in-app check.",
       );
       setWizardStep(2);
+      await startCameraPreview();
     } else {
       setShieldStatus("Analysis complete. No in-app check required for this scenario.");
       setWizardStep(1);
@@ -131,11 +162,9 @@ async function runShieldChallenge() {
     return;
   }
 
-  let ekycArtifacts;
-  let audioArtifacts;
+  let challengeArtifacts;
   try {
-    ekycArtifacts = await resolveEkycArtifacts();
-    audioArtifacts = await resolveAudioArtifacts();
+    challengeArtifacts = await resolveChallengeArtifacts();
   } catch (error) {
     setShieldStatus(`Upload failed: ${formatApiError(error.message)}`);
     return;
@@ -147,8 +176,7 @@ async function runShieldChallenge() {
   try {
     const response = await postJson("/api/shield/challenge", {
       transaction: lastAnalyzePayload,
-      ...ekycArtifacts,
-      ...audioArtifacts,
+      ...challengeArtifacts,
       client_session: "shield-path-b-demo",
     });
     lastAnalyzeResponse = response;
@@ -164,10 +192,102 @@ async function runShieldChallenge() {
   }
 }
 
+async function resolveChallengeArtifacts() {
+  if (liveCheckVideoBlob && liveCheckFrameBlobs.length > 0) {
+    return resolveLiveCheckArtifacts();
+  }
+
+  const ekycArtifacts = await resolveEkycArtifacts();
+  const audioArtifacts = await resolveAudioArtifacts();
+  return {
+    ...ekycArtifacts,
+    ...audioArtifacts,
+    challenge_video_ref: null,
+    challenge_frame_refs: [],
+  };
+}
+
+async function resolveLiveCheckArtifacts() {
+  const documentFile = shieldEkycDocument?.files?.[0];
+  const documentName = documentFile?.name || null;
+  const cacheKey = [
+    liveCheckVideoBlob.size,
+    liveCheckFrameBlobs.length,
+    documentName,
+  ].join(":");
+
+  if (uploadedLiveCheckArtifacts?.cacheKey === cacheKey) {
+    return uploadedLiveCheckArtifacts.payload;
+  }
+
+  const formData = new FormData();
+  const videoFile = new File([liveCheckVideoBlob], `live-check-${Date.now()}.webm`, {
+    type: liveCheckVideoBlob.type || "video/webm",
+  });
+  formData.append("challenge_video", videoFile);
+  if (documentFile) {
+    formData.append("document", documentFile);
+  }
+  liveCheckFrameBlobs.forEach((frameBlob, index) => {
+    formData.append(
+      `frame_${index}`,
+      new File([frameBlob], `frame-${index}.jpg`, { type: "image/jpeg" }),
+    );
+  });
+
+  if (shieldEkycUploadStatus) {
+    shieldEkycUploadStatus.textContent = "Uploading live check to /api/shield/challenge/upload-live-check...";
+  }
+  if (shieldAudioUploadStatus) {
+    shieldAudioUploadStatus.textContent = "Uploading live video + sampled frames...";
+  }
+
+  const uploadResponse = await postFormData("/api/shield/challenge/upload-live-check", formData);
+  const payload = {
+    ekyc_image_ref: uploadResponse.ekyc_image_ref,
+    ekyc_document_ref: uploadResponse.ekyc_document_ref || null,
+    stt_audio_ref: uploadResponse.stt_audio_ref,
+    challenge_video_ref: uploadResponse.challenge_video_ref,
+    challenge_frame_refs: uploadResponse.challenge_frame_refs || [],
+  };
+
+  uploadedLiveCheckArtifacts = { cacheKey, payload };
+  if (shieldEkycUploadStatus) {
+    shieldEkycUploadStatus.textContent = `Live check uploaded (${uploadResponse.frame_count} frame(s), primary ${uploadResponse.primary_selfie_filename}).`;
+  }
+  if (shieldAudioUploadStatus) {
+    shieldAudioUploadStatus.textContent = `Video ${uploadResponse.challenge_video_filename} · audio ref ${uploadResponse.stt_audio_ref}.`;
+  }
+  return payload;
+}
+
 function resetShieldCase() {
   lastAnalyzeResponse = null;
   lastAnalyzePayload = null;
+  resetChallengeMedia();
+  clearResultPanels();
+  shieldScenario.dispatchEvent(new Event("change"));
+  setWizardStep(1);
+  setShieldStatus(
+    "Path B: analyze transfer context first. Step 2 records live camera + voice for VNPT checks.",
+  );
+}
+
+function resetChallengeMedia() {
   uploadedEkycArtifacts = null;
+  uploadedAudioArtifacts = null;
+  uploadedLiveCheckArtifacts = null;
+  liveCheckVideoBlob = null;
+  liveCheckFrameBlobs = [];
+  clearLiveCheckTimer();
+  stopLiveCheckRecording(true);
+  stopCameraStream();
+  resetFallbackInputs();
+  renderFrameStrip([]);
+  setLiveCheckStatus("Enable the camera, then start the live check.");
+}
+
+function resetFallbackInputs() {
   if (shieldEkycSelfie) {
     shieldEkycSelfie.value = "";
   }
@@ -177,7 +297,6 @@ function resetShieldCase() {
   if (shieldEkycUploadStatus) {
     shieldEkycUploadStatus.textContent = "";
   }
-  uploadedAudioArtifacts = null;
   if (shieldSttAudio) {
     shieldSttAudio.value = "";
   }
@@ -190,16 +309,270 @@ function resetShieldCase() {
   if (shieldStopRecordAudio) {
     shieldStopRecordAudio.hidden = true;
   }
-  clearResultPanels();
-  shieldScenario.dispatchEvent(new Event("change"));
-  setWizardStep(1);
-  setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC and SmartVoice with uploaded media.");
+}
+
+async function startCameraPreview() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setShieldStatus("This browser does not support live camera capture.");
+    return;
+  }
+
+  try {
+    stopCameraStream();
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: {
+        facingMode: "user",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+
+    if (shieldCameraPreview) {
+      shieldCameraPreview.srcObject = cameraStream;
+      shieldCameraPreview.hidden = false;
+    }
+    if (shieldCameraPlaceholder) {
+      shieldCameraPlaceholder.hidden = true;
+    }
+    if (shieldStartCamera) {
+      shieldStartCamera.textContent = "Restart camera";
+    }
+    if (shieldStartLiveCheck) {
+      shieldStartLiveCheck.disabled = false;
+    }
+    setLiveCheckStatus("Camera ready. Start the 4-second live check when you are in frame.");
+    setShieldStatus("Camera enabled. Start the live check in step 2.");
+  } catch (error) {
+    setShieldStatus(`Camera access failed: ${error.message}`);
+    setLiveCheckStatus("Camera permission denied or unavailable.");
+  }
+}
+
+function stopCameraStream() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach((track) => track.stop());
+    cameraStream = null;
+  }
+  if (shieldCameraPreview) {
+    shieldCameraPreview.srcObject = null;
+    shieldCameraPreview.hidden = true;
+  }
+  if (shieldCameraPlaceholder) {
+    shieldCameraPlaceholder.hidden = false;
+  }
+  if (shieldStartLiveCheck) {
+    shieldStartLiveCheck.disabled = true;
+  }
+}
+
+async function startLiveCheckRecording() {
+  if (!cameraStream) {
+    await startCameraPreview();
+    if (!cameraStream) {
+      return;
+    }
+  }
+
+  uploadedLiveCheckArtifacts = null;
+  liveCheckVideoBlob = null;
+  liveCheckFrameBlobs = [];
+  liveCheckChunks = [];
+
+  const mimeType = pickRecorderMimeType();
+  try {
+    liveCheckRecorder = mimeType
+      ? new MediaRecorder(cameraStream, { mimeType })
+      : new MediaRecorder(cameraStream);
+  } catch (error) {
+    setShieldStatus(`Live recording failed: ${error.message}`);
+    return;
+  }
+
+  liveCheckRecorder.addEventListener("dataavailable", (event) => {
+    if (event.data.size > 0) {
+      liveCheckChunks.push(event.data);
+    }
+  });
+  liveCheckRecorder.addEventListener("stop", async () => {
+    const blob = new Blob(liveCheckChunks, {
+      type: liveCheckRecorder.mimeType || mimeType || "video/webm",
+    });
+    await finalizeLiveCheckRecording(blob);
+  });
+
+  liveCheckRecorder.start(250);
+  if (shieldStartLiveCheck) {
+    shieldStartLiveCheck.hidden = true;
+  }
+  if (shieldStopLiveCheck) {
+    shieldStopLiveCheck.hidden = false;
+  }
+  clearLiveCheckTimer();
+  let remaining = LIVE_CHECK_SECONDS;
+  setLiveCheckStatus(`Recording live check… ${remaining}s remaining`);
+  liveCheckTimer = window.setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      stopLiveCheckRecording();
+      return;
+    }
+    setLiveCheckStatus(`Recording live check… ${remaining}s remaining`);
+  }, 1000);
+
+  window.setTimeout(() => {
+    if (liveCheckRecorder && liveCheckRecorder.state !== "inactive") {
+      stopLiveCheckRecording();
+    }
+  }, LIVE_CHECK_SECONDS * 1000);
+}
+
+function stopLiveCheckRecording(silent = false) {
+  clearLiveCheckTimer();
+  if (liveCheckRecorder && liveCheckRecorder.state !== "inactive") {
+    liveCheckRecorder.stop();
+  }
+  if (shieldStartLiveCheck) {
+    shieldStartLiveCheck.hidden = false;
+  }
+  if (shieldStopLiveCheck) {
+    shieldStopLiveCheck.hidden = true;
+  }
+  if (!silent && !liveCheckVideoBlob) {
+    setLiveCheckStatus("Processing recorded clip…");
+  }
+}
+
+function clearLiveCheckTimer() {
+  if (liveCheckTimer) {
+    window.clearInterval(liveCheckTimer);
+    liveCheckTimer = null;
+  }
+}
+
+async function finalizeLiveCheckRecording(videoBlob) {
+  liveCheckVideoBlob = videoBlob;
+  try {
+    liveCheckFrameBlobs = await extractFramesFromVideoBlob(videoBlob, LIVE_FRAME_COUNT);
+    renderFrameStrip(liveCheckFrameBlobs);
+    setLiveCheckStatus(
+      `Live check captured (${Math.round(videoBlob.size / 1024)} KB video, ${liveCheckFrameBlobs.length} frame sample(s)). Run in-app check when ready.`,
+    );
+    setShieldStatus("Live check ready. Click Run in-app check.");
+  } catch (error) {
+    liveCheckFrameBlobs = [];
+    renderFrameStrip([]);
+    setLiveCheckStatus(`Could not sample frames from the recording: ${error.message}`);
+    setShieldStatus("Live check failed during frame sampling. Try again or use fallback uploads.");
+  }
+}
+
+function pickRecorderMimeType() {
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4",
+  ];
+  if (!window.MediaRecorder?.isTypeSupported) {
+    return "";
+  }
+  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+}
+
+async function extractFramesFromVideoBlob(videoBlob, frameCount) {
+  const url = URL.createObjectURL(videoBlob);
+  const video = document.createElement("video");
+  video.src = url;
+  video.muted = true;
+  video.playsInline = true;
+
+  await new Promise((resolve, reject) => {
+    video.addEventListener("loadedmetadata", resolve, { once: true });
+    video.addEventListener("error", () => reject(new Error("Could not decode live-check video.")), {
+      once: true,
+    });
+  });
+
+  const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : LIVE_CHECK_SECONDS;
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    URL.revokeObjectURL(url);
+    throw new Error("Canvas is unavailable for frame sampling.");
+  }
+
+  const frames = [];
+  for (let index = 0; index < frameCount; index += 1) {
+    const timestamp = duration * (index + 1) / (frameCount + 1);
+    await seekVideo(video, timestamp);
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const frameBlob = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    frames.push(frameBlob);
+  }
+
+  URL.revokeObjectURL(url);
+  return frames;
+}
+
+function seekVideo(video, timestamp) {
+  return new Promise((resolve) => {
+    const handleSeeked = () => {
+      video.removeEventListener("seeked", handleSeeked);
+      resolve();
+    };
+    video.addEventListener("seeked", handleSeeked);
+    video.currentTime = Math.max(0, timestamp);
+  });
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+        reject(new Error("Failed to encode frame JPEG."));
+      },
+      type,
+      quality,
+    );
+  });
+}
+
+function renderFrameStrip(frameBlobs) {
+  if (!shieldFrameStrip) {
+    return;
+  }
+  if (!frameBlobs.length) {
+    shieldFrameStrip.hidden = true;
+    shieldFrameStrip.innerHTML = "";
+    return;
+  }
+
+  shieldFrameStrip.hidden = false;
+  shieldFrameStrip.innerHTML = frameBlobs
+    .map(
+      (blob, index) =>
+        `<img class="shield-frame-thumb" alt="Sampled frame ${index + 1}" src="${URL.createObjectURL(blob)}" />`,
+    )
+    .join("");
+}
+
+function setLiveCheckStatus(message) {
+  if (shieldLiveCheckStatus) {
+    shieldLiveCheckStatus.textContent = message;
+  }
 }
 
 async function resolveAudioArtifacts() {
   const challengeFile = shieldSttAudio?.files?.[0];
   if (!challengeFile) {
-    throw new Error("Choose or record challenge audio for VNPT SmartVoice.");
+    throw new Error("Record a live check or choose fallback challenge audio for VNPT SmartVoice.");
   }
 
   const challengeChanged = uploadedAudioArtifacts?.challengeFileName !== challengeFile.name;
@@ -275,7 +648,7 @@ async function startAudioRecording() {
     if (shieldStopRecordAudio) {
       shieldStopRecordAudio.hidden = false;
     }
-    setShieldStatus("Recording challenge audio. Stop when finished speaking.");
+    setShieldStatus("Recording fallback challenge audio. Stop when finished speaking.");
   } catch (error) {
     setShieldStatus(`Microphone access failed: ${error.message}`);
   }
@@ -290,7 +663,7 @@ function stopAudioRecording() {
 async function resolveEkycArtifacts() {
   const selfieFile = shieldEkycSelfie?.files?.[0];
   if (!selfieFile) {
-    throw new Error("Choose a selfie image for VNPT eKYC.");
+    throw new Error("Record a live check or choose a fallback selfie for VNPT eKYC.");
   }
 
   const documentFile = shieldEkycDocument?.files?.[0];
@@ -460,6 +833,7 @@ function setWizardStep(step) {
 
   if (step === 1) {
     shieldNext.textContent = WIZARD_STEPS[0].nextLabel;
+    stopCameraStream();
   } else if (step === 2) {
     shieldNext.textContent = WIZARD_STEPS[1].nextLabel;
   }

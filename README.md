@@ -62,6 +62,9 @@ If `paddlepaddle` fails to install on your platform, check the [PaddlePaddle ins
 - `GET /api/demo/synthetic-dataset`
 - `POST /api/shield/analyze`
 - `POST /api/shield/challenge`
+- `POST /api/shield/challenge/upload-live-check` — live camera clip + sampled frames (Path B)
+- `POST /api/shield/challenge/upload-ekyc` — legacy selfie upload
+- `POST /api/shield/challenge/upload-audio` — legacy audio upload
 - `POST /api/grow/upload-receipt` — upload PNG/JPG/WEBP receipt; returns `input_source`
 - `POST /api/grow/process-invoice` — minimal input; runs PaddleOCR on receipt PNG then credit pipeline
 - `POST /api/grow/analyze-invoice` — full payload scoring (compat)
@@ -85,7 +88,7 @@ The current dataset includes:
 
 The full mock data and future database inventory is tracked in `docs/mock_data_inventory.md`. VNPT API contract alignment and recommended schema updates are documented in `docs/vnpt_schema_integration_plan.md`.
 
-Shield Path B challenge uses real VNPT eKYC, SmartVoice STT, and Smartbot APIs (when configured in `.env`), plus local voice-stress analysis on uploaded audio. Upload selfie via `POST /api/shield/challenge/upload-ekyc` and voice clip via `POST /api/shield/challenge/upload-audio`; refs are stored under `uploads/ekyc/` and `uploads/smartvoice/`.
+Shield Path B challenge uses real VNPT eKYC, SmartVoice STT, Smartbot, and SmartVision APIs (when configured in `.env`), plus local voice-stress analysis on challenge audio. Step 2 records a **live camera + microphone clip** (~4s); the browser samples JPEG frames and the backend runs eKYC/SmartVision on those frames and STT on extracted audio. Upload via `POST /api/shield/challenge/upload-live-check` (preferred) or legacy selfie/audio upload endpoints. See `docs/vnpt_provider_adapter.md`.
 
 There is no offline mock fallback for eKYC, STT, or Smartbot. If credentials are missing, the challenge marks that step as failed/skipped with an explanation. See `docs/vnpt_provider_adapter.md` for the operator checklist.
 

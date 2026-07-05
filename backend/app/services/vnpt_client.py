@@ -1,10 +1,11 @@
+import base64
 import http.client
 import json
 import ssl
 import uuid
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from backend.app.config import Settings
 
@@ -15,6 +16,7 @@ class VnptClient:
     def __init__(self, settings: Settings):
         self.settings = settings
         self._image_hash_cache: dict[str, str] = {}
+        self._smartvision_url_cache: dict[str, str] = {}
 
     @property
     def enabled(self) -> bool:
@@ -131,16 +133,149 @@ class VnptClient:
         file_path: Path,
         title: str = "ekyc",
         description: str = "ekyc",
+        product: str = "ekyc",
     ) -> dict[str, Any]:
+        provider_mode = getattr(self, f"{product}_mode", self.ekyc_mode)
+        timeout = self.settings.vnpt_ekyc_request_timeout_seconds
+        if product == "smartvision":
+            timeout = self.settings.vnpt_smartvision_request_timeout_seconds
         return self._post_multipart_file(
             "/file-service/v1/addFile",
             file_path,
             base_url=self.settings.vnpt_base_url,
-            provider_mode=self.ekyc_mode,
-            product="ekyc",
+            provider_mode=provider_mode,
+            product=product,
             extra_fields={"title": title, "description": description},
-            timeout=self.settings.vnpt_ekyc_request_timeout_seconds,
+            timeout=timeout,
         )
+
+    def smartvision_file_url(self, file_hash: str) -> dict[str, Any]:
+        path = f"/proxy-service/url-file?{urlencode({'hash': file_hash})}"
+        headers = self._auth_headers("application/json", product="smartvision")
+        return self._request(
+            path,
+            None,
+            headers,
+            method="GET",
+            provider_mode=self.smartvision_mode,
+            timeout=self.settings.vnpt_smartvision_request_timeout_seconds,
+        )
+
+    def smartvision_detect_face(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        image_url, url_error = self._resolve_smartvision_image_url(image_ref)
+        if url_error:
+            return url_error
+
+        payload: dict[str, Any] = {
+            "data": image_url,
+            "max_object": self.settings.vnpt_smartvision_max_object,
+        }
+        response = self._post_json(
+            self.settings.vnpt_smartvision_detect_face_path,
+            payload,
+            provider_mode=self.smartvision_mode,
+            product="smartvision",
+            timeout=self.settings.vnpt_smartvision_request_timeout_seconds,
+        )
+        response = self._normalize_smartvision_response(response)
+        if isinstance(response, dict):
+            response.setdefault("smartvision_client_session", client_session)
+            response.setdefault("smartvision_image_url", image_url)
+        return response
+
+
+    def _normalize_smartvision_response(self, response: dict[str, Any]) -> dict[str, Any]:
+        encoded = response.get("dataBase64")
+        if not isinstance(encoded, str) or not encoded.strip():
+            return response
+        try:
+            inner = json.loads(base64.b64decode(encoded))
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return response
+        if not isinstance(inner, dict):
+            return response
+        merged = {**response, **inner}
+        if isinstance(inner.get("object"), dict):
+            merged["object"] = inner["object"]
+        return merged
+
+    def _resolve_smartvision_image_url(
+        self,
+        image_ref: str,
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        if image_ref.startswith("http://") or image_ref.startswith("https://"):
+            return image_ref, None
+
+        if self._looks_like_vnpt_hash(image_ref):
+            file_hash = image_ref
+        else:
+            path = self._resolve_ref(image_ref)
+            if not path.is_file():
+                return None, self._error_response(
+                    "Local image file not found for SmartVision",
+                    {"image_ref": image_ref, "resolved_path": str(path)},
+                    provider_mode=self.smartvision_mode,
+                )
+            cache_key = str(path.resolve())
+            file_hash = self._image_hash_cache.get(cache_key)
+            if not file_hash:
+                upload = self.add_file(path, title="selfie", description="smartvision", product="smartvision")
+                hash_value = self._nested_value(upload, ["object", "hash"])
+                if not hash_value:
+                    return None, self._error_response(
+                        "SmartVision addFile did not return object.hash",
+                        {"image_ref": image_ref, "upload_response": upload},
+                        provider_mode=self.smartvision_mode,
+                    )
+                file_hash = str(hash_value)
+                self._image_hash_cache[cache_key] = file_hash
+
+        cached_url = self._smartvision_url_cache.get(file_hash)
+        if cached_url:
+            return cached_url, None
+
+        url_response = self.smartvision_file_url(file_hash)
+        if self._smartvision_url_failed(url_response):
+            return None, url_response
+
+        download_url = self._extract_download_url(url_response)
+        if not download_url:
+            return None, self._error_response(
+                "SmartVision url-file did not return a download URL",
+                {"image_ref": image_ref, "file_hash": file_hash, "url_response": url_response},
+                provider_mode=self.smartvision_mode,
+            )
+
+        self._smartvision_url_cache[file_hash] = download_url
+        return download_url, None
+
+    def _smartvision_url_failed(self, response: dict[str, Any]) -> bool:
+        if response.get("status") == "error":
+            return True
+        http_status = response.get("http_status")
+        if isinstance(http_status, int) and http_status >= 400:
+            return True
+        provider_status = str(response.get("status", "")).upper()
+        if provider_status in {"BAD_REQUEST", "ERROR", "FAIL", "FAILED", "UNAUTHORIZED"}:
+            return True
+        status_code = response.get("statusCode")
+        if isinstance(status_code, str) and status_code.upper().startswith(("4", "5")):
+            return True
+        return False
+
+    def _extract_download_url(self, response: dict[str, Any]) -> str | None:
+        obj = response.get("object")
+        if isinstance(obj, str) and obj.startswith("http"):
+            return obj
+        if isinstance(obj, dict):
+            for key in ("data", "url", "link", "file_url", "download_url"):
+                value = obj.get(key)
+                if isinstance(value, str) and value.startswith("http"):
+                    return value
+        data = response.get("data")
+        if isinstance(data, str) and data.startswith("http"):
+            return data
+        return None
 
     def face_liveness(self, image_ref: str, client_session: str) -> dict[str, Any]:
         image_hash, upload_error = self._resolve_image_hash(image_ref, title="selfie")
@@ -283,23 +418,6 @@ class VnptClient:
             product="smartbot",
             base_url=self.settings.vnpt_smartbot_base_url,
             timeout=self.settings.vnpt_smartbot_request_timeout_seconds,
-        )
-
-    def smartvision_face_emotion(self, image_ref: str, client_session: str) -> dict[str, Any]:
-        image_hash, upload_error = self._resolve_image_hash(image_ref, title="selfie")
-        if upload_error:
-            return upload_error
-        payload: dict[str, Any] = {
-            "img": image_hash,
-            "client_session": client_session,
-            "token": self._smartvision_body_token(),
-        }
-        return self._post_json(
-            self.settings.vnpt_smartvision_emotion_path,
-            payload,
-            provider_mode=self.smartvision_mode,
-            product="smartvision",
-            timeout=self.settings.vnpt_smartvision_request_timeout_seconds,
         )
 
     def _post_json(
