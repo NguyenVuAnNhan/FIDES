@@ -5,10 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     fides_env: str = "development"
-    vnpt_provider_mode: str = "mock"
+    vnpt_provider_mode: str = "real"
     vnpt_ekyc_mode: str | None = None
-    vnpt_smartvoice_mode: str | None = None
-    vnpt_smartbot_mode: str | None = None
+    vnpt_smartvoice_mode: str | None = "real"
+    vnpt_smartbot_mode: str | None = "real"
+    vnpt_smartvision_mode: str | None = "real"
     vnpt_base_url: str = "https://api.idg.vnpt.vn"
     vnpt_smartbot_base_url: str = "https://assistant-stream.vnpt.vn"
     vnpt_access_token: str | None = None
@@ -27,6 +28,12 @@ class Settings(BaseSettings):
     vnpt_smartbot_input_channel: str = "api"
     vnpt_smartbot_sender_id: str = "fides-shield-user"
     vnpt_smartbot_request_timeout_seconds: int = 45
+    vnpt_smartvision_access_token: str | None = None
+    vnpt_smartvision_token_id: str | None = None
+    vnpt_smartvision_token_key: str | None = None
+    vnpt_smartvision_token: str | None = None
+    vnpt_smartvision_emotion_path: str = "/aicommon-service/face-camera/v1/emotion"
+    vnpt_smartvision_request_timeout_seconds: int = 30
     vnpt_ekyc_token: str | None = None
     vnpt_mac_address: str = "TEST1"
     vnpt_request_timeout_seconds: int = 20

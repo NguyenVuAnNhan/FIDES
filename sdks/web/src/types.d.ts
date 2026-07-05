@@ -29,8 +29,10 @@ export type ShieldTransactionInput = {
 };
 
 export type ShieldChallengeOptions = Record<string, unknown> & {
-  ekyc_image_ref?: string;
-  stt_audio_ref?: string;
+  ekyc_image_ref: string;
+  stt_audio_ref: string;
+  ekyc_document_ref?: string;
+  client_session?: string;
 };
 
 export type TelemetrySnapshot = {

@@ -1167,13 +1167,10 @@ def make_voice_verification_signals(
             "voice_match_threshold": None,
         }
 
-    score_range = (0.84, 0.98)
-    if category == "remote_support":
-        score_range = (0.76, 0.94)
     return {
-        "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
-        "voice_verification_status": "passed",
-        "voice_match_score": make_confidence(rng, *score_range),
+        "voice_reference_source": None,
+        "voice_verification_status": "not_checked",
+        "voice_match_score": None,
         "voice_match_threshold": 0.75,
     }
 

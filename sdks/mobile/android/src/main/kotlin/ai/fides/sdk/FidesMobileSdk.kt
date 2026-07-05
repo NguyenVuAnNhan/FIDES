@@ -113,7 +113,7 @@ class FidesMobileSdk(
         consent: FidesConsent,
         overrides: Map<String, Any?> = emptyMap(),
         ekycImageRef: String,
-        sttAudioRef: String = "mock_payload/stt_audio_1",
+        sttAudioRef: String,
         completion: (FidesSdkResult<String>) -> Unit
     ) {
         transport.postJson(

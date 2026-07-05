@@ -407,8 +407,6 @@ function buildShieldAnalyzePayload(form) {
     payload.llm_confidence = numberOrNull(form.get("llm_confidence"));
     payload.voice_stress_score = numberOrNull(form.get("voice_stress_score"));
     payload.voice_stress_labels = parseList(form.get("voice_stress_labels"));
-    payload.face_emotion_score = numberOrNull(form.get("face_emotion_score"));
-    payload.face_emotion_labels = parseList(form.get("face_emotion_labels"));
     payload.scripted_behavior_score = numberOrNull(form.get("scripted_behavior_score"));
     payload.scripted_behavior_labels = parseList(form.get("scripted_behavior_labels"));
     payload.coercion_score = numberOrNull(form.get("coercion_score"));

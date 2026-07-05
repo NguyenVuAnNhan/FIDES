@@ -247,13 +247,9 @@ These fields model the SmartVoice and Smartbot pipeline.
 ```json
 {
   "consent_granted": true,
-  "audio_source": "fixtures/audio/fake-police-001.wav",
+  "audio_source": "uploads/smartvoice/challenge-abc123.wav",
   "stt_transcript": "Toi la cong an...",
   "stt_confidence": 0.94,
-  "voice_reference_source": "mock_payload/customer_voice_samples/voice_ref_1",
-  "voice_verification_status": "passed",
-  "voice_match_score": 0.91,
-  "voice_match_threshold": 0.75,
   "detected_patterns": [
     "fake_authority",
     "case_involvement",
@@ -391,30 +387,20 @@ In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with
   "transaction": { "...": "original ShieldAnalyzeRequest" },
   "ekyc_image_ref": "uploads/ekyc/selfie-abc123.jpg",
   "ekyc_document_ref": "uploads/ekyc/document-def456.jpg",
-  "stt_audio_ref": "mock_payload/stt_audio_1",
-  "voice_reference_ref": "mock_payload/customer_voice_samples/voice_ref_1",
+  "stt_audio_ref": "uploads/smartvoice/challenge-abc123.wav",
   "client_session": "shield-demo-browser-session"
 }
 ```
 
-The backend uploads eKYC images via `POST /api/shield/challenge/upload-ekyc`, then calls VNPT eKYC and re-runs Shield analysis:
+The backend uploads eKYC images via `POST /api/shield/challenge/upload-ekyc` and challenge audio via `POST /api/shield/challenge/upload-audio`, then calls real providers and re-runs Shield analysis:
 
 - VNPT eKYC API: liveness, mask/spoof, face match, injection risk
-- mock SmartVoice API: speech-to-text transcript and confidence
-- mock SmartVoice voice verification API: customer voice match score
-- mock Smartbot API: scam-script classification and confidence
-- mock coercion API: voice stress, visual distress, scripted behavior, aggregate coercion
+- VNPT SmartVoice STT: speech-to-text transcript and confidence
+- VNPT Smartbot: scam-script classification and confidence
+- Local voice-stress analysis: emotion2vec + prosody on challenge audio
+- Coercion fusion: voice stress, visual distress proxy, scripted behavior, aggregate coercion
 
-Voice mock artifacts:
-
-- `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
-- `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
-- `mock_payload/customer_voice_samples/voice_ref_1`: enrolled customer voice reference.
-- `mock_payload/customer_voice_samples/voice_ref_2`: alternate voice reference for mismatch demos.
-
-Those artifact names select VNPT-shaped raw response JSON from `backend/app/data/vnpt_mocks/`. The backend then normalizes the raw provider responses into Shield fields such as `ekyc_liveness_passed`, `ekyc_face_match_score`, `stt_transcript`, `stt_confidence`, and `voice_match_score`. Later, the same adapter boundary can call real VNPT endpoints after recording/uploading real files and tune the thresholds against actual provider scores.
-
-For credentialed testing, set `VNPT_PROVIDER_MODE=real` plus the VNPT token headers in `.env`. The same challenge route then calls real VNPT eKYC liveness, mask, face-compare, SmartVoice STT, and SmartVoice voice verification endpoints. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the audio file sent as a binary STT body and used as the challenge voice sample; `voice_reference_ref` is the stored customer voice sample; `client_session` is passed through for request correlation.
+Set `VNPT_EKYC_MODE=real`, `VNPT_SMARTVOICE_MODE=real`, and `VNPT_SMARTBOT_MODE=real` plus the VNPT token headers and `VNPT_SMARTBOT_BOT_ID` in `.env`. `ekyc_image_ref` is the live face/selfie image; `ekyc_document_ref` is the optional document/front-ID image for face compare; `stt_audio_ref` is the uploaded challenge audio file; `client_session` is passed through for request correlation.
 
 ### Stage 2: Invasive Camera And Voice Challenge
 

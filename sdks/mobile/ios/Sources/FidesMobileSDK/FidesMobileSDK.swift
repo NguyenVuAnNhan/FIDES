@@ -178,7 +178,7 @@ public final class FidesMobileSDK {
         consent: FidesConsent,
         overrides: [String: Any] = [:],
         ekycImageRef: String,
-        sttAudioRef: String = "mock_payload/stt_audio_1",
+        sttAudioRef: String,
         completion: @escaping (Result<Data, Error>) -> Void
     ) {
         transport.postJSON(

@@ -249,10 +249,6 @@
             <input name="voice_stress_score" type="number" value="0.82" min="0" max="1" step="0.01" />
           </label>
           <label>
-            Face Emotion Score
-            <input name="face_emotion_score" type="number" value="0.76" min="0" max="1" step="0.01" />
-          </label>
-          <label>
             Scripted Behavior Score
             <input name="scripted_behavior_score" type="number" value="0.71" min="0" max="1" step="0.01" />
           </label>
@@ -267,10 +263,6 @@
           <label>
             Voice Stress Labels
             <input name="voice_stress_labels" value="elevated_pitch, speech_hesitation, fast_breathing" />
-          </label>
-          <label>
-            Visual Distress Labels
-            <input name="face_emotion_labels" value="fear, distress, low_eye_contact" />
           </label>
           <label>
             Scripted Behavior Labels
@@ -291,7 +283,7 @@
           <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
             <h3 class="wizard-panel-title">2. In-app camera &amp; voice check</h3>
             <p class="wizard-panel-lead">
-              Upload a live selfie for VNPT eKYC and a short voice clip for VNPT SmartVoice STT.
+              Upload a live selfie for VNPT eKYC + SmartVision face emotion, and a short voice clip for VNPT SmartVoice STT.
               Optionally add a CCCD portrait for face compare.
             </p>
             <div class="wizard-grid">

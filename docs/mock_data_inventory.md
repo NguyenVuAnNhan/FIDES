@@ -15,11 +15,8 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `scripts/generate_synthetic_dataset.py` | Seeded madlib generator for Shield and Grow records. |
 | `frontend/static/fixtures/receipts/` | Fake receipt PNGs for Grow OCR demos. |
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
-| `mock_payload/` | Fake Shield STT audio pass/fail demo assets. |
 | `uploads/ekyc/` | Uploaded selfie and CCCD images for real VNPT eKYC. |
-| `uploads/smartvoice/` | Uploaded challenge and reference audio for real VNPT SmartVoice. |
-| `mock_payload/customer_voice_samples/` | Mock enrolled customer voice samples for SmartVoice voice verification. |
-| `backend/app/data/vnpt_mocks/smartvoice/` | VNPT-shaped mock SmartVoice JSON responses when SmartVoice is in mock mode. |
+| `uploads/smartvoice/` | Uploaded challenge audio for real VNPT SmartVoice STT and local voice-stress analysis. |
 | `docs/graph_database_schema.md` | Future graph database design. |
 | `sdks/web/` | Web SDK scaffold for in-page telemetry and Shield/Grow calls. |
 | `sdks/mobile/` | Android/iOS SDK scaffold for host-app telemetry and Shield/Grow calls. |
@@ -35,7 +32,6 @@ These are required for a convincing end-to-end demo.
 | Shield transaction context | Amount, recipient, account, known-recipient flag | Flat Shield payload | Bank transaction API |
 | Telecom context | Active call, caller type, caller number, suspicious prefix | Flat Shield payload | Mobile SDK, OS permissions, telco metadata where available |
 | Scam transcript | STT transcript and scam-script patterns | Flat Shield payload | SmartVoice STT + Smartbot classifier |
-| Voice verification | Customer reference voice sample compared with current challenge audio | Flat Shield payload + `mock_payload/customer_voice_samples/` | SmartVoice voice verification |
 | Recipient reputation | vnSocial report count and keywords | Flat Shield payload | vnSocial or bank/customer-support report service |
 | Official/interbank watchlist | SIMO/NHNN status and last checked time | Flat Shield payload | Official or consortium lookup API |
 | Recipient graph risk | Mule score, graph pattern, fan-in/fan-out features | Flat Shield payload | FIDES graph database + graph feature service |
@@ -241,9 +237,8 @@ MVP:
 
 -   Inline provider trace objects in VNPT-backed payload blocks.
 -   Return raw VNPT-style responses in the demo response for judge inspection; production should replace this with server-side raw response references.
--   Optional future mock file paths:
+-   Optional future mock file paths (not used by Shield challenge — real APIs only):
     -   `backend/app/data/vnpt_mocks/smartreader/`
-    -   `backend/app/data/vnpt_mocks/smartvoice/`
 
 Later:
 

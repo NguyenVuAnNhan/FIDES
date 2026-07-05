@@ -139,12 +139,15 @@ export class FidesWebSdk {
     const {
       ekyc_image_ref,
       ekyc_document_ref = null,
-      stt_audio_ref = "mock_payload/stt_audio_1",
+      stt_audio_ref,
       client_session = "fides-sdk-session",
       ...payloadOverrides
     } = options;
     if (!ekyc_image_ref) {
       throw new Error("ekyc_image_ref is required. Upload via POST /api/shield/challenge/upload-ekyc first.");
+    }
+    if (!stt_audio_ref) {
+      throw new Error("stt_audio_ref is required. Upload via POST /api/shield/challenge/upload-audio first.");
     }
     return this.postJson("/api/shield/challenge", {
       transaction: this.buildShieldPayload(transaction, payloadOverrides),

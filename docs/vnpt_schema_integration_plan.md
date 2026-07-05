@@ -67,7 +67,7 @@ For `face/compare`, the request schema accepts `ekyc_document_ref` separately fr
 | eKYC | Full endpoint contracts for ID OCR, liveness, mask, face compare, face verify/search | Shield `ekyc_*` flat fields | Missing client session, file hashes, result/msg/prob, card liveness, face swapping, fake liveness, tampering warnings | Add nested `ekyc_result` while keeping flat fields for MVP |
 | SmartUX | Public SDK methods only, no REST contract | Shield `smartux_*` fields | Missing SDK session/event metadata | Add optional SDK trace fields, keep current risk fields |
 | SmartBot | Product/API/RAG mention only, no public endpoint contract | Shield `llm_*`, Grow `smartbot_advice` | Missing bot session, policy/model version, RAG source refs | Add optional Smartbot trace metadata |
-| SmartVision | Product pages and document names only | Shield face emotion/coercion labels | No public endpoint contract | Keep mock output; add provider trace only if private docs arrive |
+| SmartVision | Product pages and Face Camera API doc | Shield face emotion on challenge selfie | `/aicommon-service/face-camera/v1/emotion` via SmartVision token | Real adapter in challenge flow; token must include Face Camera permission |
 | vnSocial | Product pages and document names only | Shield recipient reports, Grow reputation | Missing query/entity-resolution metadata | Add reputation query metadata, keep current scores |
 | vnFace | Admin/product docs only | Shield face/emotion/eKYC-adjacent fields | No public endpoint contract | Keep mock output; integrate only with private API docs |
 

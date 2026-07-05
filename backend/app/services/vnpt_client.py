@@ -18,11 +18,19 @@ class VnptClient:
 
     @property
     def enabled(self) -> bool:
-        return self.ekyc_enabled or self.smartvoice_enabled or self.smartbot_enabled
+        return (
+            self.ekyc_enabled
+            or self.smartvoice_enabled
+            or self.smartbot_enabled
+            or self.smartvision_enabled
+        )
 
     @property
     def mode(self) -> str:
-        return f"ekyc:{self.ekyc_mode},smartvoice:{self.smartvoice_mode},smartbot:{self.smartbot_mode}"
+        return (
+            f"ekyc:{self.ekyc_mode},smartvoice:{self.smartvoice_mode},"
+            f"smartbot:{self.smartbot_mode},smartvision:{self.smartvision_mode}"
+        )
 
     @property
     def ekyc_enabled(self) -> bool:
@@ -40,15 +48,29 @@ class VnptClient:
 
     @property
     def ekyc_mode(self) -> str:
-        return "real" if self.ekyc_enabled else "mock"
+        return "real" if self.ekyc_enabled else "disabled"
 
     @property
     def smartvoice_mode(self) -> str:
-        return "real" if self.smartvoice_enabled else "mock"
+        return "real" if self.smartvoice_enabled else "disabled"
 
     @property
     def smartbot_mode(self) -> str:
-        return "real" if self.smartbot_enabled else "mock"
+        return "real" if self.smartbot_enabled else "disabled"
+
+    @property
+    def smartvision_enabled(self) -> bool:
+        return self._product_enabled(self._resolved_smartvision_mode(), "smartvision")
+
+    @property
+    def smartvision_mode(self) -> str:
+        return "real" if self.smartvision_enabled else "disabled"
+
+    def _resolved_smartvision_mode(self) -> str:
+        explicit = self.settings.vnpt_smartvision_mode
+        if explicit:
+            return explicit.lower()
+        return self.settings.vnpt_provider_mode.lower()
 
     def _resolved_ekyc_mode(self) -> str:
         explicit = self.settings.vnpt_ekyc_mode
@@ -95,6 +117,12 @@ class VnptClient:
                 "access_token": self.settings.vnpt_smartbot_access_token or self.settings.vnpt_access_token,
                 "token_id": self.settings.vnpt_smartbot_token_id or self.settings.vnpt_token_id,
                 "token_key": self.settings.vnpt_smartbot_token_key or self.settings.vnpt_token_key,
+            }
+        if product == "smartvision":
+            return {
+                "access_token": self.settings.vnpt_smartvision_access_token or self.settings.vnpt_access_token,
+                "token_id": self.settings.vnpt_smartvision_token_id or self.settings.vnpt_token_id,
+                "token_key": self.settings.vnpt_smartvision_token_key or self.settings.vnpt_token_key,
             }
         raise ValueError(f"Unsupported VNPT product: {product}")
 
@@ -257,6 +285,23 @@ class VnptClient:
             timeout=self.settings.vnpt_smartbot_request_timeout_seconds,
         )
 
+    def smartvision_face_emotion(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        image_hash, upload_error = self._resolve_image_hash(image_ref, title="selfie")
+        if upload_error:
+            return upload_error
+        payload: dict[str, Any] = {
+            "img": image_hash,
+            "client_session": client_session,
+            "token": self._smartvision_body_token(),
+        }
+        return self._post_json(
+            self.settings.vnpt_smartvision_emotion_path,
+            payload,
+            provider_mode=self.smartvision_mode,
+            product="smartvision",
+            timeout=self.settings.vnpt_smartvision_request_timeout_seconds,
+        )
+
     def _post_json(
         self,
         path: str,
@@ -272,6 +317,8 @@ class VnptClient:
             selected_timeout = timeout or self.settings.vnpt_ekyc_request_timeout_seconds
         elif product == "smartbot":
             selected_timeout = timeout or self.settings.vnpt_smartbot_request_timeout_seconds
+        elif product == "smartvision":
+            selected_timeout = timeout or self.settings.vnpt_smartvision_request_timeout_seconds
         else:
             selected_timeout = timeout or self.settings.vnpt_request_timeout_seconds
         return self._request(
@@ -390,6 +437,12 @@ class VnptClient:
             )
         finally:
             connection.close()
+
+    def _smartvision_body_token(self) -> str:
+        explicit = str(self.settings.vnpt_smartvision_token or "").strip()
+        if explicit:
+            return explicit
+        return str(self.settings.vnpt_smartvision_token_id or "").strip()
 
     def _ekyc_body_token(self) -> str:
         explicit = str(self.settings.vnpt_ekyc_token or "").strip()

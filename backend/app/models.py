@@ -86,7 +86,7 @@ class ShieldAnalyzeResponse(BaseModel):
     trusted_authority_message: str | None = None
     transaction_hold_hours: int = Field(default=0, ge=0)
     challenge_profile: str | None = None
-    provider_mode: str = "mock"
+    provider_mode: str = "real"
     mock_provider_calls: list[Explanation] = Field(default_factory=list)
     provider_raw_responses: dict[str, dict[str, Any]] = Field(default_factory=dict)
     mock_provider_raw_responses: dict[str, dict[str, Any]] = Field(default_factory=dict)
@@ -99,7 +99,7 @@ class ShieldChallengeRequest(BaseModel):
     transaction: ShieldAnalyzeRequest
     ekyc_image_ref: str
     ekyc_document_ref: str | None = None
-    stt_audio_ref: str = "mock_payload/stt_audio_1"
+    stt_audio_ref: str
     client_session: str = "shield-demo-session"
 
 

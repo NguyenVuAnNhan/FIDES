@@ -85,17 +85,15 @@ The current dataset includes:
 
 The full mock data and future database inventory is tracked in `docs/mock_data_inventory.md`. VNPT API contract alignment and recommended schema updates are documented in `docs/vnpt_schema_integration_plan.md`.
 
-Shield voice challenge fixtures live in `mock_payload/`: `stt_audio_1` passes the spoken challenge and `stt_audio_2` fails it. Enrolled customer voice references live in `mock_payload/customer_voice_samples/`. eKYC images are uploaded via `POST /api/shield/challenge/upload-ekyc` and stored under `uploads/ekyc/`.
+Shield Path B challenge uses real VNPT eKYC, SmartVoice STT, and Smartbot APIs (when configured in `.env`), plus local voice-stress analysis on uploaded audio. Upload selfie via `POST /api/shield/challenge/upload-ekyc` and voice clip via `POST /api/shield/challenge/upload-audio`; refs are stored under `uploads/ekyc/` and `uploads/smartvoice/`.
 
-VNPT-shaped raw mock responses live in `backend/app/data/vnpt_mocks/`. The Shield mock adapters load those JSON files, normalize them into Shield fields, and expose the raw JSON in the API response for demo inspection.
-
-The Shield challenge is plug-in ready for real VNPT calls. Leave `VNPT_PROVIDER_MODE=mock` for offline demos. To call VNPT, set `VNPT_PROVIDER_MODE=real` plus `VNPT_ACCESS_TOKEN`, `VNPT_TOKEN_ID`, `VNPT_TOKEN_KEY`, and `VNPT_EKYC_TOKEN` in `.env`; the backend will call eKYC face liveness, face mask, face compare, SmartVoice STT, and SmartVoice voice verification using the local API contracts. Frontend code never receives credentials. See `docs/vnpt_provider_adapter.md` for the operator checklist.
+There is no offline mock fallback for eKYC, STT, or Smartbot. If credentials are missing, the challenge marks that step as failed/skipped with an explanation. See `docs/vnpt_provider_adapter.md` for the operator checklist.
 
 For a full explanation of the Shield scam schema and two-stage circuit-breaker flow, see `docs/scam_schema_explained.md`.
 
 The Shield dataset includes MVP telecom-context fields: `active_call`, `caller_type`, `caller_number`, `recipient_known`, and `remote_control_detected`. The implementation decision and real-life capability limits are documented in `docs/telecom_context_mvp_decision.md`.
 
-The Shield dataset also includes the mocked SmartVoice/Smartbot pipeline fields: `consent_granted`, `audio_source`, `stt_transcript`, `stt_confidence`, `voice_verification_status`, `voice_match_score`, `detected_patterns`, `llm_scam_type`, and `llm_confidence`. It also includes derived coercion-signal fields: `voice_stress_score`, `face_emotion_score`, `scripted_behavior_score`, `coercion_score`, and their explanation labels/confidence values. The schema is documented in `docs/shield_audio_nlp_schema.md`.
+The Shield dataset also includes the SmartVoice/Smartbot pipeline fields: `consent_granted`, `audio_source`, `stt_transcript`, `stt_confidence`, `detected_patterns`, `llm_scam_type`, and `llm_confidence`. It also includes derived coercion-signal fields: `voice_stress_score`, `face_emotion_score`, `scripted_behavior_score`, `coercion_score`, and their explanation labels/confidence values. The schema is documented in `docs/shield_audio_nlp_schema.md`.
 
 Recipient-risk mock fields cover vnSocial reports, SIMO status, and graph-derived suspected mule-account features. The flat Shield payload schema is documented in `docs/shield_recipient_risk_schema.md`; the backend graph database design is documented in `docs/graph_database_schema.md`.
 

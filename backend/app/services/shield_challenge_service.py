@@ -2,18 +2,15 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 from backend.app.config import get_settings
 from backend.app.models import Explanation, ShieldAnalyzeResponse, ShieldChallengeRequest
 from backend.app.services.shield_service import analyze_shield_risk, detected_patterns_for_challenge, match_transcript_pattern
 from backend.app.services.smartbot.parser import parse_smartbot_response
+from backend.app.services.smartvision.parser import SmartvisionFaceEmotion, parse_smartvision_face_emotion
 from backend.app.services.voice_stress import analyze_voice_stress
 from backend.app.services.vnpt_client import VnptClient
-
-VNPT_MOCK_DIR = Path(__file__).resolve().parents[1] / "data" / "vnpt_mocks"
 
 
 def run_transfer_monitoring_challenge(challenge: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
@@ -27,8 +24,6 @@ def run_transfer_monitoring_challenge(challenge: ShieldChallengeRequest) -> Shie
     profile = _challenge_profile_from_results(
         str(provider_fields.get("ekyc_verification_status", "failed")),
         str(provider_fields.get("stt_transcript", "")),
-        challenge.stt_audio_ref,
-        vnpt_client.smartvoice_enabled,
     )
     challenged_request = challenge.transaction.model_copy(update=provider_fields)
     response = analyze_shield_risk(challenged_request)
@@ -45,10 +40,6 @@ def run_transfer_monitoring_challenge(challenge: ShieldChallengeRequest) -> Shie
     )
 
 
-# Backward-compatible alias
-run_mock_camera_voice_challenge = run_transfer_monitoring_challenge
-
-
 def _run_challenge_apis(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
@@ -61,11 +52,13 @@ def _run_challenge_apis(
         challenge.client_session,
         vnpt_client,
     )
+    smartvision_fields, smartvision_call, smartvision_raw = _smartvision_api(challenge, vnpt_client)
     coercion_fields, coercion_call, voice_stress_raw = _coercion_api(
-        str(ekyc_fields["ekyc_verification_status"]),
         challenge.stt_audio_ref,
         str(smartvoice_fields["stt_transcript"]),
-        vnpt_client.smartvoice_enabled,
+        smartbot_fields.get("llm_scam_type") if isinstance(smartbot_fields.get("llm_scam_type"), str) else None,
+        smartvision_fields.get("face_emotion_score"),
+        smartvision_fields.get("face_emotion_labels"),
     )
 
     fields = {
@@ -77,6 +70,7 @@ def _run_challenge_apis(
         **ekyc_fields,
         **smartvoice_fields,
         **smartbot_fields,
+        **smartvision_fields,
         **coercion_fields,
         "transcript": smartvoice_fields["stt_transcript"],
     }
@@ -86,19 +80,18 @@ def _run_challenge_apis(
         "ekyc_face_compare": ekyc_raw["face_compare"],
         "smartvoice_stt": smartvoice_raw,
         "smartbot_conversation": smartbot_raw,
+        "smartvision_face_emotion": smartvision_raw,
         "voice_stress": voice_stress_raw,
     }
-    return fields, [ekyc_call, smartvoice_call, smartbot_call, coercion_call], raw_responses, provider_mode
+    return fields, [ekyc_call, smartvoice_call, smartbot_call, smartvision_call, coercion_call], raw_responses, provider_mode
 
 
 def _challenge_profile_from_results(
     ekyc_verification_status: str,
     stt_transcript: str,
-    stt_audio_ref: str,
-    smartvoice_real: bool,
 ) -> str:
     ekyc_passed = ekyc_verification_status == "passed"
-    stt_passed = _stt_passed(stt_transcript, stt_audio_ref, smartvoice_real)
+    stt_passed = _stt_passed(stt_transcript)
     if ekyc_passed and stt_passed:
         return "clear_user"
     if not ekyc_passed and stt_passed:
@@ -108,27 +101,10 @@ def _challenge_profile_from_results(
     return "ekyc_and_stt_failed"
 
 
-def _stt_passed(stt_transcript: str, stt_audio_ref: str, smartvoice_real: bool) -> bool:
-    if smartvoice_real:
-        if not stt_transcript.strip():
-            return False
-        return match_transcript_pattern(stt_transcript.lower()) is None
-    return _artifact_name(stt_audio_ref) == "stt_audio_1"
-
-
-def _artifact_name(ref: str) -> str:
-    return ref.rstrip("/").split("/")[-1]
-
-
-def _load_vnpt_mock(product: str, filename: str) -> dict[str, Any]:
-    path = VNPT_MOCK_DIR / product / filename
-    if path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
-    return {
-        "message": "Mock response not found",
-        "object": {},
-        "error": {"mock_path": str(path)},
-    }
+def _stt_passed(stt_transcript: str) -> bool:
+    if not stt_transcript.strip():
+        return False
+    return match_transcript_pattern(stt_transcript.lower()) is None
 
 
 def _object(response: dict[str, Any]) -> dict[str, Any]:
@@ -145,12 +121,10 @@ def _vnpt_call_failed(response: dict[str, Any]) -> bool:
     if isinstance(http_status, int) and http_status >= 400:
         return True
     provider_status = str(response.get("status", "")).upper()
-    if provider_status in {"BAD_REQUEST", "ERROR", "FAIL", "FAILED"}:
+    if provider_status in {"BAD_REQUEST", "ERROR", "FAIL", "FAILED", "UNAUTHORIZED"}:
         return True
     status_code = response.get("statusCode")
-    if isinstance(status_code, int) and status_code >= 400:
-        return True
-    if isinstance(status_code, str) and status_code.isdigit() and int(status_code) >= 400:
+    if isinstance(status_code, str) and status_code.upper().startswith(("4", "5")):
         return True
     if response.get("errors"):
         return True
@@ -253,6 +227,75 @@ def _ekyc_unconfigured_response(image_ref: str) -> tuple[dict[str, object], Expl
             "face_mask": failed,
             "face_compare": failed,
         },
+    )
+
+
+def _smartvoice_unconfigured_response(
+    audio_ref: str,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    message = (
+        "VNPT SmartVoice credentials are not configured. "
+        "Set VNPT_SMARTVOICE_MODE=real and SmartVoice tokens in .env."
+    )
+    failed = {
+        "message": message,
+        "object": {},
+        "status": "error",
+        "provider_mode": "disabled",
+    }
+    detail = f"VNPT SmartVoice API skipped for {audio_ref}. {message}"
+    return (
+        {"stt_transcript": "", "stt_confidence": 0.0},
+        Explanation(label="VNPT SmartVoice API", detail=detail, weight=0),
+        failed,
+    )
+
+
+def _smartvision_unconfigured_response(
+    image_ref: str,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    message = (
+        "VNPT SmartVision is not configured. Set VNPT_SMARTVISION_MODE=real and SmartVision tokens in .env."
+    )
+    failed = {
+        "message": message,
+        "object": {},
+        "status": "error",
+        "provider_mode": "disabled",
+    }
+    detail = f"VNPT SmartVision API skipped for {image_ref}. {message}"
+    return (
+        {
+            "face_emotion_score": None,
+            "face_emotion_labels": [],
+        },
+        Explanation(label="VNPT SmartVision API", detail=detail, weight=0),
+        failed,
+    )
+
+
+def _smartbot_unconfigured_response(
+    client_session: str,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    message = (
+        "VNPT Smartbot is not configured. Set VNPT_SMARTBOT_MODE=real, Smartbot tokens, "
+        "and VNPT_SMARTBOT_BOT_ID in .env."
+    )
+    failed = {
+        "message": message,
+        "object": {},
+        "status": "error",
+        "provider_mode": "disabled",
+    }
+    detail = f"VNPT Smartbot API skipped for session={client_session}. {message}"
+    return (
+        {
+            "detected_patterns": [],
+            "llm_scam_type": None,
+            "llm_confidence": None,
+        },
+        Explanation(label="VNPT Smartbot API", detail=detail, weight=0),
+        failed,
     )
 
 
@@ -367,15 +410,12 @@ def _smartvoice_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
-    if vnpt_client.smartvoice_enabled:
-        stt_response = vnpt_client.smartvoice_stt(challenge.stt_audio_ref, challenge.client_session)
-        provider_label = "VNPT SmartVoice API"
-        source_detail = "called VNPT STT gRPC standard"
-    else:
-        artifact = _artifact_name(challenge.stt_audio_ref)
-        stt_response = _load_vnpt_mock("smartvoice", f"{artifact}_stt.json")
-        provider_label = "Mock SmartVoice API"
-        source_detail = "loaded VNPT-like STT response"
+    if not vnpt_client.smartvoice_enabled:
+        return _smartvoice_unconfigured_response(challenge.stt_audio_ref)
+
+    stt_response = vnpt_client.smartvoice_stt(challenge.stt_audio_ref, challenge.client_session)
+    provider_label = "VNPT SmartVoice API"
+    source_detail = "called VNPT STT gRPC standard"
 
     stt_object = _object(stt_response)
     stt_failed = _vnpt_call_failed(stt_response)
@@ -407,22 +447,16 @@ def _smartbot_api(
     client_session: str,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
-    if vnpt_client.smartbot_enabled:
-        response = vnpt_client.smartbot_conversation(transcript, client_session)
-        provider_label = "VNPT Smartbot API"
-        source_detail = "called assistant-stream /v1/conversation"
-        smartbot_failed = _vnpt_call_failed(response)
-    else:
-        artifact = "stt_audio_1" if not transcript.strip() else "stt_audio_2"
-        if not match_transcript_pattern(transcript.lower()):
-            artifact = "stt_audio_1"
-        response = _load_vnpt_mock("smartbot", f"{artifact}_smartbot.json")
-        provider_label = "Mock Smartbot API"
-        source_detail = "loaded VNPT-like Smartbot response"
-        smartbot_failed = _vnpt_call_failed(response)
+    if not vnpt_client.smartbot_enabled:
+        return _smartbot_unconfigured_response(client_session)
+
+    response = vnpt_client.smartbot_conversation(transcript, client_session)
+    provider_label = "VNPT Smartbot API"
+    source_detail = "called assistant-stream /v1/conversation"
+    smartbot_failed = _vnpt_call_failed(response)
 
     classification = parse_smartbot_response(response, transcript)
-    if smartbot_failed and vnpt_client.smartbot_enabled:
+    if smartbot_failed:
         keyword_match = match_transcript_pattern(transcript.lower())
         scam_type = keyword_match[0] if keyword_match else None
         classification = type(classification)(
@@ -459,30 +493,92 @@ def _smartbot_api(
     )
 
 
+def _smartvision_api(
+    challenge: ShieldChallengeRequest,
+    vnpt_client: VnptClient,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    if not vnpt_client.smartvision_enabled:
+        return _smartvision_unconfigured_response(challenge.ekyc_image_ref)
+
+    response = vnpt_client.smartvision_face_emotion(challenge.ekyc_image_ref, challenge.client_session)
+    provider_label = "VNPT SmartVision API"
+    source_detail = f"called {vnpt_client.settings.vnpt_smartvision_emotion_path}"
+    smartvision_failed = _vnpt_call_failed(response)
+    parsed = (
+        parse_smartvision_face_emotion(response)
+        if not smartvision_failed
+        else SmartvisionFaceEmotion(
+            face_emotion_score=None,
+            face_emotion_labels=[],
+            dominant_emotion=None,
+            parse_source="error",
+        )
+    )
+
+    provider_notes = []
+    if smartvision_failed:
+        provider_notes.append(_vnpt_error_detail(response))
+    if not smartvision_failed and parsed.face_emotion_score is None:
+        provider_notes.append("response did not include a usable emotion score")
+
+    note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
+    detail = (
+        f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
+        f"parse={parsed.parse_source}, dominant={parsed.dominant_emotion}, "
+        f"score={parsed.face_emotion_score}, labels={parsed.face_emotion_labels}.{note_suffix}"
+    )
+
+    return (
+        {
+            "face_emotion_score": parsed.face_emotion_score,
+            "face_emotion_labels": parsed.face_emotion_labels,
+        },
+        Explanation(label=provider_label, detail=detail, weight=0),
+        response,
+    )
+
+
 def _coercion_api(
-    ekyc_verification_status: str,
     stt_audio_ref: str,
     stt_transcript: str = "",
-    smartvoice_enabled: bool = False,
+    llm_scam_type: str | None = None,
+    face_emotion_score: object = None,
+    face_emotion_labels: object = None,
 ) -> tuple[dict[str, object], Explanation, dict[str, object]]:
     settings = get_settings()
     voice_result = analyze_voice_stress(stt_audio_ref, settings)
 
-    stt_failed = not _stt_passed(stt_transcript, stt_audio_ref, smartvoice_enabled)
-    ekyc_failed = ekyc_verification_status not in {"passed", "review"}
-    scripted_score, scripted_labels = _scripted_behavior(stt_transcript, stt_failed)
-    face_score, face_labels = _face_distress_proxy(ekyc_failed, stt_failed, voice_result.voice_stress_score)
+    stt_failed = not _stt_passed(stt_transcript)
+    scripted_score, scripted_labels = _scripted_behavior(stt_transcript, stt_failed, llm_scam_type)
+    face_score = float(face_emotion_score) if isinstance(face_emotion_score, (int, float)) else 0.0
+    face_labels = (
+        [str(item) for item in face_emotion_labels if str(item).strip()]
+        if isinstance(face_emotion_labels, list)
+        else []
+    )
+
+    if isinstance(face_emotion_score, (int, float)):
+        voice_weight, face_weight, scripted_weight = 0.5, 0.25, 0.25
+    else:
+        voice_weight, face_weight, scripted_weight = 0.625, 0.0, 0.375
 
     coercion_score = round(
-        0.5 * voice_result.voice_stress_score + 0.25 * face_score + 0.25 * scripted_score,
+        voice_weight * voice_result.voice_stress_score
+        + face_weight * face_score
+        + scripted_weight * scripted_score,
         3,
     )
     coercion_confidence = round(0.82 if voice_result.model_used else 0.68, 3)
 
+    face_detail = (
+        f"face={face_score:.2f}"
+        if isinstance(face_emotion_score, (int, float))
+        else "face=skipped"
+    )
     detail = (
         f"{voice_result.detail} "
         f"Fusion coercion={coercion_score:.2f} "
-        f"(face={face_score:.2f}, scripted={scripted_score:.2f})."
+        f"({face_detail}, scripted={scripted_score:.2f})."
     )
     provider_label = "Voice stress analyzer"
     if voice_result.model_used and voice_result.model_backend == "emotion2vec":
@@ -517,8 +613,6 @@ def _coercion_api(
         {
             "voice_stress_score": voice_result.voice_stress_score,
             "voice_stress_labels": voice_result.voice_stress_labels,
-            "face_emotion_score": face_score,
-            "face_emotion_labels": face_labels,
             "scripted_behavior_score": scripted_score,
             "scripted_behavior_labels": scripted_labels,
             "coercion_score": coercion_score,
@@ -529,24 +623,15 @@ def _coercion_api(
     )
 
 
-def _scripted_behavior(stt_transcript: str, stt_failed: bool) -> tuple[float, list[str]]:
+def _scripted_behavior(
+    stt_transcript: str,
+    stt_failed: bool,
+    llm_scam_type: str | None = None,
+) -> tuple[float, list[str]]:
+    if llm_scam_type:
+        return 0.81, ["monotone_reading", "repeats_caller_phrasing"]
     if stt_failed:
         return 0.81, ["monotone_reading", "repeats_caller_phrasing"]
     if match_transcript_pattern(stt_transcript.lower()):
         return 0.74, ["repeats_caller_phrasing"]
     return 0.12, ["free_response"]
-
-
-def _face_distress_proxy(
-    ekyc_failed: bool,
-    stt_failed: bool,
-    voice_stress_score: float,
-) -> tuple[float, list[str]]:
-    if stt_failed:
-        face_score = 0.72 if not ekyc_failed else 0.64
-        return face_score, ["fear", "low_eye_contact"]
-    if ekyc_failed:
-        return 0.46, ["visual_artifact"]
-    if voice_stress_score >= 0.55:
-        return min(0.85, 0.35 + voice_stress_score * 0.5), ["distress"]
-    return 0.16, ["calm"]

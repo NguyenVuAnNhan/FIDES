@@ -47,7 +47,7 @@ Browser SDK scaffold for FIDES Shield and Grow.
       recipient_known: false
     }, {
       ekyc_image_ref: "uploads/ekyc/selfie-example.jpg",
-      stt_audio_ref: "mock_payload/stt_audio_2"
+      stt_audio_ref: "uploads/smartvoice/challenge-example.wav"
     });
 
     console.log(challengeResult);
