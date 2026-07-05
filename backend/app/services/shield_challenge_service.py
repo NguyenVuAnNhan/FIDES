@@ -107,6 +107,51 @@ def _object(response: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
+def _vnpt_call_failed(response: dict[str, Any]) -> bool:
+    if response.get("status") == "error":
+        return True
+    provider_status = str(response.get("status", "")).upper()
+    if provider_status in {"BAD_REQUEST", "ERROR", "FAIL", "FAILED"}:
+        return True
+    status_code = response.get("statusCode")
+    if isinstance(status_code, int) and status_code >= 400:
+        return True
+    if isinstance(status_code, str) and status_code.isdigit() and int(status_code) >= 400:
+        return True
+    if response.get("errors"):
+        return True
+    message_fields = response.get("messageFields")
+    if isinstance(message_fields, list) and message_fields:
+        return True
+    return False
+
+
+def _vnpt_error_detail(response: dict[str, Any]) -> str:
+    message_fields = response.get("messageFields")
+    if isinstance(message_fields, list) and message_fields:
+        parts: list[str] = []
+        for item in message_fields:
+            if isinstance(item, dict):
+                field_name = item.get("fieldName", "field")
+                field_message = item.get("message", "")
+                parts.append(f"{field_name}: {field_message}")
+        if parts:
+            return "; ".join(parts)
+
+    errors = response.get("errors")
+    if isinstance(errors, list) and errors:
+        return "; ".join(str(item) for item in errors)
+    message = response.get("message")
+    if message:
+        return str(message)
+    nested = response.get("error")
+    if isinstance(nested, dict):
+        body = nested.get("body")
+        if isinstance(body, dict) and body.get("message"):
+            return str(body["message"])
+    return "VNPT eKYC call failed"
+
+
 def _bounded_float(value: object, default: float) -> float:
     try:
         number = float(value)
@@ -153,7 +198,7 @@ def _ekyc_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
-    if vnpt_client.enabled:
+    if vnpt_client.ekyc_enabled:
         liveness_response = vnpt_client.face_liveness(challenge.ekyc_image_ref, challenge.client_session)
         mask_response = vnpt_client.face_mask(challenge.ekyc_image_ref, challenge.client_session)
         compare_response = vnpt_client.face_compare(
@@ -175,21 +220,37 @@ def _ekyc_api(
     mask_object = _object(mask_response)
     compare_object = _object(compare_response)
 
-    face_is_live = _truthy_provider_bool(liveness_object.get("liveness"))
-    mask_detected = _truthy_provider_bool(mask_object.get("masked"))
-    face_match_score = _provider_score(compare_object.get("prob"), default=0.5)
+    liveness_failed = _vnpt_call_failed(liveness_response)
+    mask_failed = _vnpt_call_failed(mask_response)
+    compare_failed = _vnpt_call_failed(compare_response)
+
+    face_is_live = False if liveness_failed else _truthy_provider_bool(liveness_object.get("liveness"))
+    mask_detected = False if mask_failed else _truthy_provider_bool(mask_object.get("masked"))
+    face_match_score = 0.0 if compare_failed else _provider_score(compare_object.get("prob"), default=0.5)
     face_match_result = str(compare_object.get("result", "")).upper()
-    verification_status = "passed"
-    if not face_is_live or mask_detected or face_match_result == "NOMATCH" or face_match_score < 0.5:
+    verification_status = "failed"
+    if liveness_failed or mask_failed or compare_failed:
+        verification_status = "failed"
+    elif not face_is_live or mask_detected or face_match_result == "NOMATCH" or face_match_score < 0.5:
         verification_status = "failed"
     elif face_match_score < 0.75:
         verification_status = "review"
+    else:
+        verification_status = "passed"
 
     injection_risk = _derive_injection_risk(face_is_live, mask_detected, face_match_score)
+    provider_notes = []
+    if liveness_failed:
+        provider_notes.append(f"liveness: {_vnpt_error_detail(liveness_response)}")
+    if mask_failed:
+        provider_notes.append(f"mask: {_vnpt_error_detail(mask_response)}")
+    if compare_failed:
+        provider_notes.append(f"compare: {_vnpt_error_detail(compare_response)}")
+    note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
         f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
         f"Status={verification_status}, liveness={liveness_object.get('liveness_msg')}, "
-        f"compare={compare_object.get('msg')}."
+        f"compare={compare_object.get('msg')}.{note_suffix}"
     )
 
     fields = {
@@ -215,7 +276,7 @@ def _smartvoice_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
-    if vnpt_client.enabled:
+    if vnpt_client.smartvoice_enabled:
         stt_response = vnpt_client.smartvoice_stt(challenge.stt_audio_ref)
         provider_label = "VNPT SmartVoice API"
         source_detail = "called VNPT STT v3 standard"
@@ -250,7 +311,7 @@ def _voice_verification_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
-    if vnpt_client.enabled:
+    if vnpt_client.smartvoice_enabled:
         voice_response = vnpt_client.smartvoice_voice_verify(
             challenge.voice_reference_ref,
             challenge.stt_audio_ref,

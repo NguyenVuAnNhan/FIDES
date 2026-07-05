@@ -14,21 +14,29 @@ The normalized Shield schema stays the same in both modes. This lets us rehearse
 Copy `.env.example` to `.env` and fill:
 
 ```bash
-VNPT_PROVIDER_MODE=real
+# eKYC only (SmartVoice stays mock):
+VNPT_PROVIDER_MODE=mock
+VNPT_EKYC_MODE=real
+VNPT_SMARTVOICE_MODE=mock
 VNPT_BASE_URL=https://api.idg.vnpt.vn
-VNPT_ACCESS_TOKEN=...
-VNPT_TOKEN_ID=...
-VNPT_TOKEN_KEY=...
+VNPT_EKYC_ACCESS_TOKEN=...
+VNPT_EKYC_TOKEN_ID=...
+VNPT_EKYC_TOKEN_KEY=...
+# Optional body token; falls back to VNPT_EKYC_TOKEN_ID when empty
 VNPT_EKYC_TOKEN=...
 VNPT_MAC_ADDRESS=TEST1
-VNPT_STT_SAMPLE_RATE=16000
-VNPT_STT_CONTENT_TYPE=audio/wav
-VNPT_VOICE_BASE_URL=https://api.idg.vnpt.vn/voice-service
-VNPT_VOICE_VERIFY_EMAIL=demo-customer@fides.local
-VNPT_VOICE_VERIFY_NAME=FIDES Demo Customer
 ```
 
-If `VNPT_PROVIDER_MODE` is not `real`, or if the token headers are missing, the backend stays in mock mode.
+Per-product credentials override the global fallback (`VNPT_ACCESS_TOKEN`, `VNPT_TOKEN_ID`, `VNPT_TOKEN_KEY`).
+
+Or enable all VNPT challenge providers at once:
+
+```bash
+VNPT_PROVIDER_MODE=real
+```
+
+`VNPT_EKYC_MODE` and `VNPT_SMARTVOICE_MODE` override the global mode when set.
+If they are empty, each product falls back to `VNPT_PROVIDER_MODE`.
 
 ## Shield Challenge Request
 
@@ -58,6 +66,25 @@ Field meaning:
 
 When a reference resolves to a local file, the backend sends images as base64 strings, sends STT audio as a binary body, and uploads voice verification samples through the SmartVoice voice-service flow. When the reference does not resolve to a file, image refs are sent as-is so hosted file hashes/URLs can be tested later.
 
+## Upload eKYC Images
+
+`POST /api/shield/challenge/upload-ekyc` accepts multipart form data:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `selfie` | yes | Live face image (PNG/JPG/WEBP, max 8MB). |
+| `document` | no | CMND/portrait image for face compare. |
+
+Saved files are stored under `mock_payload/uploads/ekyc/` and returned as refs such as `mock_payload/uploads/ekyc/selfie-<uuid>.jpg`. Pass those refs into `POST /api/shield/challenge` as `ekyc_image_ref` and `ekyc_document_ref`.
+
+The Shield demo UI exposes this as the **Real VNPT eKYC — upload selfie + CMND** challenge profile.
+
+Smoke-test credentials and endpoints:
+
+```bash
+python3 scripts/smoke_vnpt_ekyc.py --selfie /path/to/selfie.jpg --document /path/to/cmnd.jpg
+```
+
 ## Called VNPT Endpoints
 
 Real mode currently targets the contracts in `docs/api_references/vnpt/endpoint_contracts.md`:
@@ -65,7 +92,7 @@ Real mode currently targets the contracts in `docs/api_references/vnpt/endpoint_
 | Product | Endpoint | Request |
 | --- | --- | --- |
 | eKYC | `POST /ai/v1/face/liveness` | JSON `img`, `client_session`, optional `token`. |
-| eKYC | `POST /ai/v1/face/mask` | JSON `img`, `client_session`. |
+| eKYC | `POST /ai/v1/face/mask` | JSON `img`, `client_session`, optional `token`. |
 | eKYC | `POST /ai/v1/face/compare` | JSON `img_front`, `img_face`, `client_session`, optional `token`. |
 | SmartVoice | `POST /stt-service/v3/standard` | Binary audio body with STT headers. |
 | SmartVoice Voice Verification | `POST /v1/voice-id/audio/upload` | Upload customer reference and challenge audio. |
@@ -100,4 +127,4 @@ VNPT face liveness is treated as boolean. `object.liveness=false` fails the chal
 
 SmartVoice voice verification is treated as a score. A match score below `0.55` fails Stage 2, a score below the current `0.75` threshold enters review, and a score at or above threshold adds no voice-identity risk.
 
-The current production gap is upload UX, not backend integration. The route already accepts file refs; a later frontend can replace the dropdowns with file upload controls.
+VNPT eKYC error payloads (`statusCode` 400/408, `messageFields`, empty `object`) map to `ekyc_verification_status=failed` with provider notes in the Shield explanation list.

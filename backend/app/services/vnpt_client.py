@@ -1,10 +1,11 @@
 import base64
+import http.client
 import json
+import ssl
 import uuid
 from pathlib import Path
 from typing import Any
-from urllib import parse
-from urllib import error, request
+from urllib.parse import urlparse
 
 from backend.app.config import Settings
 
@@ -17,33 +18,87 @@ class VnptClient:
 
     @property
     def enabled(self) -> bool:
-        return (
-            self.settings.vnpt_provider_mode.lower() == "real"
-            and bool(self.settings.vnpt_access_token)
-            and bool(self.settings.vnpt_token_id)
-            and bool(self.settings.vnpt_token_key)
-        )
+        return self.ekyc_enabled or self.smartvoice_enabled
 
     @property
     def mode(self) -> str:
-        return "real" if self.enabled else "mock"
+        return f"ekyc:{self.ekyc_mode},smartvoice:{self.smartvoice_mode}"
+
+    @property
+    def ekyc_enabled(self) -> bool:
+        return self._product_enabled(self._resolved_ekyc_mode(), "ekyc")
+
+    @property
+    def smartvoice_enabled(self) -> bool:
+        return self._product_enabled(self._resolved_smartvoice_mode(), "smartvoice")
+
+    @property
+    def ekyc_mode(self) -> str:
+        return "real" if self.ekyc_enabled else "mock"
+
+    @property
+    def smartvoice_mode(self) -> str:
+        return "real" if self.smartvoice_enabled else "mock"
+
+    def _resolved_ekyc_mode(self) -> str:
+        explicit = self.settings.vnpt_ekyc_mode
+        if explicit:
+            return explicit.lower()
+        return self.settings.vnpt_provider_mode.lower()
+
+    def _resolved_smartvoice_mode(self) -> str:
+        explicit = self.settings.vnpt_smartvoice_mode
+        if explicit:
+            return explicit.lower()
+        return self.settings.vnpt_provider_mode.lower()
+
+    def _product_enabled(self, mode: str, product: str) -> bool:
+        credentials = self._product_credentials(product)
+        return (
+            mode == "real"
+            and bool(credentials["access_token"])
+            and bool(credentials["token_id"])
+            and bool(credentials["token_key"])
+        )
+
+    def _product_credentials(self, product: str) -> dict[str, str | None]:
+        if product == "ekyc":
+            return {
+                "access_token": self.settings.vnpt_ekyc_access_token or self.settings.vnpt_access_token,
+                "token_id": self.settings.vnpt_ekyc_token_id or self.settings.vnpt_token_id,
+                "token_key": self.settings.vnpt_ekyc_token_key or self.settings.vnpt_token_key,
+            }
+        if product == "smartvoice":
+            return {
+                "access_token": self.settings.vnpt_smartvoice_access_token or self.settings.vnpt_access_token,
+                "token_id": self.settings.vnpt_smartvoice_token_id or self.settings.vnpt_token_id,
+                "token_key": self.settings.vnpt_smartvoice_token_key or self.settings.vnpt_token_key,
+            }
+        raise ValueError(f"Unsupported VNPT product: {product}")
 
     def face_liveness(self, image_ref: str, client_session: str) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "img": self._image_payload(image_ref),
             "client_session": client_session,
         }
-        if self.settings.vnpt_ekyc_token:
-            payload["token"] = self.settings.vnpt_ekyc_token
-        return self._post_json("/ai/v1/face/liveness", payload)
+        product_token = self._ekyc_product_token()
+        if product_token:
+            payload["token"] = product_token
+        return self._post_json("/ai/v1/face/liveness", payload, provider_mode=self.ekyc_mode, product="ekyc")
 
     def face_mask(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "img": self._image_payload(image_ref),
+            "client_session": client_session,
+        }
+        product_token = self._ekyc_product_token()
+        if product_token:
+            payload["token"] = product_token
         return self._post_json(
             "/ai/v1/face/mask",
-            {
-                "img": self._image_payload(image_ref),
-                "client_session": client_session,
-            },
+            payload,
+            provider_mode=self.ekyc_mode,
+            product="ekyc",
         )
 
     def face_compare(
@@ -60,7 +115,7 @@ class VnptClient:
                     "msg": "SKIPPED_NO_DOCUMENT",
                     "prob": 1.0,
                 },
-                "provider_mode": self.mode,
+                "provider_mode": self.ekyc_mode,
             }
 
         payload: dict[str, Any] = {
@@ -68,9 +123,15 @@ class VnptClient:
             "img_face": self._image_payload(face_ref),
             "client_session": client_session,
         }
-        if self.settings.vnpt_ekyc_token:
-            payload["token"] = self.settings.vnpt_ekyc_token
-        return self._post_json("/ai/v1/face/compare", payload)
+        product_token = self._ekyc_product_token()
+        if product_token:
+            payload["token"] = product_token
+        return self._post_json(
+            "/ai/v1/face/compare",
+            payload,
+            provider_mode=self.ekyc_mode,
+            product="ekyc",
+        )
 
     def smartvoice_stt(self, audio_ref: str) -> dict[str, Any]:
         audio_path = self._resolve_ref(audio_ref)
@@ -96,6 +157,7 @@ class VnptClient:
             audio_path.read_bytes(),
             self.settings.vnpt_stt_content_type,
             headers,
+            product="smartvoice",
         )
 
     def smartvoice_voice_verify(
@@ -114,7 +176,7 @@ class VnptClient:
                         "score": 1.0,
                     },
                 },
-                "provider_mode": self.mode,
+                "provider_mode": self.smartvoice_mode,
                 "skipped": True,
             }
 
@@ -156,10 +218,21 @@ class VnptClient:
         )
         return verification
 
-    def _post_json(self, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post_json(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        provider_mode: str | None = None,
+        product: str = "ekyc",
+    ) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
-        headers = self._auth_headers("application/json")
-        return self._request(path, body, headers)
+        headers = self._auth_headers("application/json", product=product)
+        timeout = (
+            self.settings.vnpt_ekyc_request_timeout_seconds
+            if product == "ekyc"
+            else self.settings.vnpt_request_timeout_seconds
+        )
+        return self._request(path, body, headers, provider_mode=provider_mode, timeout=timeout)
 
     def _post_binary(
         self,
@@ -167,9 +240,16 @@ class VnptClient:
         body: bytes,
         content_type: str,
         extra_headers: dict[str, str],
+        product: str = "smartvoice",
     ) -> dict[str, Any]:
-        headers = {**self._auth_headers(content_type), **extra_headers}
-        return self._request(path, body, headers)
+        headers = {**self._auth_headers(content_type, product=product), **extra_headers}
+        return self._request(
+            path,
+            body,
+            headers,
+            provider_mode=self.smartvoice_mode,
+            timeout=self.settings.vnpt_request_timeout_seconds,
+        )
 
     def _voice_upload(self, audio_ref: str) -> dict[str, Any]:
         audio_path = self._resolve_ref(audio_ref)
@@ -181,7 +261,13 @@ class VnptClient:
                     "resolved_path": str(audio_path),
                 },
             )
-        return self._post_multipart_file("/v1/voice-id/audio/upload", audio_path, self.settings.vnpt_voice_base_url)
+        return self._post_multipart_file(
+            "/v1/voice-id/audio/upload",
+            audio_path,
+            self.settings.vnpt_voice_base_url,
+            provider_mode=self.smartvoice_mode,
+            product="smartvoice",
+        )
 
     def _voice_encode(self, audio_url: str, registered: int, client_session: str) -> dict[str, Any]:
         return self._post_json_to_base(
@@ -196,18 +282,46 @@ class VnptClient:
                     "name": self.settings.vnpt_voice_verify_name,
                 },
             },
+            provider_mode=self.smartvoice_mode,
+            product="smartvoice",
         )
 
     def _voice_verify_ids(self, audio_id1: str, audio_id2: str) -> dict[str, Any]:
-        query = parse.urlencode({"audio_id1": audio_id1, "audio_id2": audio_id2})
-        return self._get_json(f"/voiceid/api/v1/audio/verify?{query}", self.settings.vnpt_voice_base_url)
+        query = f"audio_id1={audio_id1}&audio_id2={audio_id2}"
+        return self._get_json(
+            f"/voiceid/api/v1/audio/verify?{query}",
+            self.settings.vnpt_voice_base_url,
+            provider_mode=self.smartvoice_mode,
+            product="smartvoice",
+        )
 
-    def _post_json_to_base(self, base_url: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post_json_to_base(
+        self,
+        base_url: str,
+        path: str,
+        payload: dict[str, Any],
+        provider_mode: str | None = None,
+        product: str = "smartvoice",
+    ) -> dict[str, Any]:
         body = json.dumps(payload).encode("utf-8")
-        headers = self._auth_headers("application/json")
-        return self._request(path, body, headers, base_url=base_url)
+        headers = self._auth_headers("application/json", product=product)
+        return self._request(
+            path,
+            body,
+            headers,
+            base_url=base_url,
+            provider_mode=provider_mode,
+            timeout=self.settings.vnpt_request_timeout_seconds,
+        )
 
-    def _post_multipart_file(self, path: str, file_path: Path, base_url: str) -> dict[str, Any]:
+    def _post_multipart_file(
+        self,
+        path: str,
+        file_path: Path,
+        base_url: str,
+        provider_mode: str | None = None,
+        product: str = "smartvoice",
+    ) -> dict[str, Any]:
         boundary = f"----fides-{uuid.uuid4().hex}"
         body = b"".join(
             [
@@ -222,12 +336,32 @@ class VnptClient:
                 f"--{boundary}--\r\n".encode("utf-8"),
             ]
         )
-        headers = self._auth_headers(f"multipart/form-data; boundary={boundary}")
-        return self._request(path, body, headers, base_url=base_url)
+        headers = self._auth_headers(f"multipart/form-data; boundary={boundary}", product=product)
+        return self._request(
+            path,
+            body,
+            headers,
+            base_url=base_url,
+            provider_mode=provider_mode,
+            timeout=self.settings.vnpt_request_timeout_seconds,
+        )
 
-    def _get_json(self, path: str, base_url: str) -> dict[str, Any]:
-        headers = self._auth_headers("application/json")
-        return self._request(path, None, headers, method="GET", base_url=base_url)
+    def _get_json(
+        self,
+        path: str,
+        base_url: str,
+        provider_mode: str | None = None,
+        product: str = "smartvoice",
+    ) -> dict[str, Any]:
+        headers = self._auth_headers("application/json", product=product)
+        return self._request(
+            path,
+            None,
+            headers,
+            method="GET",
+            base_url=base_url,
+            provider_mode=provider_mode,
+        )
 
     def _request(
         self,
@@ -236,55 +370,78 @@ class VnptClient:
         headers: dict[str, str],
         method: str = "POST",
         base_url: str | None = None,
+        provider_mode: str | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         selected_base_url = base_url or self.settings.vnpt_base_url
+        selected_provider_mode = provider_mode or self.mode
+        selected_timeout = timeout or self.settings.vnpt_request_timeout_seconds
         url = f"{selected_base_url.rstrip('/')}/{path.lstrip('/')}"
-        req = request.Request(url=url, data=body, headers=headers, method=method)
+        parsed = urlparse(url)
+        request_path = parsed.path or "/"
+        if parsed.query:
+            request_path = f"{request_path}?{parsed.query}"
+
+        connection = http.client.HTTPSConnection(
+            parsed.netloc,
+            timeout=selected_timeout,
+            context=ssl.create_default_context(),
+        )
         try:
-            with request.urlopen(req, timeout=20) as response:
-                response_body = response.read()
-                parsed = self._parse_json(response_body)
-                if isinstance(parsed, dict):
-                    parsed.setdefault("provider_mode", self.mode)
-                    parsed.setdefault("http_status", response.status)
-                    return parsed
-                return {
-                    "message": "VNPT returned a non-object JSON payload",
-                    "object": parsed,
-                    "provider_mode": self.mode,
-                    "http_status": response.status,
-                }
-        except error.HTTPError as exc:
-            return self._error_response(
-                "VNPT request failed",
-                {
-                    "http_status": exc.code,
-                    "endpoint_path": path,
-                    "body": self._decode_error_body(exc),
-                },
-            )
-        except error.URLError as exc:
-            return self._error_response(
-                "VNPT request could not be completed",
-                {
-                    "endpoint_path": path,
-                    "reason": str(exc.reason),
-                },
-            )
+            connection.putrequest(method, request_path)
+            for header_name, header_value in headers.items():
+                connection.putheader(header_name, header_value)
+            if body is not None:
+                connection.putheader("Content-Length", str(len(body)))
+            connection.endheaders()
+            if body is not None:
+                connection.send(body)
+
+            response = connection.getresponse()
+            response_body = response.read()
+            parsed_json = self._parse_json(response_body)
+            if isinstance(parsed_json, dict):
+                parsed_json.setdefault("provider_mode", selected_provider_mode)
+                parsed_json.setdefault("http_status", response.status)
+                return parsed_json
+            return {
+                "message": "VNPT returned a non-object JSON payload",
+                "object": parsed_json,
+                "provider_mode": selected_provider_mode,
+                "http_status": response.status,
+            }
         except TimeoutError:
             return self._error_response(
                 "VNPT request timed out",
-                {
-                    "endpoint_path": path,
-                },
+                {"endpoint_path": path},
+                provider_mode=selected_provider_mode,
             )
+        except OSError as exc:
+            return self._error_response(
+                "VNPT request could not be completed",
+                {"endpoint_path": path, "reason": str(exc)},
+                provider_mode=selected_provider_mode,
+            )
+        finally:
+            connection.close()
 
-    def _auth_headers(self, content_type: str) -> dict[str, str]:
+    def _ekyc_product_token(self) -> str | None:
+        explicit = str(self.settings.vnpt_ekyc_token or "").strip()
+        if explicit:
+            return explicit
+        fallback = str(self.settings.vnpt_ekyc_token_id or "").strip()
+        return fallback or None
+
+    def _auth_headers(self, content_type: str, product: str = "ekyc") -> dict[str, str]:
+        credentials = self._product_credentials(product)
+        access_token = str(credentials["access_token"] or "").strip()
+        if access_token.lower().startswith("bearer "):
+            access_token = access_token[7:].strip()
         headers = {
             "Content-Type": content_type,
-            "Authorization": f"Bearer {self.settings.vnpt_access_token}",
-            "Token-id": str(self.settings.vnpt_token_id),
-            "Token-key": str(self.settings.vnpt_token_key),
+            "Authorization": f"Bearer {access_token}",
+            "Token-id": str(credentials["token_id"]),
+            "Token-key": str(credentials["token_key"]),
         }
         if self.settings.vnpt_mac_address:
             headers["mac-address"] = self.settings.vnpt_mac_address
@@ -302,12 +459,17 @@ class VnptClient:
             return path
         return PROJECT_ROOT / path
 
-    def _error_response(self, message: str, details: dict[str, Any]) -> dict[str, Any]:
+    def _error_response(
+        self,
+        message: str,
+        details: dict[str, Any],
+        provider_mode: str | None = None,
+    ) -> dict[str, Any]:
         return {
             "message": message,
             "object": {},
             "status": "error",
-            "provider_mode": self.mode,
+            "provider_mode": provider_mode or self.mode,
             "error": details,
         }
 
@@ -321,11 +483,6 @@ class VnptClient:
                 "message": "VNPT returned a non-JSON response",
                 "raw_response_preview": body[:500].decode("utf-8", errors="replace"),
             }
-
-    def _decode_error_body(self, exc: error.HTTPError) -> Any:
-        body = exc.read()
-        parsed = self._parse_json(body)
-        return parsed
 
     def _nested_value(self, payload: dict[str, Any], keys: list[str]) -> Any:
         current: Any = payload

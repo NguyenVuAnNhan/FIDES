@@ -7,6 +7,10 @@ const shieldStatus = document.querySelector("#shield-status");
 const shieldStepContextBody = document.querySelector("#shield-step-context-body");
 const shieldStepChallengeBody = document.querySelector("#shield-step-challenge-body");
 const shieldChallengeProfile = document.querySelector("#shield-challenge-profile");
+const shieldEkycUploadPanel = document.querySelector("#shield-ekyc-upload-panel");
+const shieldEkycSelfie = document.querySelector("#shield-ekyc-selfie");
+const shieldEkycDocument = document.querySelector("#shield-ekyc-document");
+const shieldEkycUploadStatus = document.querySelector("#shield-ekyc-upload-status");
 
 const WIZARD_STEPS = [
   { id: 1, nextLabel: "Analyze transfer" },
@@ -38,8 +42,22 @@ const CHALLENGE_PROFILES = {
 let currentStep = 1;
 let lastAnalyzeResponse = null;
 let lastAnalyzePayload = null;
+let uploadedEkycArtifacts = null;
 
 initShieldPage();
+
+shieldChallengeProfile?.addEventListener("change", () => {
+  const useRealUpload = shieldChallengeProfile.value === "real_upload";
+  if (shieldEkycUploadPanel) {
+    shieldEkycUploadPanel.hidden = !useRealUpload;
+  }
+  if (!useRealUpload) {
+    uploadedEkycArtifacts = null;
+    if (shieldEkycUploadStatus) {
+      shieldEkycUploadStatus.textContent = "";
+    }
+  }
+});
 
 async function initShieldPage() {
   try {
@@ -134,7 +152,16 @@ async function runShieldChallenge() {
   }
 
   const profileKey = shieldChallengeProfile?.value || "pass";
-  const artifacts = CHALLENGE_PROFILES[profileKey] || CHALLENGE_PROFILES.pass;
+  let artifacts = CHALLENGE_PROFILES[profileKey] || CHALLENGE_PROFILES.pass;
+
+  if (profileKey === "real_upload") {
+    try {
+      artifacts = await resolveRealEkycArtifacts();
+    } catch (error) {
+      setShieldStatus(`eKYC upload failed: ${formatApiError(error.message)}`);
+      return;
+    }
+  }
 
   shieldNext.disabled = true;
   setShieldStatus("Running in-app check via /api/shield/challenge...");
@@ -161,10 +188,58 @@ async function runShieldChallenge() {
 function resetShieldCase() {
   lastAnalyzeResponse = null;
   lastAnalyzePayload = null;
+  uploadedEkycArtifacts = null;
+  if (shieldEkycSelfie) {
+    shieldEkycSelfie.value = "";
+  }
+  if (shieldEkycDocument) {
+    shieldEkycDocument.value = "";
+  }
+  if (shieldEkycUploadStatus) {
+    shieldEkycUploadStatus.textContent = "";
+  }
   clearResultPanels();
   shieldScenario.dispatchEvent(new Event("change"));
   setWizardStep(1);
   setShieldStatus("Path B: analyze transfer context first.");
+}
+
+async function resolveRealEkycArtifacts() {
+  if (uploadedEkycArtifacts) {
+    return uploadedEkycArtifacts;
+  }
+
+  const selfieFile = shieldEkycSelfie?.files?.[0];
+  if (!selfieFile) {
+    throw new Error("Choose a selfie image for real VNPT eKYC.");
+  }
+
+  const formData = new FormData();
+  formData.append("selfie", selfieFile);
+  const documentFile = shieldEkycDocument?.files?.[0];
+  if (documentFile) {
+    formData.append("document", documentFile);
+  }
+
+  if (shieldEkycUploadStatus) {
+    shieldEkycUploadStatus.textContent = "Uploading images to /api/shield/challenge/upload-ekyc...";
+  }
+
+  const uploadResponse = await postFormData("/api/shield/challenge/upload-ekyc", formData);
+  uploadedEkycArtifacts = {
+    ekyc_image_ref: uploadResponse.ekyc_image_ref,
+    ekyc_document_ref: uploadResponse.ekyc_document_ref || null,
+    stt_audio_ref: CHALLENGE_PROFILES.pass.stt_audio_ref,
+    voice_reference_ref: CHALLENGE_PROFILES.pass.voice_reference_ref,
+  };
+
+  if (shieldEkycUploadStatus) {
+    shieldEkycUploadStatus.textContent = `Uploaded ${uploadResponse.selfie_filename}${
+      uploadResponse.document_filename ? ` + ${uploadResponse.document_filename}` : ""
+    }.`;
+  }
+
+  return uploadedEkycArtifacts;
 }
 
 function buildShieldAnalyzePayload(form) {

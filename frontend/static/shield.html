@@ -313,8 +313,8 @@
           <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
             <h3 class="wizard-panel-title">2. In-app camera &amp; voice check</h3>
             <p class="wizard-panel-lead">
-              Demo uses mock artifacts from <code>mock_payload/</code>. Choose pass or fail STT/eKYC
-              profiles, then run the challenge pipeline.
+              Demo uses mock artifacts from <code>mock_payload/</code>, or upload real photos for
+              VNPT eKYC when credentials are configured.
             </p>
             <div class="wizard-grid">
               <label class="wide">
@@ -323,8 +323,20 @@
                   <option value="pass">Pass — clear user (ekyc_img_1 + stt_audio_1)</option>
                   <option value="fail_scam">Fail — scam script audio (stt_audio_2)</option>
                   <option value="fail_biometric">Fail — eKYC artifact (ekyc_img_2)</option>
+                  <option value="real_upload">Real VNPT eKYC — upload selfie + CMND</option>
                 </select>
               </label>
+              <div class="wide" id="shield-ekyc-upload-panel" hidden>
+                <label>
+                  Selfie (live face)
+                  <input id="shield-ekyc-selfie" type="file" accept="image/png,image/jpeg,image/webp" />
+                </label>
+                <label>
+                  CMND / portrait (optional)
+                  <input id="shield-ekyc-document" type="file" accept="image/png,image/jpeg,image/webp" />
+                </label>
+                <p class="stage-muted" id="shield-ekyc-upload-status"></p>
+              </div>
             </div>
             <div class="wizard-panel-body" id="shield-step-challenge-body"></div>
           </div>
@@ -339,7 +351,7 @@
       </section>
     </main>
 
-    <script src="/static/shared.js?v=shield-path-b-1"></script>
-    <script src="/static/shield.js?v=shield-path-b-1"></script>
+    <script src="/static/shared.js?v=shield-path-b-2"></script>
+    <script src="/static/shield.js?v=shield-path-b-2"></script>
   </body>
 </html>

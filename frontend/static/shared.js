@@ -23,6 +23,20 @@ async function postJson(url, payload) {
   return response.json();
 }
 
+async function postFormData(url, formData) {
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText);
+  }
+
+  return response.json();
+}
+
 function renderExplanations(explanations) {
   if (!explanations.length) {
     return "";
