@@ -283,7 +283,7 @@
           <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
             <h3 class="wizard-panel-title">2. Live camera &amp; voice check</h3>
             <p class="wizard-panel-lead">
-              Record a short live clip from your front camera and microphone (~4 seconds).
+              Record a short live clip from your front camera and microphone (~10 seconds).
               FIDES samples frames for VNPT eKYC + SmartVision and extracts audio for SmartVoice STT.
               Optionally add a CCCD portrait for face compare.
             </p>
@@ -304,13 +304,17 @@
               <div class="wizard-inline-actions shield-live-actions">
                 <button type="button" class="wizard-secondary" id="shield-start-camera">Enable camera</button>
                 <button type="button" class="wizard-secondary" id="shield-start-live-check" disabled>
-                  Start live check (4s)
+                  Start live check (10s)
                 </button>
                 <button type="button" class="wizard-secondary" id="shield-stop-live-check" hidden>
                   Stop early
                 </button>
               </div>
               <p class="stage-muted" id="shield-live-check-status">Enable the camera, then start the live check.</p>
+              <p class="stage-muted wide">
+                During the 10-second clip, speak clearly in Vietnamese (for example: confirm you are approving
+                this transfer yourself and no one is coaching you on a call).
+              </p>
               <div class="shield-frame-strip wide" id="shield-frame-strip" hidden></div>
             </div>
             <div class="wizard-grid">
@@ -351,7 +355,7 @@
       </section>
     </main>
 
-    <script src="/static/shared.js?v=shield-path-b-4"></script>
-    <script src="/static/shield.js?v=shield-path-b-4"></script>
+    <script src="/static/shared.js?v=shield-path-b-6"></script>
+    <script src="/static/shield.js?v=shield-path-b-6"></script>
   </body>
 </html>

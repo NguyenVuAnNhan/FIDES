@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from backend.app.models import ShieldAnalyzeRequest, ShieldAnalyzeResponse, ShieldChallengeRequest
 from backend.app.services.ekyc.paths import ALLOWED_EKYC_EXTENSIONS, ensure_ekyc_upload_dir
 from backend.app.services.shield.paths import ALLOWED_VIDEO_EXTENSIONS, ensure_shield_upload_dir
-from backend.app.services.shield.video import extract_audio_wav, extract_video_frames
+from backend.app.services.shield.video import extract_video_frames, resolve_stt_audio_ref
 from backend.app.services.smartvoice.paths import ALLOWED_AUDIO_EXTENSIONS, ensure_smartvoice_upload_dir
 from backend.app.services.shield_challenge_service import run_transfer_monitoring_challenge
 from backend.app.services.shield_service import analyze_shield_risk
@@ -108,6 +108,7 @@ _ALLOWED_VIDEO_TYPES = {
 @router.post("/challenge/upload-live-check", response_model=ShieldLiveCheckUploadResponse)
 async def upload_live_check(
     challenge_video: UploadFile = File(...),
+    challenge_audio: UploadFile | None = File(default=None),
     document: UploadFile | None = File(default=None),
     frame_0: UploadFile | None = File(default=None),
     frame_1: UploadFile | None = File(default=None),
@@ -147,10 +148,10 @@ async def upload_live_check(
     primary_ref, primary_name = uploaded_frames[len(uploaded_frames) // 2]
     frame_refs = [item[0] for item in uploaded_frames]
 
-    audio_ref = video_ref
-    wav_path = ensure_smartvoice_upload_dir() / f"live-audio-{uuid.uuid4().hex}.wav"
-    if extract_audio_wav(video_ref, wav_path):
-        audio_ref = f"uploads/smartvoice/{wav_path.name}"
+    if challenge_audio is not None and challenge_audio.filename:
+        audio_ref, _, _ = await _save_audio_upload(challenge_audio, "live-audio")
+    else:
+        audio_ref, _audio_format = resolve_stt_audio_ref(video_ref, ensure_smartvoice_upload_dir())
 
     return ShieldLiveCheckUploadResponse(
         ekyc_image_ref=primary_ref,

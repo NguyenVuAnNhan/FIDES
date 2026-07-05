@@ -81,15 +81,35 @@ def main() -> int:
     stt_http_ok = stt.get("http_status") == 200 and stt.get("status") != "error"
     stt_status_ok = str(stt_object.get("status", "")).upper() == "OK"
 
-    if not stt_http_ok:
-        print("\nFAIL: VNPT STT gRPC transport or auth failed.")
+    transcript = ""
+    results = stt_object.get("results")
+    if isinstance(results, list):
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            for alternative in result.get("alternatives") or []:
+                if isinstance(alternative, dict) and alternative.get("transcript"):
+                    transcript = str(alternative["transcript"])
+                    break
+            if transcript:
+                break
+    if not transcript:
+        transcript = str(stt_object.get("transcript") or "")
+
+    print("\n== transcript ==")
+    print(repr(transcript[:500]))
+
+    if stt_http_ok and transcript.strip():
+        print("\nOK: VNPT STT returned a non-empty transcript.")
+        return 0
+
+    if stt_http_ok and stt_status_ok:
+        print("\nWARN: VNPT STT accepted the audio but returned an empty transcript.")
+        print("Try a clip with clear spoken Vietnamese, or use uploads/smartvoice/challenge-*.webm from fallback upload.")
         return 1
 
-    if stt_status_ok:
-        print("\nOK: VNPT STT gRPC endpoint accepted the audio file.")
-    else:
-        print("\nOK: VNPT STT gRPC auth works. Provider returned a non-OK STT status.")
-    return 0
+    print("\nFAIL: VNPT STT gRPC transport or auth failed.")
+    return 1
 
 
 if __name__ == "__main__":

@@ -67,10 +67,11 @@ If a product is not configured, the challenge marks that step as failed/skipped 
 | Field | Required | Notes |
 | --- | --- | --- |
 | `challenge_video` | yes | WEBM/MP4/MOV from browser `MediaRecorder` (camera + mic) |
+| `challenge_audio` | recommended | Audio-only WEBM from a parallel browser `MediaRecorder` (best STT quality) |
 | `frame_0` … `frame_4` | recommended | JPEG samples from client-side canvas (3 typical) |
 | `document` | no | CCCD portrait for face compare |
 
-The server stores video under `uploads/shield/`, extracts mono WAV with `ffmpeg` when available (falls back to the video ref for STT), and uses client frames or server `ffmpeg` frame extraction as fallback.
+The server stores video under `uploads/shield/`, extracts an audio-only WEBM (or WAV fallback) for STT when `challenge_audio` is missing, and uses client frames or server `ffmpeg` frame extraction as fallback.
 
 ### Legacy fallback
 
@@ -117,7 +118,7 @@ Voice stress uses `VOICE_STRESS_*` settings (emotion2vec + prosody, locale `vi` 
 ## Browser flow (Path B step 2)
 
 1. User enables front camera + microphone.
-2. App records ~4 seconds via `MediaRecorder`.
+2. App records ~10 seconds via `MediaRecorder`.
 3. Browser samples 3 JPEG frames from the clip.
 4. Upload hits `/api/shield/challenge/upload-live-check`.
 5. `/api/shield/challenge` runs eKYC, SmartVision (multi-frame), SmartVoice STT, Smartbot, and local voice stress.

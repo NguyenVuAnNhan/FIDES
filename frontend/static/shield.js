@@ -27,7 +27,7 @@ const WIZARD_STEPS = [
   { id: 3, nextLabel: "Start new case" },
 ];
 
-const LIVE_CHECK_SECONDS = 4;
+const LIVE_CHECK_SECONDS = 10;
 const LIVE_FRAME_COUNT = 3;
 
 let currentStep = 1;
@@ -40,9 +40,12 @@ let audioRecorder = null;
 let audioRecordChunks = [];
 let cameraStream = null;
 let liveCheckRecorder = null;
+let liveCheckAudioRecorder = null;
 let liveCheckChunks = [];
+let liveCheckAudioChunks = [];
 let liveCheckTimer = null;
 let liveCheckVideoBlob = null;
+let liveCheckAudioBlob = null;
 let liveCheckFrameBlobs = [];
 
 initShieldPage();
@@ -138,7 +141,7 @@ async function runShieldAnalyze() {
 
     if (lastAnalyzeResponse.invasive_check_required) {
       setShieldStatus(
-        "Circuit breaker tripped. Enable camera, run the 4-second live check, then run in-app check.",
+        "Circuit breaker tripped. Enable camera, run the 10-second live check, then run in-app check.",
       );
       setWizardStep(2);
       await startCameraPreview();
@@ -225,6 +228,14 @@ async function resolveLiveCheckArtifacts() {
     type: liveCheckVideoBlob.type || "video/webm",
   });
   formData.append("challenge_video", videoFile);
+  if (liveCheckAudioBlob && liveCheckAudioBlob.size > 0) {
+    formData.append(
+      "challenge_audio",
+      new File([liveCheckAudioBlob], `live-audio-${Date.now()}.webm`, {
+        type: liveCheckAudioBlob.type || "audio/webm",
+      }),
+    );
+  }
   if (documentFile) {
     formData.append("document", documentFile);
   }
@@ -278,6 +289,7 @@ function resetChallengeMedia() {
   uploadedAudioArtifacts = null;
   uploadedLiveCheckArtifacts = null;
   liveCheckVideoBlob = null;
+  liveCheckAudioBlob = null;
   liveCheckFrameBlobs = [];
   clearLiveCheckTimer();
   stopLiveCheckRecording(true);
@@ -341,7 +353,7 @@ async function startCameraPreview() {
     if (shieldStartLiveCheck) {
       shieldStartLiveCheck.disabled = false;
     }
-    setLiveCheckStatus("Camera ready. Start the 4-second live check when you are in frame.");
+    setLiveCheckStatus("Camera ready. Start the 10-second live check when you are in frame.");
     setShieldStatus("Camera enabled. Start the live check in step 2.");
   } catch (error) {
     setShieldStatus(`Camera access failed: ${error.message}`);
@@ -376,18 +388,43 @@ async function startLiveCheckRecording() {
 
   uploadedLiveCheckArtifacts = null;
   liveCheckVideoBlob = null;
+  liveCheckAudioBlob = null;
   liveCheckFrameBlobs = [];
   liveCheckChunks = [];
+  liveCheckAudioChunks = [];
 
   const mimeType = pickRecorderMimeType();
+  const audioMimeType = pickAudioMimeType();
   try {
     liveCheckRecorder = mimeType
       ? new MediaRecorder(cameraStream, { mimeType })
+      : new MediaRecorder(cameraStream);
+    liveCheckAudioRecorder = audioMimeType
+      ? new MediaRecorder(cameraStream, { mimeType: audioMimeType })
       : new MediaRecorder(cameraStream);
   } catch (error) {
     setShieldStatus(`Live recording failed: ${error.message}`);
     return;
   }
+
+  let audioStopPromise = Promise.resolve();
+  liveCheckAudioRecorder.addEventListener("dataavailable", (event) => {
+    if (event.data.size > 0) {
+      liveCheckAudioChunks.push(event.data);
+    }
+  });
+  audioStopPromise = new Promise((resolve) => {
+    liveCheckAudioRecorder.addEventListener(
+      "stop",
+      () => {
+        liveCheckAudioBlob = new Blob(liveCheckAudioChunks, {
+          type: liveCheckAudioRecorder.mimeType || audioMimeType || "audio/webm",
+        });
+        resolve();
+      },
+      { once: true },
+    );
+  });
 
   liveCheckRecorder.addEventListener("dataavailable", (event) => {
     if (event.data.size > 0) {
@@ -395,6 +432,7 @@ async function startLiveCheckRecording() {
     }
   });
   liveCheckRecorder.addEventListener("stop", async () => {
+    await audioStopPromise;
     const blob = new Blob(liveCheckChunks, {
       type: liveCheckRecorder.mimeType || mimeType || "video/webm",
     });
@@ -402,6 +440,7 @@ async function startLiveCheckRecording() {
   });
 
   liveCheckRecorder.start(250);
+  liveCheckAudioRecorder.start(250);
   if (shieldStartLiveCheck) {
     shieldStartLiveCheck.hidden = true;
   }
@@ -429,6 +468,9 @@ async function startLiveCheckRecording() {
 
 function stopLiveCheckRecording(silent = false) {
   clearLiveCheckTimer();
+  if (liveCheckAudioRecorder && liveCheckAudioRecorder.state !== "inactive") {
+    liveCheckAudioRecorder.stop();
+  }
   if (liveCheckRecorder && liveCheckRecorder.state !== "inactive") {
     liveCheckRecorder.stop();
   }
@@ -456,7 +498,9 @@ async function finalizeLiveCheckRecording(videoBlob) {
     liveCheckFrameBlobs = await extractFramesFromVideoBlob(videoBlob, LIVE_FRAME_COUNT);
     renderFrameStrip(liveCheckFrameBlobs);
     setLiveCheckStatus(
-      `Live check captured (${Math.round(videoBlob.size / 1024)} KB video, ${liveCheckFrameBlobs.length} frame sample(s)). Run in-app check when ready.`,
+      `Live check captured (${Math.round(videoBlob.size / 1024)} KB video${
+        liveCheckAudioBlob ? `, ${Math.round(liveCheckAudioBlob.size / 1024)} KB audio` : ""
+      }, ${liveCheckFrameBlobs.length} frame sample(s)). Run in-app check when ready.`,
     );
     setShieldStatus("Live check ready. Click Run in-app check.");
   } catch (error) {
@@ -473,6 +517,19 @@ function pickRecorderMimeType() {
     "video/webm;codecs=vp8,opus",
     "video/webm",
     "video/mp4",
+  ];
+  if (!window.MediaRecorder?.isTypeSupported) {
+    return "";
+  }
+  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+}
+
+function pickAudioMimeType() {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
   ];
   if (!window.MediaRecorder?.isTypeSupported) {
     return "";

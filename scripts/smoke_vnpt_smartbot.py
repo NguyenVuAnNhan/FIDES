@@ -58,9 +58,17 @@ def main() -> int:
         )
     )
 
-    if response.get("http_status") == 200 and response.get("status") != "error":
+    has_sb_payload = isinstance(response.get("object"), dict) and bool(response["object"])
+    if response.get("http_status") == 200 and response.get("status") != "error" and has_sb_payload:
+        if classification.parse_source == "none":
+            print("\nFAIL: Smartbot returned HTTP 200 but card_data JSON was not parsed.")
+            return 1
         print("\nOK: VNPT Smartbot conversation endpoint accepted the request.")
         return 0
+
+    if response.get("http_status") == 200 and response.get("status") != "error":
+        print("\nFAIL: Smartbot HTTP 200 but response object is empty (check SSE parsing).")
+        return 1
 
     print("\nFAIL: VNPT Smartbot transport or auth failed.")
     return 1

@@ -46,6 +46,52 @@ class SmartbotParserTests(unittest.TestCase):
         result = parse_smartbot_response(response, "toi tu xac nhan")
         self.assertIsNone(result.llm_scam_type)
 
+    def test_parse_suspected_scam_with_transcript_keywords(self) -> None:
+        response = {
+            "object": {
+                "sb": {
+                    "card_data": [
+                        {
+                            "text": (
+                                '{"safe": false, "scam_type": "suspected_scam", '
+                                '"detected_patterns": ["scam_pattern_detected"], "confidence": 0.9}'
+                            ),
+                            "type": "text",
+                        }
+                    ]
+                }
+            }
+        }
+        result = parse_smartbot_response(
+            response,
+            "Cong an dang dieu tra vu an, yeu cau chuyen tien xac minh",
+        )
+        self.assertEqual(result.llm_scam_type, "fake_authority")
+        self.assertEqual(result.parse_source, "json")
+
+    def test_parse_suspected_scam_safe_confirmation(self) -> None:
+        response = {
+            "object": {
+                "sb": {
+                    "card_data": [
+                        {
+                            "text": (
+                                '{"safe": false, "scam_type": "suspected_scam", '
+                                '"detected_patterns": ["scam_pattern_detected"], "confidence": 0.9}'
+                            ),
+                            "type": "text",
+                        }
+                    ]
+                }
+            }
+        }
+        result = parse_smartbot_response(
+            response,
+            "Toi dang tu minh xac nhan giao dich nay. Khong co ai huong dan toi qua dien thoai.",
+        )
+        self.assertIsNone(result.llm_scam_type)
+        self.assertEqual(result.parse_source, "json")
+
 
 if __name__ == "__main__":
     unittest.main()

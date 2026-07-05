@@ -378,27 +378,36 @@ def _ekyc_api(
 
 
 def _stt_transcript_and_confidence(stt_object: dict[str, Any]) -> tuple[str, float]:
+    direct = str(stt_object.get("transcript") or "").strip()
+    if direct:
+        confidence = _stt_confidence_value(stt_object.get("confidence"))
+        if confidence <= 0 and stt_object.get("transcript_list"):
+            first = stt_object["transcript_list"][0]
+            if isinstance(first, dict):
+                confidence = _stt_confidence_value(first.get("confidence"))
+        return direct, confidence
+
     results = stt_object.get("results")
     if isinstance(results, list):
         for result in results:
             if not isinstance(result, dict):
                 continue
             alternatives = result.get("alternatives") or []
-            if alternatives and isinstance(alternatives[0], dict):
-                first = alternatives[0]
-                transcript = str(first.get("transcript") or "")
-                confidence = _stt_confidence_value(first.get("confidence"))
+            for alternative in alternatives:
+                if not isinstance(alternative, dict):
+                    continue
+                transcript = str(alternative.get("transcript") or "").strip()
                 if transcript:
-                    return transcript, confidence
+                    return transcript, _stt_confidence_value(alternative.get("confidence"))
 
     alternatives = stt_object.get("transcript_list") or []
     first_alternative = alternatives[0] if alternatives else {}
     if isinstance(first_alternative, dict):
-        transcript = str(stt_object.get("transcript") or first_alternative.get("transcript") or "")
+        transcript = str(first_alternative.get("transcript") or "")
         confidence = _stt_confidence_value(first_alternative.get("confidence"))
         return transcript, confidence
 
-    return str(stt_object.get("transcript") or ""), 0.0
+    return "", 0.0
 
 
 def _stt_confidence_value(value: object) -> float:
@@ -431,11 +440,16 @@ def _smartvoice_api(
     provider_notes = []
     if stt_failed:
         provider_notes.append(_vnpt_error_detail(stt_response))
+        if not transcript.strip():
+            provider_notes.append(
+                "STT returned no transcript. Speak clearly in Vietnamese during the live check "
+                "(e.g. confirm the transfer in your own words)."
+            )
     note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
         f"{provider_label} {source_detail} for {challenge.stt_audio_ref}. "
         f"status={stt_object.get('status')}, duration={stt_object.get('audio_duration')}, "
-        f"confidence={confidence:.2f}.{note_suffix}"
+        f"transcript_len={len(transcript.strip())}, confidence={confidence:.2f}.{note_suffix}"
     )
     return (
         {

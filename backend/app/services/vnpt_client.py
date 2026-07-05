@@ -357,19 +357,22 @@ class VnptClient:
             "model": "offline",
             "maxAlternatives": "1",
             "audioChannelCount": "1",
+            "languageCode": "vi-VN",
         }
         if self.settings.vnpt_stt_cap_punct_recovery.lower() in {"true", "1", "yes"}:
             extra_fields["enableAutomaticPunctuation"] = "true"
         suffix = audio_path.suffix.lower()
-        if suffix in {".mp3", ".mpeg"}:
+        if suffix == ".wav":
+            extra_fields["sampleRateHertz"] = str(self.settings.vnpt_stt_sample_rate)
             extra_fields["customConfiguration"] = json.dumps(
                 {
                     "invert_text": "1",
                     "cap_punct_recovery": self.settings.vnpt_stt_cap_punct_recovery,
-                    "convert_format": "mp3",
+                    "convert_format": "wav",
+                    "sample_rate": self.settings.vnpt_stt_sample_rate,
                 }
             )
-        elif suffix == ".webm":
+        elif suffix in {".mp3", ".mpeg", ".webm"}:
             extra_fields["customConfiguration"] = json.dumps(
                 {
                     "invert_text": "1",
@@ -387,6 +390,7 @@ class VnptClient:
             extra_fields=extra_fields,
             file_field_name="audioFile",
             file_content_type=self._audio_content_type(audio_path),
+            file_first=False,
             timeout=self.settings.vnpt_request_timeout_seconds,
         )
 
@@ -459,11 +463,22 @@ class VnptClient:
         timeout: float | None = None,
         file_field_name: str = "file",
         file_content_type: str = "application/octet-stream",
+        file_first: bool = False,
     ) -> dict[str, Any]:
         boundary = f"----fides-{uuid.uuid4().hex}"
-        parts: list[bytes] = []
+        file_part = [
+            f"--{boundary}\r\n".encode("utf-8"),
+            (
+                f'Content-Disposition: form-data; name="{file_field_name}"; '
+                f'filename="{file_path.name}"\r\n'
+            ).encode("utf-8"),
+            f"Content-Type: {file_content_type}\r\n\r\n".encode("utf-8"),
+            file_path.read_bytes(),
+            b"\r\n",
+        ]
+        field_parts: list[bytes] = []
         for field_name, field_value in (extra_fields or {}).items():
-            parts.extend(
+            field_parts.extend(
                 [
                     f"--{boundary}\r\n".encode("utf-8"),
                     f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'.encode("utf-8"),
@@ -471,19 +486,14 @@ class VnptClient:
                     b"\r\n",
                 ]
             )
-        parts.extend(
-            [
-                f"--{boundary}\r\n".encode("utf-8"),
-                (
-                    f'Content-Disposition: form-data; name="{file_field_name}"; '
-                    f'filename="{file_path.name}"\r\n'
-                ).encode("utf-8"),
-                f"Content-Type: {file_content_type}\r\n\r\n".encode("utf-8"),
-                file_path.read_bytes(),
-                b"\r\n",
-                f"--{boundary}--\r\n".encode("utf-8"),
-            ]
-        )
+        parts: list[bytes] = []
+        if file_first:
+            parts.extend(file_part)
+            parts.extend(field_parts)
+        else:
+            parts.extend(field_parts)
+            parts.extend(file_part)
+        parts.append(f"--{boundary}--\r\n".encode("utf-8"))
         headers = self._auth_headers(f"multipart/form-data; boundary={boundary}", product=product)
         return self._request(
             path,
@@ -658,13 +668,31 @@ class VnptClient:
     def _parse_json(self, body: bytes) -> Any:
         if not body:
             return {}
+        text = body.decode("utf-8", errors="replace").strip()
+        if not text:
+            return {}
+
         try:
-            return json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            return {
-                "message": "VNPT returned a non-JSON response",
-                "raw_response_preview": body[:500].decode("utf-8", errors="replace"),
-            }
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        for line in reversed(text.splitlines()):
+            payload = line.strip()
+            if not payload.startswith("data:"):
+                continue
+            payload = payload[5:].strip()
+            if not payload or payload == "[DONE]":
+                continue
+            try:
+                return json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+
+        return {
+            "message": "VNPT returned a non-JSON response",
+            "raw_response_preview": text[:500],
+        }
 
     def _nested_value(self, payload: dict[str, Any], keys: list[str]) -> Any:
         current: Any = payload

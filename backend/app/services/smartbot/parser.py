@@ -8,6 +8,16 @@ from typing import Any
 from backend.app.services.shield_service import detected_patterns_for_challenge, match_transcript_pattern
 
 SAFE_INTENT_HINTS = {"safe", "clear", "benign", "normal", "ok", "pass", "passed"}
+SAFE_CONFIRMATION_PHRASES = (
+    "tu minh xac nhan",
+    "tự mình xác nhận",
+    "khong co ai huong dan",
+    "không có ai hướng dẫn",
+    "giao dich nay la cua toi",
+    "giao dịch này là của tôi",
+    "toi tu chuyen tien",
+    "tôi tự chuyển tiền",
+)
 SCAM_INTENT_ALIASES = {
     "fake_authority": ("fake_authority", "authority", "cong_an", "police"),
     "remote_support": ("remote_support", "remote", "screen"),
@@ -35,6 +45,12 @@ def parse_smartbot_response(response: dict[str, Any], transcript: str) -> Smartb
         scam_type = structured.get("scam_type") or structured.get("llm_scam_type")
         if structured.get("safe") is True:
             scam_type = None
+        elif scam_type == "suspected_scam":
+            transcript_match = match_transcript_pattern(transcript.lower())
+            if transcript_match:
+                scam_type = transcript_match[0]
+            elif _looks_like_safe_confirmation(transcript):
+                scam_type = None
         patterns = _normalize_patterns(structured.get("detected_patterns"))
         confidence = _normalize_confidence(structured.get("confidence") or structured.get("llm_confidence"))
         if scam_type and not patterns:
@@ -127,6 +143,13 @@ def _parse_structured_json(text: str) -> dict[str, Any] | None:
         if isinstance(parsed, dict):
             return parsed
     return None
+
+
+def _looks_like_safe_confirmation(transcript: str) -> bool:
+    normalized = transcript.strip().lower()
+    if not normalized:
+        return False
+    return any(phrase in normalized for phrase in SAFE_CONFIRMATION_PHRASES)
 
 
 def _map_intent_name(intent_name: str | None) -> str | None:
