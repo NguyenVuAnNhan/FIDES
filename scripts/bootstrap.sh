@@ -5,8 +5,39 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+PYTHON_BIN="${FIDES_PYTHON:-}"
+if [[ -z "$PYTHON_BIN" ]]; then
+  for candidate in python3.11 python3.12 python3.10 python3.9; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -z "$PYTHON_BIN" ]]; then
+  echo "ERROR: No compatible Python (3.9-3.12) found. Install one, e.g.:" >&2
+  echo "  brew install python@3.11" >&2
+  echo "Then re-run, or set FIDES_PYTHON=/path/to/python3.11" >&2
+  exit 1
+fi
+echo "==> Using $($PYTHON_BIN --version) at $(command -v "$PYTHON_BIN")"
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  if [[ ! -f /opt/homebrew/opt/libomp/lib/libomp.dylib \
+        && ! -f /usr/local/opt/libomp/lib/libomp.dylib ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      echo "==> Installing libomp (required by lightgbm on macOS)"
+      brew install libomp
+    else
+      echo "ERROR: libomp not found and Homebrew is not available." >&2
+      echo "Install Homebrew (https://brew.sh) then run: brew install libomp" >&2
+      exit 1
+    fi
+  fi
+fi
+
 echo "==> Creating virtualenv"
-python3 -m venv .venv
+"$PYTHON_BIN" -m venv .venv
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
