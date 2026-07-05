@@ -53,6 +53,7 @@ class ShieldTransferActivity : ComponentActivity() {
 
     private var growReceiptBytes: ByteArray? = null
     private var growReceiptContentType: String = "image/jpeg"
+    private var growRequestGeneration = 0
 
     private var pendingAction: (() -> Unit)? = null
 
@@ -61,17 +62,6 @@ class ShieldTransferActivity : ComponentActivity() {
         liveCapture = LiveCheckCapture(this, this)
         previewView = PreviewView(this)
 
-        app.sessionMonitor.setListener { heartbeat ->
-            runOnUiThread {
-                uiState = uiState.copy(
-                    sessionRiskScore = heartbeat.sessionRiskScore,
-                    sessionRiskLevel = heartbeat.riskLevel,
-                    sessionMonitoringMessage = heartbeat.interventionMessage,
-                    sessionEarlyWarning = heartbeat.earlyWarning,
-                )
-            }
-        }
-
         setContent {
             FidesTheme {
                 FidesApp(
@@ -79,12 +69,12 @@ class ShieldTransferActivity : ComponentActivity() {
                     onNavigate = { tab -> uiState = uiState.copy(tab = tab, overlay = AppOverlay.NONE) },
                     onCheckTransaction = { openTransfer() },
                     onConfirmTransfer = { confirmTransfer(it) },
-                    onWarningBack = { resetFlow() },
+                    onWarningBack = { resetShieldFlow() },
                     onWarningContinue = {
                         uiState = uiState.copy(overlay = AppOverlay.VOICE)
                         ensurePermissions { bindCamera() }
                     },
-                    onCloseOverlay = { resetFlow() },
+                    onCloseOverlay = { closeOverlay() },
                     onRegisterLoan = { amount, termMonths -> openGrow(amount, termMonths) },
                     onPickGrowReceipt = { growReceiptPicker.launch("image/*") },
                     onAnalyzeGrow = { analyzeGrowReceipt() },
@@ -143,9 +133,12 @@ class ShieldTransferActivity : ComponentActivity() {
     }
 
     private fun uploadGrowReceipt(filename: String, bytes: ByteArray) {
+        val generation = growRequestGeneration + 1
+        growRequestGeneration = generation
         uiState = uiState.copy(loading = true, errorMessage = null, growStatusMessage = "Đang upload hóa đơn...")
         app.sdk.uploadGrowReceipt(bytes, filename, growReceiptContentType) { result ->
             runOnUiThread {
+                if (generation != growRequestGeneration) return@runOnUiThread
                 when (result) {
                     is FidesSdkResult.Failure -> {
                         uiState = uiState.copy(
@@ -159,7 +152,7 @@ class ShieldTransferActivity : ComponentActivity() {
                             loading = false,
                             growStatusMessage = "Upload xong. Đang chạy SmartReader OCR + chấm điểm tín dụng...",
                         )
-                        processGrowInvoice(result.value.inputSource)
+                        processGrowInvoice(result.value.inputSource, generation)
                     }
                 }
             }
@@ -176,10 +169,11 @@ class ShieldTransferActivity : ComponentActivity() {
         uploadGrowReceipt(filename, bytes)
     }
 
-    private fun processGrowInvoice(inputSource: String) {
+    private fun processGrowInvoice(inputSource: String, generation: Int = growRequestGeneration) {
         uiState = uiState.copy(loading = true, errorMessage = null)
         app.sdk.processGrowInvoice(inputSource) { result ->
             runOnUiThread {
+                if (generation != growRequestGeneration) return@runOnUiThread
                 when (result) {
                     is FidesSdkResult.Failure -> {
                         uiState = uiState.copy(
@@ -298,11 +292,30 @@ class ShieldTransferActivity : ComponentActivity() {
     }
 
     private fun verifyIdentity() {
-        val transaction = uiState.transaction ?: return
-        val document = cccdBytes ?: return
-        val capture = captureResult ?: return
+        val transaction = uiState.transaction
+        if (transaction == null) {
+            uiState = uiState.copy(errorMessage = "Thiếu thông tin giao dịch. Quay lại và thử lại.")
+            return
+        }
+        val document = cccdBytes
+        if (document == null) {
+            uiState = uiState.copy(errorMessage = "Chọn ảnh CCCD trước khi xác minh.")
+            return
+        }
+        val capture = captureResult
+        if (capture == null) {
+            uiState = uiState.copy(
+                errorMessage = "Chưa có video live check. Bấm Bắt đầu live check trước.",
+                liveCheckReady = false,
+            )
+            return
+        }
 
-        uiState = uiState.copy(loading = true)
+        uiState = uiState.copy(
+            loading = true,
+            errorMessage = null,
+            liveCheckStatus = "Đang upload video, frame và chạy eKYC + voice stress...",
+        )
         app.sdk.runIdentityCheck(
             transaction,
             consent,
@@ -312,13 +325,18 @@ class ShieldTransferActivity : ComponentActivity() {
             runOnUiThread {
                 when (result) {
                     is FidesSdkResult.Failure -> {
-                        uiState = uiState.copy(loading = false, errorMessage = result.message)
+                        uiState = uiState.copy(
+                            loading = false,
+                            errorMessage = formatApiError(result.message),
+                            liveCheckStatus = "Xác minh thất bại.",
+                        )
                     }
                     is FidesSdkResult.Success -> {
                         uiState = uiState.copy(
                             loading = false,
                             finalResponse = result.value,
                             overlay = AppOverlay.RESULT,
+                            liveCheckStatus = "",
                         )
                     }
                 }
@@ -341,7 +359,40 @@ class ShieldTransferActivity : ComponentActivity() {
         }
     }
 
-    private fun resetFlow() {
+    private fun closeOverlay() {
+        when (uiState.overlay) {
+            AppOverlay.GROW -> closeGrowOverlay()
+            AppOverlay.TRANSFER -> closeTransferOverlay()
+            else -> resetShieldFlow()
+        }
+    }
+
+    private fun closeGrowOverlay() {
+        growRequestGeneration += 1
+        growReceiptBytes = null
+        uiState = uiState.copy(
+            overlay = AppOverlay.NONE,
+            loading = false,
+            errorMessage = null,
+            growStatusMessage = "",
+            growReceiptFilename = null,
+            growResponse = null,
+        )
+    }
+
+    private fun closeTransferOverlay() {
+        uiState = uiState.copy(
+            overlay = AppOverlay.NONE,
+            loading = false,
+            errorMessage = null,
+            transaction = null,
+            analyzeResponse = null,
+            finalResponse = null,
+        )
+    }
+
+    private fun resetShieldFlow() {
+        growRequestGeneration += 1
         cccdBytes = null
         growReceiptBytes = null
         captureResult = null

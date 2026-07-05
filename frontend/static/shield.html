@@ -4,13 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FIDES Shield</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css?v=fides-ui-3" />
   </head>
   <body data-page="shield">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">FIDES Shield</p>
-        <h1>Transfer protection</h1>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">F</div>
+        <div class="brand-copy">
+          <p class="brand-name">FIDES Shield</p>
+          <p class="brand-tagline">Transfer protection</p>
+        </div>
       </div>
       <nav aria-label="Primary">
         <a href="/shield" data-nav="shield">Shield</a>
@@ -142,7 +151,7 @@
       </section>
     </main>
 
-    <script src="/static/shared.js?v=shield-path-b-9"></script>
-    <script src="/static/shield.js?v=shield-path-b-10"></script>
+    <script src="/static/shared.js?v=fides-ui-2"></script>
+    <script src="/static/shield.js?v=fides-ui-2"></script>
   </body>
 </html>

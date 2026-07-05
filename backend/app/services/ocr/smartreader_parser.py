@@ -8,6 +8,52 @@ from backend.app.models import InvoiceItem, OcrExtractedFields
 from backend.app.services.ocr.receipt_parser import ParseResult, parse_receipt_lines, parse_vnd
 
 
+def smartreader_field_text(value: Any) -> str:
+    """Unwrap VNPT SmartReader KIE Field objects into plain text."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return ""
+    if isinstance(value, (int, float)):
+        return str(value).strip()
+    if isinstance(value, str):
+        text = value.strip()
+        if text.startswith("{") and "'text'" in text:
+            return ""
+        return text
+    if isinstance(value, dict):
+        for key in ("text", "value", "content", "name"):
+            if key not in value:
+                continue
+            nested = value.get(key)
+            if nested is None:
+                continue
+            if isinstance(nested, dict):
+                nested_text = smartreader_field_text(nested)
+                if nested_text:
+                    return nested_text
+            else:
+                text = str(nested).strip()
+                if text:
+                    return text
+        return ""
+    if isinstance(value, list):
+        parts = [smartreader_field_text(item) for item in value]
+        return " ".join(part for part in parts if part).strip()
+    return ""
+
+
+def smartreader_field_amount(value: Any) -> int:
+    if isinstance(value, dict):
+        return parse_vnd(smartreader_field_text(value))
+    if isinstance(value, (int, float)):
+        return parse_vnd(value)
+    text = smartreader_field_text(value)
+    if text:
+        return parse_vnd(text)
+    return parse_vnd(value)
+
+
 def vnpt_call_failed(response: dict[str, Any]) -> bool:
     if response.get("status") == "error":
         return True
@@ -26,25 +72,48 @@ def vnpt_call_failed(response: dict[str, Any]) -> bool:
     return isinstance(message_fields, list) and bool(message_fields)
 
 
+def _text_lines_from_scan_item(item: Any) -> list[str]:
+    """Flatten SmartReader scan nodes (List/cells/Phrase) into plain text lines."""
+    if isinstance(item, str):
+        text = item.strip()
+        return [text] if text else []
+    if not isinstance(item, dict):
+        return []
+
+    nested_items: list[Any] = []
+    for key in ("cells", "lines", "paragraphs", "phrases", "children"):
+        nested = item.get(key)
+        if isinstance(nested, list):
+            nested_items.extend(nested)
+
+    if nested_items:
+        lines: list[str] = []
+        for child in nested_items:
+            lines.extend(_text_lines_from_scan_item(child))
+        return lines
+
+    direct = str(item.get("text") or item.get("content") or "").strip()
+    return [direct] if direct else []
+
+
 def lines_from_scan_response(response: dict[str, Any]) -> list[str]:
     obj = response.get("object")
     if not isinstance(obj, dict):
         return []
 
     lines: list[str] = []
-    for key in ("lines", "paragraphs", "phrases"):
+    seen: set[str] = set()
+    # Structured `lines` cells are authoritative; paragraphs/phrases duplicate/split them.
+    source_keys = ("lines",) if obj.get("lines") else ("paragraphs", "phrases")
+    for key in source_keys:
         raw = obj.get(key)
         if not isinstance(raw, list):
             continue
         for item in raw:
-            if isinstance(item, str):
-                text = item.strip()
-            elif isinstance(item, dict):
-                text = str(item.get("text") or item.get("content") or "").strip()
-            else:
-                continue
-            if text:
-                lines.append(text)
+            for text in _text_lines_from_scan_item(item):
+                if text not in seen:
+                    seen.add(text)
+                    lines.append(text)
     return lines
 
 
@@ -53,31 +122,27 @@ def parse_vat_invoice_response(response: dict[str, Any]) -> ParseResult:
     if not isinstance(obj, dict):
         return _empty_parse_result()
 
-    buyer_name = str(
-        obj.get("buyer_company_name") or obj.get("buyer_name") or ""
-    ).strip()
-    seller_name = str(
+    buyer_name = smartreader_field_text(
+        obj.get("buyer_company_name") or obj.get("buyer_name")
+    )
+    seller_name = smartreader_field_text(
         obj.get("seller_company_name")
         or obj.get("seller_name")
         or obj.get("provider_name")
-        or ""
-    ).strip()
+    )
 
-    total_amount = parse_vnd(obj.get("grand_total_after_tax"))
+    total_amount = smartreader_field_amount(obj.get("grand_total_after_tax"))
     tax_amount = 0
-    before_tax = parse_vnd(obj.get("grand_total_before_tax"))
+    before_tax = smartreader_field_amount(obj.get("grand_total_before_tax"))
     if before_tax > 0 and total_amount >= before_tax:
         tax_amount = total_amount - before_tax
     elif obj.get("tax_amount") is not None:
-        tax_amount = parse_vnd(obj.get("tax_amount"))
+        tax_amount = smartreader_field_amount(obj.get("tax_amount"))
 
-    invoice_id = str(
-        obj.get("invoice_number")
-        or obj.get("invoice_id")
-        or obj.get("invoice_symbol")
-        or ""
-    ).strip()
-    issue_date = str(obj.get("invoice_date") or obj.get("issue_date") or "").strip()
+    invoice_id = smartreader_field_text(
+        obj.get("invoice_number") or obj.get("invoice_id") or obj.get("invoice_symbol")
+    )
+    issue_date = smartreader_field_text(obj.get("invoice_date") or obj.get("issue_date"))
 
     line_items = _line_items_from_details(obj.get("details"))
     fields = OcrExtractedFields(
@@ -112,14 +177,13 @@ def _line_items_from_details(details: Any) -> list[InvoiceItem]:
     for entry in details:
         if not isinstance(entry, dict):
             continue
-        description = str(
+        description = smartreader_field_text(
             entry.get("item_name")
             or entry.get("name")
             or entry.get("description")
             or entry.get("product_name")
-            or ""
-        ).strip()
-        amount = parse_vnd(
+        )
+        amount = smartreader_field_amount(
             entry.get("amount")
             or entry.get("total_amount")
             or entry.get("total")
@@ -128,7 +192,7 @@ def _line_items_from_details(details: Any) -> list[InvoiceItem]:
         if not description or amount <= 0:
             continue
         quantity = entry.get("quantity")
-        unit_price = parse_vnd(entry.get("unit_price") or entry.get("price"))
+        unit_price = smartreader_field_amount(entry.get("unit_price") or entry.get("price"))
         items.append(
             InvoiceItem(
                 description=description,

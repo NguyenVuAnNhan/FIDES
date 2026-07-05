@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -52,22 +53,33 @@ fun GrowScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp),
+            .statusBarsPadding(),
     ) {
-        Spacer(modifier = Modifier.height(12.dp))
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Đăng ký vay Grow", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "Phân tích Grow",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(start = 8.dp),
+            )
             IconButton(onClick = onClose) {
                 Icon(Icons.Default.Close, contentDescription = "Đóng", tint = Color.Gray)
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+        ) {
+        Spacer(modifier = Modifier.height(4.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -75,7 +87,7 @@ fun GrowScreen(
                 .background(Color(0xFFE8F5F4))
                 .padding(16.dp),
         ) {
-            Text("Khoản vay đăng ký", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            Text("Khoản vay quan tâm", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
             Text(
                 "${formatVnd(loanAmount)} · $loanTermMonths tháng",
                 color = FidesTeal,
@@ -84,9 +96,16 @@ fun GrowScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "Upload hóa đơn bán hàng để FIDES Grow chấm điểm tín dụng thay thế (SmartReader OCR + LightGBM).",
+                "Một hóa đơn chỉ là phân tích sơ bộ — chưa phải hồ sơ vay đầy đủ. Upload biên lai để Grow chạy SmartReader OCR + LightGBM.",
                 color = Color.DarkGray,
                 style = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Cần thêm 2–3 hóa đơn (cùng doanh nghiệp) trước khi đề xuất hạn mức vay.",
+                color = FidesTeal,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
             )
         }
 
@@ -137,7 +156,7 @@ fun GrowScreen(
 
         if (receiptFilename != null && growResponse == null && !loading) {
             Spacer(modifier = Modifier.height(16.dp))
-            FidesPrimaryButton(text = "Phân tích tín dụng", onClick = onAnalyze)
+            FidesPrimaryButton(text = "Phân tích tín dụng sơ bộ", onClick = onAnalyze)
         }
 
         growResponse?.let { response ->
@@ -146,6 +165,7 @@ fun GrowScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        }
     }
 }
 
@@ -161,22 +181,31 @@ private fun GrowResultPanel(response: GrowProcessResponse) {
             )
             .padding(16.dp),
     ) {
-        Text("Kết quả Grow", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Text("Kết quả phân tích sơ bộ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Một hóa đơn không mô tả toàn bộ doanh nghiệp. Trust score bên dưới chỉ là tín hiệu ban đầu.",
+            color = Color.DarkGray,
+            style = MaterialTheme.typography.bodySmall,
+        )
         Spacer(modifier = Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GrowPill("Trust ${analysis.trustScore}/100")
-            GrowPill(analysis.creditBand.replace('_', ' '))
-            GrowPill(analysis.loanReadiness.replace('_', ' '))
+            GrowPill(formatLoanReadiness(analysis.loanReadiness))
         }
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            formatVnd(analysis.monthlyRevenueEstimate) + "/tháng",
-            fontWeight = FontWeight.Bold,
-            color = FidesTeal,
-            style = MaterialTheme.typography.headlineSmall,
+            "Doanh thu ước tính (thô): ${formatVnd(analysis.monthlyRevenueEstimate)}/tháng",
+            fontWeight = FontWeight.SemiBold,
+            color = Color.Gray,
+            style = MaterialTheme.typography.bodySmall,
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Text(analysis.recommendedAction, color = Color.DarkGray, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            formatRecommendedAction(analysis),
+            color = Color.DarkGray,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -252,3 +281,26 @@ private fun GrowFactRow(label: String, value: String?) {
 
 private fun formatVnd(amount: Long): String =
     NumberFormat.getNumberInstance(Locale("vi", "VN")).format(amount) + " đ"
+
+private fun formatLoanReadiness(readiness: String): String =
+    when {
+        readiness.contains("not_ready") -> "Chưa đủ hồ sơ"
+        readiness.contains("needs_more") -> "Cần thêm hóa đơn"
+        readiness.contains("ready") -> "Tín hiệu tích cực"
+        else -> readiness.replace('_', ' ')
+    }
+
+private fun formatRecommendedAction(analysis: ai.fides.sdk.GrowAnalyzeResponse): String {
+    val action = analysis.recommendedAction
+    if (action.contains("2") || action.contains("more invoice", ignoreCase = true)) {
+        return when {
+            analysis.trustScore >= 75 ->
+                "Hóa đơn này qua ngưỡng sơ bộ. Cần thêm 2–3 hóa đơn (hoặc sao kê) trước khi đề xuất hạn mức vay."
+            analysis.trustScore >= 55 ->
+                "Phân tích sơ bộ từ một biên lai. Thêm 2–3 hóa đơn để dựng lịch sử dòng tiền và đề xuất hạn mức."
+            else ->
+                "Một hóa đơn chưa đủ mô tả doanh nghiệp. Thu thêm hóa đơn trước khi gợi ý tín dụng."
+        }
+    }
+    return action
+}

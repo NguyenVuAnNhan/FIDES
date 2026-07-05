@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -50,7 +51,7 @@ fun TransferScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .verticalScroll(rememberScrollState())
+            .statusBarsPadding()
             .padding(20.dp),
     ) {
         Row(
@@ -63,6 +64,11 @@ fun TransferScreen(
                 Icon(Icons.Default.Close, contentDescription = "Đóng")
             }
         }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        ) {
         Text(
             "FIDES kiểm tra cuộc gọi và thiết bị ở background trước khi cho phép giao dịch.",
             color = Color.Gray,
@@ -103,6 +109,7 @@ fun TransferScreen(
                 )
             },
         )
+        }
     }
 }
 

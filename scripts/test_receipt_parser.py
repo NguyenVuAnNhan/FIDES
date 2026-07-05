@@ -89,6 +89,22 @@ PADDLE_COFFEE_LINES = [
     "32,000,000 VND",
 ]
 
+# SmartReader merged cells — labels dropped (real OCR from grow-coffee-strong.png).
+MERGED_OCR_LINES = [
+    "FIDESGROW RECEIPT",
+    "Synthetic demofixture",
+    "An Nhien Colfee",
+    "Buyer: Office Pantry Co",
+    "INV-2026-001",
+    "lssue date: 2026-06-21",
+    "Due date: 2026-06-28",
+    "Description Amount",
+    "Monthly coffee bean supply 18,000,000 VND",
+    "Office catering package 14000,000 VND",
+    "2909,091 VND",
+    "32,000,000 VND",
+]
+
 
 def main() -> int:
     failures: list[str] = []
@@ -165,6 +181,24 @@ def main() -> int:
         failures.append(f"coffee line_items: {parsed.fields.line_items}")
     elif parsed.fields.line_items[0].amount != 18_000_000:
         failures.append(f"coffee item0 amount: {parsed.fields.line_items[0].amount}")
+
+    merged = parse_receipt_lines(MERGED_OCR_LINES)
+    if merged.missing_required:
+        failures.append(f"merged OCR missing: {merged.missing_required}")
+    if merged.fields.seller_name != "An Nhien Colfee":
+        failures.append(f"merged seller: {merged.fields.seller_name!r}")
+    if merged.fields.buyer_name != "Office Pantry Co":
+        failures.append(f"merged buyer: {merged.fields.buyer_name!r}")
+    if merged.fields.invoice_id != "INV-2026-001":
+        failures.append(f"merged invoice: {merged.fields.invoice_id!r}")
+    if merged.fields.issue_date != "2026-06-21":
+        failures.append(f"merged issue_date: {merged.fields.issue_date!r}")
+    if merged.fields.total_amount != 32_000_000:
+        failures.append(f"merged total: {merged.fields.total_amount}")
+    if merged.fields.tax_amount != 2_909_091:
+        failures.append(f"merged tax: {merged.fields.tax_amount}")
+    if len(merged.fields.line_items) != 2:
+        failures.append(f"merged line_items: {merged.fields.line_items}")
 
     empty = parse_receipt_lines(["FIDES GROW RECEIPT", "noise only"])
     if not empty.missing_required:

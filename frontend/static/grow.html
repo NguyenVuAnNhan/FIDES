@@ -4,13 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FIDES Grow</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css?v=fides-ui-3" />
   </head>
   <body data-page="grow">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">FIDES Grow</p>
-        <h1>Invoice to trust profile</h1>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">F</div>
+        <div class="brand-copy">
+          <p class="brand-name">FIDES Grow</p>
+          <p class="brand-tagline">Invoice to trust profile</p>
+        </div>
       </div>
       <nav aria-label="Primary">
         <a href="/shield" data-nav="shield">Shield</a>
@@ -23,6 +32,10 @@
         <div class="section-heading">
           <p class="eyebrow">Empowerment</p>
           <h2>Alternative credit from invoice evidence</h2>
+          <p class="stage-muted">
+            One receipt is a <strong>preliminary signal</strong>, not a full business profile or loan approval.
+            Upload several invoices over time to build cashflow and trust-graph history before suggesting a limit.
+          </p>
         </div>
 
         <ol class="wizard-steps" id="grow-wizard-steps" aria-label="Grow flow progress">
@@ -43,7 +56,8 @@
             <h3 class="wizard-panel-title">1. Capture invoice evidence</h3>
             <p class="wizard-panel-lead">
               Upload a receipt image. Grow runs <strong>VNPT SmartReader</strong> on the file, normalizes a
-              ledger entry, then scores credit with the trained <strong>LightGBM</strong> model.
+              ledger entry, then returns a <strong>preliminary</strong> credit signal from the
+              <strong>LightGBM</strong> model. You will still need more invoices before recommending a limit.
             </p>
             <div class="wizard-grid">
               <label class="wide">
@@ -77,7 +91,7 @@
           </div>
 
           <div class="wizard-panel" data-step="3" id="grow-step-credit" hidden>
-            <h3 class="wizard-panel-title">3. Credit score</h3>
+            <h3 class="wizard-panel-title">3. Preliminary credit signal</h3>
             <div class="wizard-panel-body" id="grow-step-credit-body"></div>
           </div>
 
@@ -91,7 +105,7 @@
       </section>
     </main>
 
-    <script src="/static/shared.js?v=grow-real-4"></script>
-    <script src="/static/grow.js?v=grow-real-4"></script>
+    <script src="/static/shared.js?v=fides-ui-2"></script>
+    <script src="/static/grow.js?v=grow-ui-2"></script>
   </body>
 </html>

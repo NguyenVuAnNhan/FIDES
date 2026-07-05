@@ -14,9 +14,17 @@ import java.io.IOException
  * Add `implementation("com.squareup.okhttp3:okhttp:4.12.0")` in the banking app module.
  */
 class OkHttpFidesTransport(
-    private val client: OkHttpClient = OkHttpClient(),
+    private val client: OkHttpClient = defaultClient(),
     private val authHeaderProvider: (() -> String?)? = null,
 ) : FidesHttpTransport {
+    companion object {
+        private fun defaultClient(): OkHttpClient =
+            OkHttpClient.Builder()
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(180, java.util.concurrent.TimeUnit.SECONDS)
+                .build()
+    }
     override fun postJson(
         baseUrl: String,
         path: String,

@@ -12,17 +12,22 @@ _LABEL_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("seller_name", re.compile(r"^seller\s*[:.]\s*(.*)$", re.I)),
     ("buyer_name", re.compile(r"^buyer\s*[:.]\s*(.*)$", re.I)),
     ("invoice_id", re.compile(r"^invoice\s*[:.]\s*(.*)$", re.I)),
-    ("issue_date", re.compile(r"^issue\s*date\s*[:.]\s*(.*)$", re.I)),
+    ("issue_date", re.compile(r"^i(?:ssue|lssue)\s*date\s*[:.]\s*(.*)$", re.I)),
     ("due_date", re.compile(r"^due\s*date\s*[:.]\s*(.*)$", re.I)),
     ("tax_amount", re.compile(r"^tax\s*[:.]\s*(.*)$", re.I)),
     ("total_amount", re.compile(r"^total\s*[:.]\s*(.*)$", re.I)),
 ]
 
 _SKIP_LINE = re.compile(
-    r"^(fides\s*grow\s*receipt|synthetic\s*de\s*mo\s*fixture|synthetic\s*demo\s*fixture|"
-    r"description|amount|ocr\s*provider\b|confidence\b|generated\s*for\b)",
+    r"^(fides\s*grow\s*receipt|fidesgrow\s*receipt|synthetic\s*de\s*mo\s*fixture|"
+    r"synthetic\s*demo\s*fixture|synthetic\s*demofixture|description|amount|"
+    r"ocr\s*provider\b|confidence\b|generated\s*for\b)",
     re.I,
 )
+
+_INVOICE_ID = re.compile(r"\b(INV-\d{4}-\d+)\b", re.I)
+_ISSUE_DATE_INLINE = re.compile(r"(?:issue|lssue)\s*date\s*[:.]?\s*(\d{4}-\d{2}-\d{2})", re.I)
+_BUYER_INLINE = re.compile(r"^buyer\s*[:.]\s*(.+)$", re.I)
 
 _LINE_ITEM = re.compile(
     r"^(?P<description>.+?)\s+(?P<amount>\d[\d.,\s]*)\s*(?:vnd)?\s*$",
@@ -161,6 +166,8 @@ def parse_receipt_lines(lines: list[str]) -> ParseResult:
         ):
             values["total_amount"] = parse_vnd(line)
 
+    _apply_fides_receipt_heuristics(cleaned, values, line_items)
+
     fields = OcrExtractedFields(
         invoice_id=str(values["invoice_id"] or ""),
         seller_name=str(values["seller_name"] or ""),
@@ -214,3 +221,58 @@ def _has_required(fields: OcrExtractedFields, name: str) -> bool:
     if isinstance(value, int):
         return value > 0
     return bool(str(value or "").strip())
+
+
+def _apply_fides_receipt_heuristics(
+    cleaned: list[str],
+    values: dict[str, str | int | None],
+    line_items: list[InvoiceItem],
+) -> None:
+    """Fill missing fields when SmartReader OCR drops labels on FIDES synthetic receipts."""
+    if not values["invoice_id"]:
+        for line in cleaned:
+            match = _INVOICE_ID.search(line)
+            if match:
+                values["invoice_id"] = match.group(1)
+                break
+
+    if not values["issue_date"]:
+        for line in cleaned:
+            match = _ISSUE_DATE_INLINE.search(line)
+            if match:
+                values["issue_date"] = match.group(1)
+                break
+
+    if not values["seller_name"]:
+        for index, line in enumerate(cleaned):
+            if not _BUYER_INLINE.match(line):
+                continue
+            for candidate in reversed(cleaned[:index]):
+                if _SKIP_LINE.match(candidate):
+                    continue
+                if _INVOICE_ID.search(candidate) or _ISSUE_DATE_INLINE.search(candidate):
+                    continue
+                if _BUYER_INLINE.match(candidate) or re.match(
+                    r"^(due|tax|total|invoice|seller)\b", candidate, re.I
+                ):
+                    continue
+                if _AMOUNT_ONLY.match(candidate) or _LINE_ITEM.match(candidate):
+                    continue
+                values["seller_name"] = candidate
+                break
+            break
+
+    item_sum = sum(item.amount for item in line_items)
+    total = int(values["total_amount"] or 0)
+    standalone_amounts = [
+        parse_vnd(match.group("amount"))
+        for line in cleaned
+        if (match := _AMOUNT_ONLY.match(line))
+    ]
+    if standalone_amounts and (total <= 0 or (item_sum > 0 and total < item_sum)):
+        values["total_amount"] = max(standalone_amounts)
+        total = int(values["total_amount"] or 0)
+        if int(values["tax_amount"] or 0) <= 0:
+            smaller = [amount for amount in standalone_amounts if amount < total]
+            if smaller:
+                values["tax_amount"] = max(smaller)
