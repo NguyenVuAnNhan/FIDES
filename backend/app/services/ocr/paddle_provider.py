@@ -54,10 +54,19 @@ def get_paddle_provider() -> PaddleOcrProvider:
     return PaddleOcrProvider()
 
 
+_ALLOCATOR_RETRY_ATTEMPTS = 3
+
+
 def _read_text_lines(image_path: Path) -> list[str]:
     engine = _get_engine()
-    result = engine.ocr(str(image_path), cls=True)
-    return _lines_from_paddle_result(result)
+    last_error: Exception | None = None
+    for _ in range(_ALLOCATOR_RETRY_ATTEMPTS):
+        try:
+            result = engine.ocr(str(image_path), cls=True)
+            return _lines_from_paddle_result(result)
+        except Exception as exc:  
+            last_error = exc
+    raise last_error
 
 
 def _get_engine():

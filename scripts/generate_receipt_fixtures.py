@@ -11,8 +11,17 @@ from PIL import Image, ImageDraw, ImageFont
 
 DATASET_PATH = Path("backend/app/data/demo_dataset.json")
 STATIC_ROOT = Path("frontend/static")
-REGULAR_FONT = Path("/usr/share/fonts/opentype/urw-base35/NimbusMonoPS-Regular.otf")
-BOLD_FONT = Path("/usr/share/fonts/opentype/urw-base35/NimbusMonoPS-Bold.otf")
+
+REGULAR_FONT_CANDIDATES = [
+    Path("/usr/share/fonts/opentype/urw-base35/NimbusMonoPS-Regular.otf"),  # Linux
+    Path("/System/Library/Fonts/Supplemental/Courier New.ttf"),  # macOS
+    Path("C:/Windows/Fonts/cour.ttf"),  # Windows
+]
+BOLD_FONT_CANDIDATES = [
+    Path("/usr/share/fonts/opentype/urw-base35/NimbusMonoPS-Bold.otf"),  # Linux
+    Path("/System/Library/Fonts/Supplemental/Courier New Bold.ttf"),  # macOS
+    Path("C:/Windows/Fonts/courbd.ttf"),  # Windows
+]
 
 
 def main() -> None:
@@ -48,10 +57,10 @@ def render_receipt(record: dict[str, Any], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGB", (width, height), "#fbfaf5")
     draw = ImageDraw.Draw(image)
-    font = load_font(REGULAR_FONT, 24)
-    small = load_font(REGULAR_FONT, 20)
-    bold = load_font(BOLD_FONT, 28)
-    bold_small = load_font(BOLD_FONT, 21)
+    font = load_font(REGULAR_FONT_CANDIDATES, 24)
+    small = load_font(REGULAR_FONT_CANDIDATES, 20)
+    bold = load_font(BOLD_FONT_CANDIDATES, 28)
+    bold_small = load_font(BOLD_FONT_CANDIDATES, 21)
 
     draw.rectangle((22, 22, width - 22, height - 22), outline="#1f2933", width=2)
     draw.text((48, 44), "FIDES GROW RECEIPT", fill="#111827", font=bold)
@@ -130,10 +139,11 @@ def truncate(value: str, max_len: int) -> str:
     return value[: max_len - 3] + "..."
 
 
-def load_font(path: Path, size: int) -> ImageFont.ImageFont:
-    if path.exists():
-        return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
+def load_font(candidates: list[Path], size: int) -> ImageFont.ImageFont:
+    for path in candidates:
+        if path.exists():
+            return ImageFont.truetype(str(path), size=size)
+    return ImageFont.load_default(size=size)
 
 
 if __name__ == "__main__":
