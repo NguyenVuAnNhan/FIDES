@@ -46,7 +46,10 @@ class ShieldAnalyzeRequest(BaseModel):
     smartux_behavior_anomaly_score: float | None = Field(default=None, ge=0, le=1)
     smartux_remote_control_score: float | None = Field(default=None, ge=0, le=1)
     smartux_signals: list[str] = Field(default_factory=list)
-    consent_granted: bool = True
+    consent_call_monitoring: bool = False
+    consent_transfer_check: bool = False
+    shield_path: str = "transfer_monitoring"
+    consent_granted: bool = False
     audio_source: str | None = None
     stt_transcript: str = ""
     stt_confidence: float | None = Field(default=None, ge=0, le=1)

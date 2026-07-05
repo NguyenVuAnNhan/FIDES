@@ -22,13 +22,35 @@
       <section class="panel panel-shield">
         <div class="section-heading">
           <p class="eyebrow">Defense</p>
-          <h2>Real-time transfer risk analysis</h2>
+          <h2>Path B — transfer monitoring (no call listening)</h2>
+          <p class="stage-muted wide">
+            Step 1 scores transfer context while the user is on a call. Step 2 runs an in-app
+            camera and voice check via <code>/api/shield/challenge</code> when required.
+          </p>
         </div>
 
-        <form id="shield-form" class="flow-grid">
+        <ol class="wizard-steps" id="shield-wizard-steps" aria-label="Shield flow progress">
+          <li class="wizard-step is-active" data-step="1">Transfer context</li>
+          <li class="wizard-step" data-step="2">In-app check</li>
+        </ol>
+
+        <form id="shield-form" class="shield-wizard grow-wizard">
+          <input type="hidden" name="shield_path" value="transfer_monitoring" />
+
+          <div class="wizard-panel is-active" data-step="1">
+            <h3 class="wizard-panel-title">1. Transfer context</h3>
+            <div class="wizard-grid">
           <label class="wide">
             Scenario
             <select id="shield-scenario"></select>
+          </label>
+          <label class="checkbox-row wide">
+            <input name="consent_call_monitoring" type="checkbox" />
+            Allow call listening (Path A — not implemented in this demo)
+          </label>
+          <label class="checkbox-row wide">
+            <input name="consent_transfer_check" type="checkbox" disabled />
+            In-app transfer check consent (granted automatically in step 2)
           </label>
           <label>
             Amount
@@ -284,14 +306,40 @@
             Fallback Transcript
             <textarea name="transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
           </label>
-          <button type="submit" class="wide">Analyze Shield Risk</button>
-        </form>
+            </div>
+            <div class="wizard-panel-body" id="shield-step-context-body"></div>
+          </div>
 
-        <div id="shield-result" class="result empty">Run Shield analysis to see risk and intervention.</div>
+          <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
+            <h3 class="wizard-panel-title">2. In-app camera &amp; voice check</h3>
+            <p class="wizard-panel-lead">
+              Demo uses mock artifacts from <code>mock_payload/</code>. Choose pass or fail STT/eKYC
+              profiles, then run the challenge pipeline.
+            </p>
+            <div class="wizard-grid">
+              <label class="wide">
+                Challenge profile
+                <select id="shield-challenge-profile">
+                  <option value="pass">Pass — clear user (ekyc_img_1 + stt_audio_1)</option>
+                  <option value="fail_scam">Fail — scam script audio (stt_audio_2)</option>
+                  <option value="fail_biometric">Fail — eKYC artifact (ekyc_img_2)</option>
+                </select>
+              </label>
+            </div>
+            <div class="wizard-panel-body" id="shield-step-challenge-body"></div>
+          </div>
+
+          <div class="wizard-nav">
+            <button type="button" class="wizard-back" id="shield-back" disabled>Back</button>
+            <button type="button" class="wizard-next" id="shield-next">Analyze transfer</button>
+          </div>
+
+          <p class="wizard-status" id="shield-status" aria-live="polite"></p>
+        </form>
       </section>
     </main>
 
-    <script src="/static/shared.js"></script>
-    <script src="/static/shield.js"></script>
+    <script src="/static/shared.js?v=shield-path-b-1"></script>
+    <script src="/static/shield.js?v=shield-path-b-1"></script>
   </body>
 </html>

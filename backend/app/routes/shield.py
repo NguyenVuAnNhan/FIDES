@@ -1,7 +1,8 @@
 from fastapi import APIRouter
 
 from backend.app.models import ShieldAnalyzeRequest, ShieldAnalyzeResponse, ShieldChallengeRequest
-from backend.app.services.shield_service import analyze_shield_risk, run_mock_camera_voice_challenge
+from backend.app.services.shield_challenge_service import run_transfer_monitoring_challenge
+from backend.app.services.shield_service import analyze_shield_risk
 
 router = APIRouter(prefix="/api/shield", tags=["shield"])
 
@@ -13,4 +14,4 @@ def analyze(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
 
 @router.post("/challenge", response_model=ShieldAnalyzeResponse)
 def challenge(request: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
-    return run_mock_camera_voice_challenge(request)
+    return run_transfer_monitoring_challenge(request)
