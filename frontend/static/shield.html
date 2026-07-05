@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <p class="eyebrow">FIDES Shield</p>
-        <h1>Manipulation circuit breaker</h1>
+        <h1>Transfer protection</h1>
       </div>
       <nav aria-label="Primary">
         <a href="/shield" data-nav="shield">Shield</a>
@@ -22,271 +22,62 @@
       <section class="panel panel-shield">
         <div class="section-heading">
           <p class="eyebrow">Defense</p>
-          <h2>Path B — transfer monitoring (no call listening)</h2>
+          <h2>Path B — transfer monitoring</h2>
           <p class="stage-muted wide">
-            Step 1 scores transfer context while the user is on a call. Step 2 runs an in-app
-            camera and voice check via <code>/api/shield/challenge</code> when required.
+            FIDES monitors your app session from the moment you open this page, then scores transfer
+            context when you confirm. High session risk may require an in-app identity check.
           </p>
         </div>
 
         <ol class="wizard-steps" id="shield-wizard-steps" aria-label="Shield flow progress">
-          <li class="wizard-step is-active" data-step="1">Transfer context</li>
-          <li class="wizard-step" data-step="2">In-app check</li>
+          <li class="wizard-step is-active" data-step="1">Confirm transfer</li>
+          <li class="wizard-step" data-step="2">Identity check</li>
         </ol>
 
         <form id="shield-form" class="shield-wizard grow-wizard">
           <input type="hidden" name="shield_path" value="transfer_monitoring" />
 
           <div class="wizard-panel is-active" data-step="1">
-            <h3 class="wizard-panel-title">1. Transfer context</h3>
-            <div class="wizard-grid">
-          <label class="wide">
-            Scenario
-            <select id="shield-scenario"></select>
-          </label>
-          <label class="checkbox-row wide">
-            <input name="consent_call_monitoring" type="checkbox" />
-            Allow call listening (Path A — not implemented in this demo)
-          </label>
-          <label class="checkbox-row wide">
-            <input name="consent_transfer_check" type="checkbox" disabled />
-            In-app transfer check consent (granted automatically in step 2)
-          </label>
-          <label>
-            Amount
-            <input name="transaction_amount" type="number" value="75000000" min="0" />
-          </label>
-          <label>
-            Recipient
-            <input name="recipient_name" value="Nguyen Van A" />
-          </label>
-          <label>
-            Account
-            <input name="recipient_account" value="9704 0000 1234" />
-          </label>
-          <label>
-            Caller Type
-            <select name="caller_type">
-              <option value="unknown">Unknown</option>
-              <option value="voip">VoIP</option>
-              <option value="international">International</option>
-              <option value="trusted">Trusted</option>
-            </select>
-          </label>
-          <label>
-            Caller Number
-            <input name="caller_number" value="+882 13 456 789" />
-          </label>
-          <label class="checkbox-row">
-            <input name="active_call" type="checkbox" checked />
-            Active call while transferring
-          </label>
-          <label class="checkbox-row">
-            <input name="recipient_known" type="checkbox" />
-            Recipient known/trusted
-          </label>
-          <label>
-            Recipient Phone
-            <input name="recipient_phone" value="+84 903 777 888" />
-          </label>
-          <label>
-            vnSocial Reports
-            <input name="vn_social_report_count" type="number" value="27" min="0" />
-          </label>
-          <label>
-            vnSocial Keywords
-            <input name="vn_social_recent_keywords" value="cong an, xac minh tai khoan, chuyen tien" />
-          </label>
-          <label>
-            SIMO Status
-            <select name="simo_status">
-              <option value="not_checked">Not checked</option>
-              <option value="not_listed">Not listed</option>
-              <option value="watchlisted">Watchlisted</option>
-              <option value="listed">Listed</option>
-            </select>
-          </label>
-          <label>
-            SIMO Last Checked
-            <input name="simo_last_checked_at" value="2026-06-28T10:00:00Z" />
-          </label>
-          <label>
-            Graph Risk Score
-            <input name="graph_risk_score" type="number" value="0.88" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Graph Pattern
-            <input name="graph_pattern" value="fan_in_fan_out" />
-          </label>
-          <label>
-            Inbound Senders 10m
-            <input name="inbound_sender_count_10m" type="number" value="14" min="0" />
-          </label>
-          <label>
-            Outbound Accounts 10m
-            <input name="outbound_account_count_10m" type="number" value="9" min="0" />
-          </label>
-          <label>
-            Pass-through Minutes
-            <input name="median_pass_through_minutes" type="number" value="3" min="0" step="0.1" />
-          </label>
-          <label>
-            Account Age Days
-            <input name="account_age_days" type="number" value="4" min="0" />
-          </label>
-          <label>
-            Shared Device Cluster
-            <input name="shared_device_cluster_size" type="number" value="6" min="0" />
-          </label>
-          <label>
-            Recipient Risk Level
-            <select name="recipient_risk_level">
-              <option value="unknown">Unknown</option>
-              <option value="low">Low</option>
-              <option value="elevated">Elevated</option>
-              <option value="critical">Critical</option>
-            </select>
-          </label>
-          <label class="checkbox-row">
-            <input name="funds_moved_within_minutes" type="checkbox" checked />
-            Funds moved onward within minutes
-          </label>
-          <label class="checkbox-row">
-            <input name="remote_control_detected" type="checkbox" />
-            Remote-control app detected
-          </label>
-          <label class="checkbox-row">
-            <input name="native_telemetry_available" type="checkbox" checked />
-            Native telemetry available
-          </label>
-          <label>
-            Native Telemetry Source
-            <input name="native_telemetry_source" value="mock_android_sdk" />
-          </label>
-          <label class="checkbox-row">
-            <input name="installed_remote_access_app_detected" type="checkbox" />
-            Remote-access app detected
-          </label>
-          <label class="checkbox-row">
-            <input name="accessibility_service_risk" type="checkbox" />
-            Accessibility service risk
-          </label>
-          <label class="checkbox-row">
-            <input name="screen_sharing_detected" type="checkbox" />
-            Screen sharing detected
-          </label>
-          <label>
-            eKYC Status
-            <select name="ekyc_verification_status">
-              <option value="not_checked">Not checked</option>
-              <option value="passed">Passed</option>
-              <option value="review">Review</option>
-              <option value="failed">Failed</option>
-            </select>
-          </label>
-          <label>
-            Face Liveness
-            <select name="ekyc_liveness_passed">
-              <option value="">Unknown</option>
-              <option value="true">Live</option>
-              <option value="false">Not live</option>
-            </select>
-          </label>
-          <label>
-            Legacy Liveness Score
-            <input name="ekyc_liveness_score" type="number" value="0.91" min="0" max="1" step="0.01" />
-          </label>
-          <label class="checkbox-row">
-            <input name="ekyc_mask_detected" type="checkbox" />
-            eKYC mask detected
-          </label>
-          <label>
-            Face Match Score
-            <input name="ekyc_face_match_score" type="number" value="0.88" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Injection Risk Score
-            <input name="ekyc_injection_risk_score" type="number" value="0.12" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            SmartUX Behavior Score
-            <input name="smartux_behavior_anomaly_score" type="number" value="0.36" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            SmartUX Remote Score
-            <input name="smartux_remote_control_score" type="number" value="0.22" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            SmartUX Signals
-            <input name="smartux_signals" value="unusual_navigation_sequence" />
-          </label>
-          <label class="checkbox-row">
-            <input name="consent_granted" type="checkbox" checked />
-            Consent for call analysis
-          </label>
-          <label>
-            Audio Source
-            <input name="audio_source" value="fixtures/audio/fake-police-001.wav" />
-          </label>
-          <label>
-            STT Confidence
-            <input name="stt_confidence" type="number" value="0.94" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            LLM Scam Type
-            <input name="llm_scam_type" value="fake_authority" />
-          </label>
-          <label>
-            LLM Confidence
-            <input name="llm_confidence" type="number" value="0.91" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Detected Patterns
-            <input name="detected_patterns" value="fake_authority, case_involvement, transfer_for_verification, secrecy_pressure" />
-          </label>
-          <label>
-            Voice Stress Score
-            <input name="voice_stress_score" type="number" value="0.82" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Scripted Behavior Score
-            <input name="scripted_behavior_score" type="number" value="0.71" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Coercion Score
-            <input name="coercion_score" type="number" value="0.79" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Coercion Confidence
-            <input name="coercion_confidence" type="number" value="0.84" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Voice Stress Labels
-            <input name="voice_stress_labels" value="elevated_pitch, speech_hesitation, fast_breathing" />
-          </label>
-          <label>
-            Scripted Behavior Labels
-            <input name="scripted_behavior_labels" value="monotone_reading, long_pauses_before_answers, repeats_caller_phrasing" />
-          </label>
-          <label class="wide">
-            SmartVoice Transcript
-            <textarea name="stt_transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
-          </label>
-          <label class="wide">
-            Fallback Transcript
-            <textarea name="transcript" rows="5">Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.</textarea>
-          </label>
+            <h3 class="wizard-panel-title">Confirm transfer</h3>
+            <p class="wizard-panel-lead">
+              Review the payment details below. Background signals from the device and network are
+              attached automatically — you do not enter them manually.
+            </p>
+
+            <div class="shield-transfer-card">
+              <div class="wizard-grid">
+                <label>
+                  Amount (VND)
+                  <input name="transaction_amount" type="number" value="65000000" min="0" step="1000" required />
+                </label>
+                <label>
+                  Recipient name
+                  <input name="recipient_name" value="Tran Van B" required />
+                </label>
+                <label class="wide">
+                  Account number
+                  <input name="recipient_account" value="9704 2222 8800" required />
+                </label>
+              </div>
             </div>
+
+            <div class="shield-signals" id="shield-signals" aria-label="Background signals"></div>
+
             <div class="wizard-panel-body" id="shield-step-context-body"></div>
           </div>
 
           <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
-            <h3 class="wizard-panel-title">2. Live camera &amp; voice check</h3>
+            <h3 class="wizard-panel-title">Identity check</h3>
             <p class="wizard-panel-lead">
-              Record a short live clip from your front camera and microphone (~4 seconds).
-              FIDES samples frames for VNPT eKYC + SmartVision and extracts audio for SmartVoice STT.
-              Optionally add a CCCD portrait for face compare.
+              We need to verify it is really you approving this transfer. Upload your CCCD portrait,
+              enable the camera, then record a ~10 second live clip.
             </p>
+            <div class="wizard-grid">
+              <label class="wide">
+                CCCD / portrait (required)
+                <input id="shield-ekyc-document" type="file" accept="image/png,image/jpeg,image/webp" required />
+              </label>
+            </div>
             <div class="shield-live-check">
               <div class="shield-camera-shell">
                 <video
@@ -304,20 +95,20 @@
               <div class="wizard-inline-actions shield-live-actions">
                 <button type="button" class="wizard-secondary" id="shield-start-camera">Enable camera</button>
                 <button type="button" class="wizard-secondary" id="shield-start-live-check" disabled>
-                  Start live check (4s)
+                  Start live check (10s)
                 </button>
                 <button type="button" class="wizard-secondary" id="shield-stop-live-check" hidden>
                   Stop early
                 </button>
               </div>
-              <p class="stage-muted" id="shield-live-check-status">Enable the camera, then start the live check.</p>
+              <p class="stage-muted" id="shield-live-check-status">Upload CCCD portrait, then enable the camera.</p>
+              <p class="stage-muted wide">
+                During the 10-second clip, speak clearly in Vietnamese (for example: confirm you are approving
+                this transfer yourself and no one is coaching you on a call).
+              </p>
               <div class="shield-frame-strip wide" id="shield-frame-strip" hidden></div>
             </div>
             <div class="wizard-grid">
-              <label class="wide">
-                CCCD / portrait (optional)
-                <input id="shield-ekyc-document" type="file" accept="image/png,image/jpeg,image/webp" />
-              </label>
               <details class="wide shield-fallback-details">
                 <summary>Fallback: upload files instead of live camera</summary>
                 <div class="wizard-grid">
@@ -343,7 +134,7 @@
 
           <div class="wizard-nav">
             <button type="button" class="wizard-back" id="shield-back" disabled>Back</button>
-            <button type="button" class="wizard-next" id="shield-next">Analyze transfer</button>
+            <button type="button" class="wizard-next" id="shield-next">Confirm transfer</button>
           </div>
 
           <p class="wizard-status" id="shield-status" aria-live="polite"></p>
@@ -351,7 +142,7 @@
       </section>
     </main>
 
-    <script src="/static/shared.js?v=shield-path-b-4"></script>
-    <script src="/static/shield.js?v=shield-path-b-4"></script>
+    <script src="/static/shared.js?v=shield-path-b-9"></script>
+    <script src="/static/shield.js?v=shield-path-b-10"></script>
   </body>
 </html>

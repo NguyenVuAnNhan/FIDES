@@ -1,5 +1,5 @@
 const shieldForm = document.querySelector("#shield-form");
-const shieldScenario = document.querySelector("#shield-scenario");
+const shieldSignals = document.querySelector("#shield-signals");
 const shieldWizardSteps = document.querySelector("#shield-wizard-steps");
 const shieldBack = document.querySelector("#shield-back");
 const shieldNext = document.querySelector("#shield-next");
@@ -22,13 +22,58 @@ const shieldLiveCheckStatus = document.querySelector("#shield-live-check-status"
 const shieldFrameStrip = document.querySelector("#shield-frame-strip");
 
 const WIZARD_STEPS = [
-  { id: 1, nextLabel: "Analyze transfer" },
-  { id: 2, nextLabel: "Run in-app check" },
-  { id: 3, nextLabel: "Start new case" },
+  { id: 1, nextLabel: "Confirm transfer" },
+  { id: 2, nextLabel: "Verify & continue" },
+  { id: 3, nextLabel: "New transfer" },
 ];
 
-const LIVE_CHECK_SECONDS = 4;
+const LIVE_CHECK_SECONDS = 10;
 const LIVE_FRAME_COUNT = 3;
+const LIVE_FRAME_CAPTURE_SECONDS = [2, 5, 8];
+
+const DEFAULT_TRANSFER = {
+  transaction_amount: 65000000,
+  recipient_name: "Tran Van B",
+  recipient_account: "9704 2222 8800",
+};
+
+// Background context the mobile SDK would attach silently at transfer time.
+const APP_SDK_CONTEXT = {
+  active_call: true,
+  caller_type: "unknown",
+  caller_number: "+84 909 000 555",
+  recipient_known: false,
+  recipient_phone: "+84 909 000 555",
+  vn_social_report_count: 0,
+  vn_social_recent_keywords: [],
+  simo_status: "not_checked",
+  simo_last_checked_at: null,
+  graph_risk_score: null,
+  graph_pattern: null,
+  inbound_sender_count_10m: 0,
+  outbound_account_count_10m: 0,
+  median_pass_through_minutes: null,
+  account_age_days: null,
+  shared_device_cluster_size: 0,
+  funds_moved_within_minutes: false,
+  recipient_risk_level: "unknown",
+  remote_control_detected: false,
+  native_telemetry_available: true,
+  native_telemetry_source: "mock_android_sdk",
+  installed_remote_access_app_detected: false,
+  accessibility_service_risk: false,
+  screen_sharing_detected: false,
+  consent_call_monitoring: false,
+  consent_transfer_check: false,
+  smartux_behavior_anomaly_score: 0.22,
+  smartux_remote_control_score: 0.08,
+  smartux_signals: [],
+};
+
+const SDK_SESSION_ID = `fides-web-${Date.now()}`;
+const SESSION_HEARTBEAT_MS = 15000;
+let sessionHeartbeatTimer = null;
+let latestSessionRisk = null;
 
 let currentStep = 1;
 let lastAnalyzeResponse = null;
@@ -40,47 +85,122 @@ let audioRecorder = null;
 let audioRecordChunks = [];
 let cameraStream = null;
 let liveCheckRecorder = null;
+let liveCheckAudioRecorder = null;
 let liveCheckChunks = [];
+let liveCheckAudioChunks = [];
 let liveCheckTimer = null;
 let liveCheckVideoBlob = null;
+let liveCheckAudioBlob = null;
 let liveCheckFrameBlobs = [];
+let liveCheckStreamFrameBlobs = [];
+let liveCheckFrameCaptureTimers = [];
 
 initShieldPage();
 
-async function initShieldPage() {
+function initShieldPage() {
+  resetTransferForm();
+  renderShieldSignals();
+  setWizardStep(1);
+  startSessionMonitoring();
+  setShieldStatus(
+    "FIDES is monitoring this app session in the background. Review the transfer and tap Confirm transfer.",
+  );
+}
+
+function startSessionMonitoring() {
+  if (sessionHeartbeatTimer) {
+    clearInterval(sessionHeartbeatTimer);
+  }
+  sendSessionHeartbeat();
+  sessionHeartbeatTimer = setInterval(sendSessionHeartbeat, SESSION_HEARTBEAT_MS);
+}
+
+async function sendSessionHeartbeat() {
   try {
-    await loadDemoDataset();
-    populateScenarioSelect(shieldScenario, window.fidesDemoDataset.shield_scenarios);
-    if (shieldScenario.querySelector('option[value="shield-stage-one-challenge-required"]')) {
-      shieldScenario.value = "shield-stage-one-challenge-required";
-    }
-    shieldScenario.dispatchEvent(new Event("change"));
-    setWizardStep(1);
-    setShieldStatus(
-      "Path B: analyze transfer context first. Step 2 records live camera + voice for VNPT checks.",
-    );
+    const response = await postJson("/api/shield/session/heartbeat", {
+      sdk_session_id: SDK_SESSION_ID,
+      shield_path: "transfer_monitoring",
+      active_call: APP_SDK_CONTEXT.active_call,
+      caller_type: APP_SDK_CONTEXT.caller_type,
+      caller_number: APP_SDK_CONTEXT.caller_number,
+      consent_telemetry: true,
+      native_telemetry_available: APP_SDK_CONTEXT.native_telemetry_available,
+      remote_control_detected: APP_SDK_CONTEXT.remote_control_detected,
+      installed_remote_access_app_detected: APP_SDK_CONTEXT.installed_remote_access_app_detected,
+      accessibility_service_risk: APP_SDK_CONTEXT.accessibility_service_risk,
+      screen_sharing_detected: APP_SDK_CONTEXT.screen_sharing_detected,
+      smartux_behavior_anomaly_score: APP_SDK_CONTEXT.smartux_behavior_anomaly_score,
+      smartux_remote_control_score: APP_SDK_CONTEXT.smartux_remote_control_score,
+      smartux_signals: APP_SDK_CONTEXT.smartux_signals,
+      app_foreground: true,
+    });
+    latestSessionRisk = response;
+    renderSessionMonitoringBanner(response);
   } catch (error) {
-    console.error(error);
-    setShieldStatus("Failed to load Shield demo scenarios.");
+    console.warn("Shield session heartbeat failed", error);
   }
 }
 
-shieldScenario.addEventListener("change", () => {
-  const selected = getSelectedDemoItem("shield_scenarios", shieldScenario.value);
-  if (selected) {
-    fillForm(shieldForm, selected.payload);
-    const callMonitoring = shieldForm.elements.namedItem("consent_call_monitoring");
-    if (callMonitoring && selected.id === "shield-stage-one-challenge-required") {
-      callMonitoring.checked = false;
-    }
-    lastAnalyzeResponse = null;
-    lastAnalyzePayload = null;
-    resetChallengeMedia();
-    clearResultPanels();
-    setWizardStep(1);
-    setShieldStatus("Scenario loaded. Click Analyze transfer.");
+function renderSessionMonitoringBanner(response) {
+  if (!shieldSignals) {
+    return;
   }
-});
+  const tone = response.early_warning ? "warn" : "neutral";
+  const bannerHtml = `
+    <div class="shield-signal ${tone === "neutral" ? "is-neutral" : ""}" data-session-banner>
+      <strong>App session monitoring</strong>
+      <span>Session risk ${response.session_risk_score}/100 (${formatValue(response.risk_level)}). ${escapeHtml(response.intervention_message)}</span>
+    </div>
+  `;
+  const existing = shieldSignals.querySelector("[data-session-banner]");
+  if (existing) {
+    existing.outerHTML = bannerHtml;
+    return;
+  }
+  shieldSignals.insertAdjacentHTML("afterbegin", bannerHtml);
+}
+
+function resetTransferForm() {
+  setFieldValue(shieldForm, "transaction_amount", DEFAULT_TRANSFER.transaction_amount);
+  setFieldValue(shieldForm, "recipient_name", DEFAULT_TRANSFER.recipient_name);
+  setFieldValue(shieldForm, "recipient_account", DEFAULT_TRANSFER.recipient_account);
+}
+
+function renderShieldSignals() {
+  if (!shieldSignals) {
+    return;
+  }
+
+  const callerLabel = formatValue(APP_SDK_CONTEXT.caller_type);
+  const signals = [
+    {
+      title: "Active call detected",
+      detail: `A phone call is in progress while you are transferring money. Caller: ${APP_SDK_CONTEXT.caller_number} (${callerLabel}).`,
+      tone: "warn",
+    },
+    {
+      title: "New recipient",
+      detail: "This payee is not in your saved or recent transfer list.",
+      tone: "warn",
+    },
+    {
+      title: "Device telemetry attached",
+      detail: "The banking app SDK sent session signals for remote-control and navigation checks.",
+      tone: "neutral",
+    },
+  ];
+
+  shieldSignals.innerHTML = signals
+    .map(
+      (signal) => `
+        <div class="shield-signal ${signal.tone === "neutral" ? "is-neutral" : ""}">
+          <strong>${escapeHtml(signal.title)}</strong>
+          <span>${escapeHtml(signal.detail)}</span>
+        </div>
+      `,
+    )
+    .join("");
+}
 
 shieldBack.addEventListener("click", () => {
   if (currentStep > 1) {
@@ -124,13 +244,54 @@ if (shieldStartLiveCheck) {
 if (shieldStopLiveCheck) {
   shieldStopLiveCheck.addEventListener("click", stopLiveCheckRecording);
 }
+if (shieldEkycDocument) {
+  shieldEkycDocument.addEventListener("change", () => {
+    uploadedLiveCheckArtifacts = null;
+    uploadedEkycArtifacts = null;
+    updateLiveCheckButtonState();
+  });
+}
+
+function hasCccdSelected() {
+  return Boolean(shieldEkycDocument?.files?.[0]);
+}
+
+function updateLiveCheckButtonState() {
+  if (!shieldStartLiveCheck) {
+    return;
+  }
+
+  const recordingActive =
+    (liveCheckRecorder && liveCheckRecorder.state !== "inactive") ||
+    (liveCheckAudioRecorder && liveCheckAudioRecorder.state !== "inactive");
+  if (recordingActive) {
+    return;
+  }
+
+  const hasCccd = hasCccdSelected();
+  const hasCamera = Boolean(cameraStream);
+  shieldStartLiveCheck.disabled = !(hasCccd && hasCamera);
+
+  if (liveCheckVideoBlob) {
+    return;
+  }
+  if (!hasCccd && !hasCamera) {
+    setLiveCheckStatus("Upload CCCD portrait, then enable the camera.");
+  } else if (!hasCccd) {
+    setLiveCheckStatus("Upload a CCCD portrait image to unlock the live check.");
+  } else if (!hasCamera) {
+    setLiveCheckStatus("CCCD ready. Enable the camera to start the live check.");
+  } else {
+    setLiveCheckStatus("Ready. Start the 10-second live check when you are in frame.");
+  }
+}
 
 async function runShieldAnalyze() {
   const payload = buildShieldAnalyzePayload(new FormData(shieldForm));
   lastAnalyzePayload = payload;
 
   shieldNext.disabled = true;
-  setShieldStatus("Analyzing transfer context (Path B stage 1)...");
+  setShieldStatus("Checking transfer context...");
 
   try {
     lastAnalyzeResponse = await postJson("/api/shield/analyze", payload);
@@ -138,14 +299,14 @@ async function runShieldAnalyze() {
 
     if (lastAnalyzeResponse.invasive_check_required) {
       setShieldStatus(
-        "Circuit breaker tripped. Enable camera, run the 4-second live check, then run in-app check.",
+        "Extra verification required. Complete the identity check below.",
       );
       setWizardStep(2);
       await startCameraPreview();
     } else {
-      setShieldStatus("Analysis complete. No in-app check required for this scenario.");
+      setShieldStatus("Transfer cleared. No identity check needed.");
       setWizardStep(1);
-      shieldNext.textContent = "Start new case";
+      shieldNext.textContent = "New transfer";
       currentStep = 3;
       updateWizardChrome();
     }
@@ -171,7 +332,7 @@ async function runShieldChallenge() {
   }
 
   shieldNext.disabled = true;
-  setShieldStatus("Running in-app check via /api/shield/challenge...");
+  setShieldStatus("Running identity check...");
 
   try {
     const response = await postJson("/api/shield/challenge", {
@@ -181,8 +342,8 @@ async function runShieldChallenge() {
     });
     lastAnalyzeResponse = response;
     renderChallengeResult(response);
-    setShieldStatus("In-app check complete. Review final decision below.");
-    shieldNext.textContent = "Start new case";
+    setShieldStatus("Identity check complete. Review the decision below.");
+    shieldNext.textContent = "New transfer";
     currentStep = 3;
     updateWizardChrome();
   } catch (error) {
@@ -209,10 +370,14 @@ async function resolveChallengeArtifacts() {
 
 async function resolveLiveCheckArtifacts() {
   const documentFile = shieldEkycDocument?.files?.[0];
-  const documentName = documentFile?.name || null;
+  if (!documentFile) {
+    throw new Error("Upload a CCCD portrait image before running the live check.");
+  }
+  const documentName = documentFile.name;
   const cacheKey = [
     liveCheckVideoBlob.size,
-    liveCheckFrameBlobs.length,
+    ...liveCheckFrameBlobs.map((blob) => blob.size),
+    liveCheckAudioBlob?.size ?? 0,
     documentName,
   ].join(":");
 
@@ -225,9 +390,15 @@ async function resolveLiveCheckArtifacts() {
     type: liveCheckVideoBlob.type || "video/webm",
   });
   formData.append("challenge_video", videoFile);
-  if (documentFile) {
-    formData.append("document", documentFile);
+  if (liveCheckAudioBlob && liveCheckAudioBlob.size > 0) {
+    formData.append(
+      "challenge_audio",
+      new File([liveCheckAudioBlob], `live-audio-${Date.now()}.webm`, {
+        type: liveCheckAudioBlob.type || "audio/webm",
+      }),
+    );
   }
+  formData.append("document", documentFile);
   liveCheckFrameBlobs.forEach((frameBlob, index) => {
     formData.append(
       `frame_${index}`,
@@ -245,7 +416,7 @@ async function resolveLiveCheckArtifacts() {
   const uploadResponse = await postFormData("/api/shield/challenge/upload-live-check", formData);
   const payload = {
     ekyc_image_ref: uploadResponse.ekyc_image_ref,
-    ekyc_document_ref: uploadResponse.ekyc_document_ref || null,
+    ekyc_document_ref: uploadResponse.ekyc_document_ref,
     stt_audio_ref: uploadResponse.stt_audio_ref,
     challenge_video_ref: uploadResponse.challenge_video_ref,
     challenge_frame_refs: uploadResponse.challenge_frame_refs || [],
@@ -264,12 +435,12 @@ async function resolveLiveCheckArtifacts() {
 function resetShieldCase() {
   lastAnalyzeResponse = null;
   lastAnalyzePayload = null;
+  resetTransferForm();
   resetChallengeMedia();
   clearResultPanels();
-  shieldScenario.dispatchEvent(new Event("change"));
   setWizardStep(1);
   setShieldStatus(
-    "Path B: analyze transfer context first. Step 2 records live camera + voice for VNPT checks.",
+    "Review the transfer and tap Confirm transfer. FIDES will score background signals automatically.",
   );
 }
 
@@ -278,13 +449,17 @@ function resetChallengeMedia() {
   uploadedAudioArtifacts = null;
   uploadedLiveCheckArtifacts = null;
   liveCheckVideoBlob = null;
+  liveCheckAudioBlob = null;
   liveCheckFrameBlobs = [];
+  liveCheckStreamFrameBlobs = [];
+  clearLiveCheckFrameCaptureTimers();
   clearLiveCheckTimer();
   stopLiveCheckRecording(true);
   stopCameraStream();
   resetFallbackInputs();
   renderFrameStrip([]);
-  setLiveCheckStatus("Enable the camera, then start the live check.");
+  setLiveCheckStatus("Upload CCCD portrait, then enable the camera.");
+  updateLiveCheckButtonState();
 }
 
 function resetFallbackInputs() {
@@ -338,14 +513,12 @@ async function startCameraPreview() {
     if (shieldStartCamera) {
       shieldStartCamera.textContent = "Restart camera";
     }
-    if (shieldStartLiveCheck) {
-      shieldStartLiveCheck.disabled = false;
-    }
-    setLiveCheckStatus("Camera ready. Start the 4-second live check when you are in frame.");
+    updateLiveCheckButtonState();
     setShieldStatus("Camera enabled. Start the live check in step 2.");
   } catch (error) {
     setShieldStatus(`Camera access failed: ${error.message}`);
     setLiveCheckStatus("Camera permission denied or unavailable.");
+    updateLiveCheckButtonState();
   }
 }
 
@@ -361,12 +534,17 @@ function stopCameraStream() {
   if (shieldCameraPlaceholder) {
     shieldCameraPlaceholder.hidden = false;
   }
-  if (shieldStartLiveCheck) {
-    shieldStartLiveCheck.disabled = true;
-  }
+  updateLiveCheckButtonState();
 }
 
 async function startLiveCheckRecording() {
+  if (!hasCccdSelected()) {
+    setShieldStatus("Upload a CCCD portrait image before starting the live check.");
+    setLiveCheckStatus("CCCD portrait is required for VNPT face compare.");
+    updateLiveCheckButtonState();
+    return;
+  }
+
   if (!cameraStream) {
     await startCameraPreview();
     if (!cameraStream) {
@@ -376,17 +554,61 @@ async function startLiveCheckRecording() {
 
   uploadedLiveCheckArtifacts = null;
   liveCheckVideoBlob = null;
+  liveCheckAudioBlob = null;
   liveCheckFrameBlobs = [];
+  liveCheckStreamFrameBlobs = [];
+  clearLiveCheckFrameCaptureTimers();
   liveCheckChunks = [];
+  liveCheckAudioChunks = [];
 
   const mimeType = pickRecorderMimeType();
+  const audioMimeType = pickAudioMimeType();
   try {
     liveCheckRecorder = mimeType
       ? new MediaRecorder(cameraStream, { mimeType })
       : new MediaRecorder(cameraStream);
   } catch (error) {
     setShieldStatus(`Live recording failed: ${error.message}`);
+    setLiveCheckStatus(`Could not start video recorder: ${error.message}`);
+    updateLiveCheckButtonState();
     return;
+  }
+
+  liveCheckAudioRecorder = null;
+  const audioTracks = cameraStream.getAudioTracks();
+  if (audioTracks.length > 0) {
+    try {
+      const audioStream = new MediaStream(audioTracks);
+      liveCheckAudioRecorder = audioMimeType
+        ? new MediaRecorder(audioStream, { mimeType: audioMimeType })
+        : new MediaRecorder(audioStream);
+    } catch (error) {
+      console.warn("Parallel audio recorder unavailable; STT will use video audio.", error);
+      liveCheckAudioRecorder = null;
+    }
+  }
+
+  let audioStopPromise = Promise.resolve();
+  if (liveCheckAudioRecorder) {
+    liveCheckAudioRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size > 0) {
+        liveCheckAudioChunks.push(event.data);
+      }
+    });
+    audioStopPromise = new Promise((resolve) => {
+      liveCheckAudioRecorder.addEventListener(
+        "stop",
+        () => {
+          liveCheckAudioBlob = new Blob(liveCheckAudioChunks, {
+            type: liveCheckAudioRecorder.mimeType || audioMimeType || "audio/webm",
+          });
+          resolve();
+        },
+        { once: true },
+      );
+    });
+  } else {
+    liveCheckAudioBlob = null;
   }
 
   liveCheckRecorder.addEventListener("dataavailable", (event) => {
@@ -395,6 +617,7 @@ async function startLiveCheckRecording() {
     }
   });
   liveCheckRecorder.addEventListener("stop", async () => {
+    await audioStopPromise;
     const blob = new Blob(liveCheckChunks, {
       type: liveCheckRecorder.mimeType || mimeType || "video/webm",
     });
@@ -402,8 +625,18 @@ async function startLiveCheckRecording() {
   });
 
   liveCheckRecorder.start(250);
+  if (liveCheckAudioRecorder) {
+    try {
+      liveCheckAudioRecorder.start(250);
+    } catch (error) {
+      console.warn("Audio track recording failed; continuing with video only.", error);
+      liveCheckAudioRecorder = null;
+    }
+  }
+  scheduleLivePreviewFrameCaptures();
   if (shieldStartLiveCheck) {
     shieldStartLiveCheck.hidden = true;
+    shieldStartLiveCheck.disabled = true;
   }
   if (shieldStopLiveCheck) {
     shieldStopLiveCheck.hidden = false;
@@ -429,6 +662,10 @@ async function startLiveCheckRecording() {
 
 function stopLiveCheckRecording(silent = false) {
   clearLiveCheckTimer();
+  clearLiveCheckFrameCaptureTimers();
+  if (liveCheckAudioRecorder && liveCheckAudioRecorder.state !== "inactive") {
+    liveCheckAudioRecorder.stop();
+  }
   if (liveCheckRecorder && liveCheckRecorder.state !== "inactive") {
     liveCheckRecorder.stop();
   }
@@ -438,6 +675,7 @@ function stopLiveCheckRecording(silent = false) {
   if (shieldStopLiveCheck) {
     shieldStopLiveCheck.hidden = true;
   }
+  updateLiveCheckButtonState();
   if (!silent && !liveCheckVideoBlob) {
     setLiveCheckStatus("Processing recorded clip…");
   }
@@ -453,12 +691,23 @@ function clearLiveCheckTimer() {
 async function finalizeLiveCheckRecording(videoBlob) {
   liveCheckVideoBlob = videoBlob;
   try {
-    liveCheckFrameBlobs = await extractFramesFromVideoBlob(videoBlob, LIVE_FRAME_COUNT);
+    if (liveCheckStreamFrameBlobs.length >= LIVE_FRAME_COUNT) {
+      liveCheckFrameBlobs = liveCheckStreamFrameBlobs.slice(0, LIVE_FRAME_COUNT);
+    } else {
+      const extractedFrames = await extractFramesFromVideoBlob(videoBlob, LIVE_FRAME_COUNT);
+      liveCheckFrameBlobs =
+        liveCheckStreamFrameBlobs.length > 0
+          ? [...liveCheckStreamFrameBlobs, ...extractedFrames].slice(0, LIVE_FRAME_COUNT)
+          : extractedFrames;
+    }
     renderFrameStrip(liveCheckFrameBlobs);
     setLiveCheckStatus(
-      `Live check captured (${Math.round(videoBlob.size / 1024)} KB video, ${liveCheckFrameBlobs.length} frame sample(s)). Run in-app check when ready.`,
+      `Live check captured (${Math.round(videoBlob.size / 1024)} KB video${
+        liveCheckAudioBlob ? `, ${Math.round(liveCheckAudioBlob.size / 1024)} KB audio` : ""
+      }, ${liveCheckFrameBlobs.length} frame sample(s)). Tap Verify & continue when ready.`,
     );
-    setShieldStatus("Live check ready. Click Run in-app check.");
+    setShieldStatus("Live check ready. Tap Verify & continue.");
+    updateLiveCheckButtonState();
   } catch (error) {
     liveCheckFrameBlobs = [];
     renderFrameStrip([]);
@@ -478,6 +727,57 @@ function pickRecorderMimeType() {
     return "";
   }
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+}
+
+function pickAudioMimeType() {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+  ];
+  if (!window.MediaRecorder?.isTypeSupported) {
+    return "";
+  }
+  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+}
+
+function scheduleLivePreviewFrameCaptures() {
+  clearLiveCheckFrameCaptureTimers();
+  liveCheckStreamFrameBlobs = [];
+  LIVE_FRAME_CAPTURE_SECONDS.forEach((seconds) => {
+    const timerId = window.setTimeout(async () => {
+      if (!liveCheckRecorder || liveCheckRecorder.state === "inactive") {
+        return;
+      }
+      const frameBlob = await captureLivePreviewFrame();
+      if (frameBlob) {
+        liveCheckStreamFrameBlobs.push(frameBlob);
+      }
+    }, seconds * 1000);
+    liveCheckFrameCaptureTimers.push(timerId);
+  });
+}
+
+function clearLiveCheckFrameCaptureTimers() {
+  liveCheckFrameCaptureTimers.forEach((timerId) => window.clearTimeout(timerId));
+  liveCheckFrameCaptureTimers = [];
+}
+
+async function captureLivePreviewFrame() {
+  const video = shieldCameraPreview;
+  if (!video || !video.videoWidth || !video.videoHeight) {
+    return null;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvasToBlob(canvas, "image/jpeg", 0.95);
 }
 
 async function extractFramesFromVideoBlob(videoBlob, frameCount) {
@@ -509,7 +809,7 @@ async function extractFramesFromVideoBlob(videoBlob, frameCount) {
     const timestamp = duration * (index + 1) / (frameCount + 1);
     await seekVideo(video, timestamp);
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const frameBlob = await canvasToBlob(canvas, "image/jpeg", 0.9);
+    const frameBlob = await canvasToBlob(canvas, "image/jpeg", 0.95);
     frames.push(frameBlob);
   }
 
@@ -632,7 +932,7 @@ async function startAudioRecording() {
       }
       uploadedAudioArtifacts = null;
       if (shieldAudioUploadStatus) {
-        shieldAudioUploadStatus.textContent = `Recorded ${file.name}. It will upload when you run the in-app check.`;
+        shieldAudioUploadStatus.textContent = `Recorded ${file.name}. It will upload when you verify.`;
       }
       if (shieldRecordAudio) {
         shieldRecordAudio.hidden = false;
@@ -667,6 +967,9 @@ async function resolveEkycArtifacts() {
   }
 
   const documentFile = shieldEkycDocument?.files?.[0];
+  if (!documentFile) {
+    throw new Error("Upload a CCCD portrait image for VNPT face compare.");
+  }
   const selfieChanged = uploadedEkycArtifacts?.selfieFileName !== selfieFile.name;
   const documentChanged = (uploadedEkycArtifacts?.documentFileName || null) !== (documentFile?.name || null);
   if (uploadedEkycArtifacts && !selfieChanged && !documentChanged) {
@@ -678,9 +981,7 @@ async function resolveEkycArtifacts() {
 
   const formData = new FormData();
   formData.append("selfie", selfieFile);
-  if (documentFile) {
-    formData.append("document", documentFile);
-  }
+  formData.append("document", documentFile);
 
   if (shieldEkycUploadStatus) {
     shieldEkycUploadStatus.textContent = "Uploading images to /api/shield/challenge/upload-ekyc...";
@@ -689,15 +990,13 @@ async function resolveEkycArtifacts() {
   const uploadResponse = await postFormData("/api/shield/challenge/upload-ekyc", formData);
   uploadedEkycArtifacts = {
     ekyc_image_ref: uploadResponse.ekyc_image_ref,
-    ekyc_document_ref: uploadResponse.ekyc_document_ref || null,
+    ekyc_document_ref: uploadResponse.ekyc_document_ref,
     selfieFileName: selfieFile.name,
-    documentFileName: documentFile?.name || null,
+    documentFileName: documentFile.name,
   };
 
   if (shieldEkycUploadStatus) {
-    shieldEkycUploadStatus.textContent = `Uploaded ${uploadResponse.selfie_filename}${
-      uploadResponse.document_filename ? ` + ${uploadResponse.document_filename}` : ""
-    }.`;
+    shieldEkycUploadStatus.textContent = `Uploaded ${uploadResponse.selfie_filename} + ${uploadResponse.document_filename}.`;
   }
 
   return {
@@ -707,36 +1006,12 @@ async function resolveEkycArtifacts() {
 }
 
 function buildShieldAnalyzePayload(form) {
-  const payload = {
+  return {
     transaction_amount: Number(form.get("transaction_amount")),
     recipient_name: String(form.get("recipient_name")),
     recipient_account: String(form.get("recipient_account")),
-    active_call: form.get("active_call") === "on",
-    caller_type: String(form.get("caller_type")),
-    caller_number: String(form.get("caller_number")),
-    recipient_known: form.get("recipient_known") === "on",
-    recipient_phone: String(form.get("recipient_phone")),
-    vn_social_report_count: Number(form.get("vn_social_report_count")),
-    vn_social_recent_keywords: parseList(form.get("vn_social_recent_keywords")),
-    simo_status: String(form.get("simo_status")),
-    simo_last_checked_at: emptyToNull(form.get("simo_last_checked_at")),
-    graph_risk_score: numberOrNull(form.get("graph_risk_score")),
-    graph_pattern: emptyToNull(form.get("graph_pattern")),
-    inbound_sender_count_10m: Number(form.get("inbound_sender_count_10m")),
-    outbound_account_count_10m: Number(form.get("outbound_account_count_10m")),
-    median_pass_through_minutes: numberOrNull(form.get("median_pass_through_minutes")),
-    account_age_days: numberOrNull(form.get("account_age_days")),
-    shared_device_cluster_size: Number(form.get("shared_device_cluster_size")),
-    funds_moved_within_minutes: form.get("funds_moved_within_minutes") === "on",
-    recipient_risk_level: String(form.get("recipient_risk_level")),
-    remote_control_detected: form.get("remote_control_detected") === "on",
-    native_telemetry_available: form.get("native_telemetry_available") === "on",
-    native_telemetry_source: emptyToNull(form.get("native_telemetry_source")),
-    installed_remote_access_app_detected: form.get("installed_remote_access_app_detected") === "on",
-    accessibility_service_risk: form.get("accessibility_service_risk") === "on",
-    screen_sharing_detected: form.get("screen_sharing_detected") === "on",
-    consent_call_monitoring: form.get("consent_call_monitoring") === "on",
-    consent_transfer_check: false,
+    ...APP_SDK_CONTEXT,
+    sdk_session_id: SDK_SESSION_ID,
     shield_path: String(form.get("shield_path") || "transfer_monitoring"),
     ekyc_verification_status: "not_checked",
     ekyc_liveness_passed: null,
@@ -744,9 +1019,6 @@ function buildShieldAnalyzePayload(form) {
     ekyc_mask_detected: false,
     ekyc_face_match_score: null,
     ekyc_injection_risk_score: null,
-    smartux_behavior_anomaly_score: numberOrNull(form.get("smartux_behavior_anomaly_score")),
-    smartux_remote_control_score: numberOrNull(form.get("smartux_remote_control_score")),
-    smartux_signals: parseList(form.get("smartux_signals")),
     consent_granted: false,
     audio_source: null,
     stt_transcript: "",
@@ -764,38 +1036,14 @@ function buildShieldAnalyzePayload(form) {
     coercion_confidence: null,
     transcript: "",
   };
-
-  if (shieldScenario.value !== "shield-stage-one-challenge-required") {
-    payload.ekyc_verification_status = String(form.get("ekyc_verification_status"));
-    payload.ekyc_liveness_score = numberOrNull(form.get("ekyc_liveness_score"));
-    payload.ekyc_mask_detected = form.get("ekyc_mask_detected") === "on";
-    payload.ekyc_face_match_score = numberOrNull(form.get("ekyc_face_match_score"));
-    payload.ekyc_injection_risk_score = numberOrNull(form.get("ekyc_injection_risk_score"));
-    payload.consent_granted = form.get("consent_granted") === "on";
-    payload.audio_source = emptyToNull(form.get("audio_source"));
-    payload.stt_transcript = String(form.get("stt_transcript"));
-    payload.stt_confidence = numberOrNull(form.get("stt_confidence"));
-    payload.detected_patterns = parseList(form.get("detected_patterns"));
-    payload.llm_scam_type = emptyToNull(form.get("llm_scam_type"));
-    payload.llm_confidence = numberOrNull(form.get("llm_confidence"));
-    payload.voice_stress_score = numberOrNull(form.get("voice_stress_score"));
-    payload.voice_stress_labels = parseList(form.get("voice_stress_labels"));
-    payload.scripted_behavior_score = numberOrNull(form.get("scripted_behavior_score"));
-    payload.scripted_behavior_labels = parseList(form.get("scripted_behavior_labels"));
-    payload.coercion_score = numberOrNull(form.get("coercion_score"));
-    payload.coercion_confidence = numberOrNull(form.get("coercion_confidence"));
-    payload.transcript = String(form.get("transcript"));
-  }
-
-  return payload;
 }
 
 function renderContextResult(result) {
-  shieldStepContextBody.innerHTML = renderShieldResult(result, "Stage 1 context analysis");
+  shieldStepContextBody.innerHTML = renderShieldResult(result, "Transfer review");
 }
 
 function renderChallengeResult(result) {
-  shieldStepChallengeBody.innerHTML = renderShieldResult(result, "Final decision after in-app check");
+  shieldStepChallengeBody.innerHTML = renderShieldResult(result, "Final decision");
 }
 
 function renderShieldResult(result, heading) {
@@ -836,6 +1084,7 @@ function setWizardStep(step) {
     stopCameraStream();
   } else if (step === 2) {
     shieldNext.textContent = WIZARD_STEPS[1].nextLabel;
+    updateLiveCheckButtonState();
   }
 }
 

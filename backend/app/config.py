@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     vnpt_smartvoice_mode: str | None = "real"
     vnpt_smartbot_mode: str | None = "real"
     vnpt_smartvision_mode: str | None = "real"
+    vnpt_smartreader_mode: str | None = "real"
     vnpt_base_url: str = "https://api.idg.vnpt.vn"
     vnpt_smartbot_base_url: str = "https://assistant-stream.vnpt.vn"
     vnpt_access_token: str | None = None
@@ -35,6 +36,11 @@ class Settings(BaseSettings):
     vnpt_smartvision_detect_face_path: str = "/data-service/v1/smartvision/detect-face"
     vnpt_smartvision_max_object: int = 1
     vnpt_smartvision_request_timeout_seconds: int = 30
+    vnpt_smartreader_access_token: str | None = None
+    vnpt_smartreader_token_id: str | None = None
+    vnpt_smartreader_token_key: str | None = None
+    vnpt_smartreader_token: str | None = None
+    vnpt_smartreader_request_timeout_seconds: int = 60
     vnpt_ekyc_token: str | None = None
     vnpt_mac_address: str = "TEST1"
     vnpt_request_timeout_seconds: int = 20

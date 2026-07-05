@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke-test FIDES Grow pipeline with real PaddleOCR on receipt fixtures."""
+"""Smoke-test FIDES Grow pipeline with VNPT SmartReader on receipt fixtures."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from backend.app.config import get_settings
 from backend.app.models import GrowProcessRequest
 from backend.app.services.grow_pipeline_service import GrowOcrError, process_invoice
 from backend.app.services.ocr.paths import (
@@ -19,6 +20,7 @@ from backend.app.services.ocr.paths import (
     ensure_uploads_dir,
     resolve_receipt_path,
 )
+from backend.app.services.vnpt_client import VnptClient
 
 DATASET_PATH = ROOT / "backend/app/data/demo_dataset.json"
 FIXTURES_DIR = ROOT / "frontend/static/fixtures/receipts"
@@ -46,17 +48,17 @@ def _minimal_payload(payload: dict) -> dict:
 
 
 def main() -> int:
-    try:
-        from paddleocr import PaddleOCR  # noqa: F401
-    except ImportError as exc:
-        print("PaddleOCR is not installed. Activate .venv and pip install -r requirements.txt")
-        print(f"Import error: {exc}")
+    settings = get_settings()
+    client = VnptClient(settings)
+    print(f"smartreader_enabled={client.smartreader_enabled} provider_mode={client.mode}")
+    if not client.smartreader_enabled:
+        print("FAIL: SmartReader real mode is disabled or credentials are incomplete.")
+        print("Set VNPT_SMARTREADER_MODE=real and VNPT token credentials in .env")
         return 1
 
     dataset = json.loads(DATASET_PATH.read_text(encoding="utf-8"))
     failures: list[str] = []
 
-    # Path safety checks (Part 3).
     try:
         resolve_receipt_path("/static/fixtures/receipts/../../../etc/passwd")
         failures.append("path traversal was not rejected")
@@ -105,7 +107,7 @@ def main() -> int:
             f"band={analysis.credit_band} total={request.invoice_total}"
         )
 
-        if ocr.provider != "PaddleOCR":
+        if ocr.provider != "SmartReader":
             failures.append(f"{scenario_id}: provider={ocr.provider!r}")
         if ocr.status != "completed":
             failures.append(f"{scenario_id}: ocr.status={ocr.status}")

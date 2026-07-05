@@ -45,12 +45,16 @@ def predict_emotion2vec(audio_path: str, model_name: str, hub: str = "hf") -> Em
     if not isinstance(first, dict):
         return None
 
-    labels = [str(item).lower() for item in first.get("labels", [])]
+    raw_labels = [str(item) for item in first.get("labels", [])]
     scores = [_to_float(item) for item in first.get("scores", [])]
-    if not labels or not scores or len(labels) != len(scores):
+    if not raw_labels or not scores or len(raw_labels) != len(scores):
         return None
 
-    ranked = sorted(zip(labels, scores), key=lambda item: item[1], reverse=True)
+    ranked = sorted(
+        ((_normalize_emotion_label(label), score) for label, score in zip(raw_labels, scores)),
+        key=lambda item: item[1],
+        reverse=True,
+    )
     distress_score, arousal, valence, dominance = _map_distress_scores(ranked)
     return EmotionPrediction(
         arousal=arousal,
@@ -117,8 +121,28 @@ def _resolve_backend(backend: str, model_name: str) -> str:
     return "wav2vec"
 
 
+def _normalize_emotion_label(label: str) -> str:
+    """Map emotion2vec bilingual labels (e.g. ``难过/sad``) to English keys."""
+    text = str(label).strip().lower()
+    if "/" in text:
+        english = text.rsplit("/", 1)[-1].strip()
+        if english:
+            text = english
+    aliases = {
+        "anger": "angry",
+        "sadness": "sad",
+        "disgust": "disgusted",
+        "fear": "fearful",
+        "happiness": "happy",
+    }
+    return aliases.get(text, text)
+
+
 def _map_distress_scores(ranked: list[tuple[str, float]]) -> tuple[float, float, float, float]:
-    scores = {label: score for label, score in ranked}
+    scores: dict[str, float] = {}
+    for label, score in ranked:
+        normalized = _normalize_emotion_label(label)
+        scores[normalized] = max(scores.get(normalized, 0.0), score)
     distress = sum(scores.get(label, 0.0) for label in EMOTION2VEC_DISTRESS_LABELS)
     fearful = scores.get("fearful", 0.0)
     angry = scores.get("angry", 0.0)

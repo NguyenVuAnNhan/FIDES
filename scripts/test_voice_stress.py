@@ -31,7 +31,10 @@ def _write_wav(path: Path, signal: np.ndarray, sample_rate: int = 16000) -> None
         handle.write(data)
 
 
-from backend.app.services.voice_stress.emotion2vec_model import _map_distress_scores
+from backend.app.services.voice_stress.emotion2vec_model import (
+    _map_distress_scores,
+    _normalize_emotion_label,
+)
 
 
 class VoiceStressProsodyTests(unittest.TestCase):
@@ -68,6 +71,13 @@ class VoiceStressProsodyTests(unittest.TestCase):
         self.assertGreater(distress, 0.5)
         self.assertGreater(arousal, 0.4)
         self.assertLess(valence, 0.55)
+
+    def test_bilingual_emotion_labels_normalize_to_english(self) -> None:
+        self.assertEqual(_normalize_emotion_label("中立/neutral"), "neutral")
+        self.assertEqual(_normalize_emotion_label("难过/sad"), "sad")
+        ranked = [("中立/neutral", 0.2), ("难过/sad", 0.55), ("生气/angry", 0.25)]
+        distress, _arousal, _valence, _dominance = _map_distress_scores(ranked)
+        self.assertGreater(distress, 0.5)
 
 
 if __name__ == "__main__":

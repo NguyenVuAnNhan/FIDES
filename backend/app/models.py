@@ -69,6 +69,41 @@ class ShieldAnalyzeRequest(BaseModel):
     coercion_score: float | None = Field(default=None, ge=0, le=1)
     coercion_confidence: float | None = Field(default=None, ge=0, le=1)
     transcript: str = ""
+    smartbot_intervention_message: str | None = None
+    smartbot_recommended_action: str | None = None
+    smartbot_risk_level: str | None = None
+    sdk_session_id: str | None = None
+
+
+class ShieldSessionHeartbeatRequest(BaseModel):
+    sdk_session_id: str
+    shield_path: str = "transfer_monitoring"
+    active_call: bool = False
+    caller_type: str = "unknown"
+    caller_number: str = ""
+    consent_telemetry: bool = False
+    native_telemetry_available: bool = False
+    remote_control_detected: bool = False
+    installed_remote_access_app_detected: bool = False
+    accessibility_service_risk: bool = False
+    screen_sharing_detected: bool = False
+    smartux_behavior_anomaly_score: float | None = Field(default=None, ge=0, le=1)
+    smartux_remote_control_score: float | None = Field(default=None, ge=0, le=1)
+    smartux_signals: list[str] = Field(default_factory=list)
+    app_foreground: bool = True
+
+
+class ShieldSessionHeartbeatResponse(BaseModel):
+    sdk_session_id: str
+    session_risk_score: int = Field(ge=0, le=100)
+    risk_level: str
+    call_active_during_session: bool = False
+    call_active_now: bool = False
+    heartbeat_count: int = Field(default=0, ge=0)
+    session_age_seconds: int = Field(default=0, ge=0)
+    early_warning: bool = False
+    explanations: list[Explanation] = Field(default_factory=list)
+    intervention_message: str
 
 
 class ShieldAnalyzeResponse(BaseModel):
@@ -98,7 +133,7 @@ class ShieldAnalyzeResponse(BaseModel):
 class ShieldChallengeRequest(BaseModel):
     transaction: ShieldAnalyzeRequest
     ekyc_image_ref: str
-    ekyc_document_ref: str | None = None
+    ekyc_document_ref: str
     stt_audio_ref: str
     challenge_video_ref: str | None = None
     challenge_frame_refs: list[str] = Field(default_factory=list)

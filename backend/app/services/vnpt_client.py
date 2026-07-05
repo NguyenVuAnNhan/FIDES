@@ -25,13 +25,15 @@ class VnptClient:
             or self.smartvoice_enabled
             or self.smartbot_enabled
             or self.smartvision_enabled
+            or self.smartreader_enabled
         )
 
     @property
     def mode(self) -> str:
         return (
             f"ekyc:{self.ekyc_mode},smartvoice:{self.smartvoice_mode},"
-            f"smartbot:{self.smartbot_mode},smartvision:{self.smartvision_mode}"
+            f"smartbot:{self.smartbot_mode},smartvision:{self.smartvision_mode},"
+            f"smartreader:{self.smartreader_mode}"
         )
 
     @property
@@ -68,6 +70,14 @@ class VnptClient:
     def smartvision_mode(self) -> str:
         return "real" if self.smartvision_enabled else "disabled"
 
+    @property
+    def smartreader_enabled(self) -> bool:
+        return self._product_enabled(self._resolved_smartreader_mode(), "smartreader")
+
+    @property
+    def smartreader_mode(self) -> str:
+        return "real" if self.smartreader_enabled else "disabled"
+
     def _resolved_smartvision_mode(self) -> str:
         explicit = self.settings.vnpt_smartvision_mode
         if explicit:
@@ -88,6 +98,12 @@ class VnptClient:
 
     def _resolved_smartbot_mode(self) -> str:
         explicit = self.settings.vnpt_smartbot_mode
+        if explicit:
+            return explicit.lower()
+        return self.settings.vnpt_provider_mode.lower()
+
+    def _resolved_smartreader_mode(self) -> str:
+        explicit = self.settings.vnpt_smartreader_mode
         if explicit:
             return explicit.lower()
         return self.settings.vnpt_provider_mode.lower()
@@ -126,6 +142,12 @@ class VnptClient:
                 "token_id": self.settings.vnpt_smartvision_token_id or self.settings.vnpt_token_id,
                 "token_key": self.settings.vnpt_smartvision_token_key or self.settings.vnpt_token_key,
             }
+        if product == "smartreader":
+            return {
+                "access_token": self.settings.vnpt_smartreader_access_token or self.settings.vnpt_access_token,
+                "token_id": self.settings.vnpt_smartreader_token_id or self.settings.vnpt_token_id,
+                "token_key": self.settings.vnpt_smartreader_token_key or self.settings.vnpt_token_key,
+            }
         raise ValueError(f"Unsupported VNPT product: {product}")
 
     def add_file(
@@ -139,6 +161,8 @@ class VnptClient:
         timeout = self.settings.vnpt_ekyc_request_timeout_seconds
         if product == "smartvision":
             timeout = self.settings.vnpt_smartvision_request_timeout_seconds
+        elif product == "smartreader":
+            timeout = self.settings.vnpt_smartreader_request_timeout_seconds
         return self._post_multipart_file(
             "/file-service/v1/addFile",
             file_path,
@@ -182,6 +206,77 @@ class VnptClient:
             response.setdefault("smartvision_client_session", client_session)
             response.setdefault("smartvision_image_url", image_url)
         return response
+
+    def smartreader_ocr_scan(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        return self._smartreader_ocr(
+            image_ref,
+            client_session,
+            "/rpa-service/aidigdoc/v1/ocr/scan",
+            details=True,
+        )
+
+    def smartreader_vat_invoice(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        return self._smartreader_ocr(
+            image_ref,
+            client_session,
+            "/rpa-service/aidigdoc/v1/ocr/hoa-don-gtgt",
+            details=True,
+        )
+
+    def _smartreader_ocr(
+        self,
+        image_ref: str,
+        client_session: str,
+        path: str,
+        details: bool,
+    ) -> dict[str, Any]:
+        file_hash, upload_error = self._resolve_image_hash(
+            image_ref,
+            title="receipt",
+            product="smartreader",
+        )
+        if upload_error:
+            return upload_error
+        if not file_hash:
+            return self._error_response(
+                "SmartReader file upload did not return object.hash",
+                {"image_ref": image_ref},
+                provider_mode=self.smartreader_mode,
+            )
+
+        file_path = self._resolve_ref(image_ref)
+        payload: dict[str, Any] = {
+            "token": self._smartreader_body_token(),
+            "client_session": client_session,
+            "file_hash": file_hash,
+            "file_type": self._smartreader_file_type(file_path),
+            "details": details,
+        }
+        return self._post_json(
+            path,
+            payload,
+            provider_mode=self.smartreader_mode,
+            product="smartreader",
+            timeout=self.settings.vnpt_smartreader_request_timeout_seconds,
+        )
+
+    def _smartreader_body_token(self) -> str:
+        explicit = str(self.settings.vnpt_smartreader_token or "").strip()
+        if explicit:
+            return explicit
+        credentials = self._product_credentials("smartreader")
+        return str(credentials["token_id"] or "").strip()
+
+    def _smartreader_file_type(self, path: Path) -> str:
+        mapping = {
+            ".png": "PNG",
+            ".jpg": "JPEG",
+            ".jpeg": "JPEG",
+            ".pdf": "PDF",
+            ".heic": "HEIC",
+            ".webp": "PNG",
+        }
+        return mapping.get(path.suffix.lower(), "PNG")
 
 
     def _normalize_smartvision_response(self, response: dict[str, Any]) -> dict[str, Any]:
@@ -311,15 +406,11 @@ class VnptClient:
         client_session: str,
     ) -> dict[str, Any]:
         if not document_ref:
-            return {
-                "message": "Skipped face compare because no document image was provided",
-                "object": {
-                    "result": "MATCH",
-                    "msg": "SKIPPED_NO_DOCUMENT",
-                    "prob": 1.0,
-                },
-                "provider_mode": self.ekyc_mode,
-            }
+            return self._error_response(
+                "CCCD document image is required for face compare",
+                {"face_ref": face_ref, "session_id": client_session},
+                provider_mode=self.ekyc_mode,
+            )
 
         document_hash, document_error = self._resolve_image_hash(document_ref, title="document")
         if document_error:
@@ -357,19 +448,22 @@ class VnptClient:
             "model": "offline",
             "maxAlternatives": "1",
             "audioChannelCount": "1",
+            "languageCode": "vi-VN",
         }
         if self.settings.vnpt_stt_cap_punct_recovery.lower() in {"true", "1", "yes"}:
             extra_fields["enableAutomaticPunctuation"] = "true"
         suffix = audio_path.suffix.lower()
-        if suffix in {".mp3", ".mpeg"}:
+        if suffix == ".wav":
+            extra_fields["sampleRateHertz"] = str(self.settings.vnpt_stt_sample_rate)
             extra_fields["customConfiguration"] = json.dumps(
                 {
                     "invert_text": "1",
                     "cap_punct_recovery": self.settings.vnpt_stt_cap_punct_recovery,
-                    "convert_format": "mp3",
+                    "convert_format": "wav",
+                    "sample_rate": self.settings.vnpt_stt_sample_rate,
                 }
             )
-        elif suffix == ".webm":
+        elif suffix in {".mp3", ".mpeg", ".webm"}:
             extra_fields["customConfiguration"] = json.dumps(
                 {
                     "invert_text": "1",
@@ -387,6 +481,7 @@ class VnptClient:
             extra_fields=extra_fields,
             file_field_name="audioFile",
             file_content_type=self._audio_content_type(audio_path),
+            file_first=False,
             timeout=self.settings.vnpt_request_timeout_seconds,
         )
 
@@ -437,6 +532,8 @@ class VnptClient:
             selected_timeout = timeout or self.settings.vnpt_smartbot_request_timeout_seconds
         elif product == "smartvision":
             selected_timeout = timeout or self.settings.vnpt_smartvision_request_timeout_seconds
+        elif product == "smartreader":
+            selected_timeout = timeout or self.settings.vnpt_smartreader_request_timeout_seconds
         else:
             selected_timeout = timeout or self.settings.vnpt_request_timeout_seconds
         return self._request(
@@ -459,11 +556,22 @@ class VnptClient:
         timeout: float | None = None,
         file_field_name: str = "file",
         file_content_type: str = "application/octet-stream",
+        file_first: bool = False,
     ) -> dict[str, Any]:
         boundary = f"----fides-{uuid.uuid4().hex}"
-        parts: list[bytes] = []
+        file_part = [
+            f"--{boundary}\r\n".encode("utf-8"),
+            (
+                f'Content-Disposition: form-data; name="{file_field_name}"; '
+                f'filename="{file_path.name}"\r\n'
+            ).encode("utf-8"),
+            f"Content-Type: {file_content_type}\r\n\r\n".encode("utf-8"),
+            file_path.read_bytes(),
+            b"\r\n",
+        ]
+        field_parts: list[bytes] = []
         for field_name, field_value in (extra_fields or {}).items():
-            parts.extend(
+            field_parts.extend(
                 [
                     f"--{boundary}\r\n".encode("utf-8"),
                     f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'.encode("utf-8"),
@@ -471,19 +579,14 @@ class VnptClient:
                     b"\r\n",
                 ]
             )
-        parts.extend(
-            [
-                f"--{boundary}\r\n".encode("utf-8"),
-                (
-                    f'Content-Disposition: form-data; name="{file_field_name}"; '
-                    f'filename="{file_path.name}"\r\n'
-                ).encode("utf-8"),
-                f"Content-Type: {file_content_type}\r\n\r\n".encode("utf-8"),
-                file_path.read_bytes(),
-                b"\r\n",
-                f"--{boundary}--\r\n".encode("utf-8"),
-            ]
-        )
+        parts: list[bytes] = []
+        if file_first:
+            parts.extend(file_part)
+            parts.extend(field_parts)
+        else:
+            parts.extend(field_parts)
+            parts.extend(file_part)
+        parts.append(f"--{boundary}--\r\n".encode("utf-8"))
         headers = self._auth_headers(f"multipart/form-data; boundary={boundary}", product=product)
         return self._request(
             path,
@@ -593,20 +696,26 @@ class VnptClient:
         self,
         image_ref: str,
         title: str = "face",
+        product: str = "ekyc",
     ) -> tuple[str | None, dict[str, Any] | None]:
+        provider_mode = getattr(self, f"{product}_mode", self.ekyc_mode)
         if self._looks_like_vnpt_hash(image_ref):
             return image_ref, None
 
         path = self._resolve_ref(image_ref)
         if not path.is_file():
-            return image_ref, None
+            return None, self._error_response(
+                "Local image file not found for VNPT upload",
+                {"image_ref": image_ref, "resolved_path": str(path), "product": product},
+                provider_mode=provider_mode,
+            )
 
         cache_key = str(path.resolve())
         cached_hash = self._image_hash_cache.get(cache_key)
         if cached_hash:
             return cached_hash, None
 
-        upload = self.add_file(path, title=title, description=title)
+        upload = self.add_file(path, title=title, description=title, product=product)
         hash_value = self._nested_value(upload, ["object", "hash"])
         if not hash_value:
             return None, self._error_response(
@@ -616,7 +725,7 @@ class VnptClient:
                     "resolved_path": str(path),
                     "upload_response": upload,
                 },
-                provider_mode=self.ekyc_mode,
+                provider_mode=provider_mode,
             )
 
         hash_str = str(hash_value)
@@ -658,13 +767,31 @@ class VnptClient:
     def _parse_json(self, body: bytes) -> Any:
         if not body:
             return {}
+        text = body.decode("utf-8", errors="replace").strip()
+        if not text:
+            return {}
+
         try:
-            return json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
-            return {
-                "message": "VNPT returned a non-JSON response",
-                "raw_response_preview": body[:500].decode("utf-8", errors="replace"),
-            }
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        for line in reversed(text.splitlines()):
+            payload = line.strip()
+            if not payload.startswith("data:"):
+                continue
+            payload = payload[5:].strip()
+            if not payload or payload == "[DONE]":
+                continue
+            try:
+                return json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+
+        return {
+            "message": "VNPT returned a non-JSON response",
+            "raw_response_preview": text[:500],
+        }
 
     def _nested_value(self, payload: dict[str, Any], keys: list[str]) -> Any:
         current: Any = payload

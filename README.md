@@ -34,26 +34,35 @@ uvicorn backend.app.main:app --reload
 
 Open http://127.0.0.1:8000 (redirects to Grow).
 
-### Grow OCR (PaddleOCR)
+### Grow OCR (VNPT SmartReader)
 
-Grow receipt OCR uses **PaddleOCR** on the synthetic PNGs under `frontend/static/fixtures/receipts/`.
+Grow receipt OCR uses **VNPT SmartReader** (`ocr/scan` with VAT invoice fallback) on receipt PNGs under `frontend/static/fixtures/receipts/`.
 
-Use the project virtualenv (recommended; avoids system NumPy conflicts):
+Configure SmartReader credentials in `.env` (same VNPT token headers as eKYC):
+
+```bash
+VNPT_SMARTREADER_MODE=real
+VNPT_ACCESS_TOKEN=
+VNPT_TOKEN_ID=
+VNPT_TOKEN_KEY=
+# Or product-specific overrides:
+# VNPT_SMARTREADER_ACCESS_TOKEN=
+# VNPT_SMARTREADER_TOKEN_ID=
+# VNPT_SMARTREADER_TOKEN_KEY=
+```
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Parser unit tests (no Paddle model download)
+# Parser unit tests (no VNPT call)
 python scripts/test_receipt_parser.py
+python scripts/test_smartreader_parser.py
 
-# PaddleOcrProvider on all receipt fixtures (first run may download models)
-python scripts/smoke_paddle_ocr.py
+# SmartReader OCR on receipt fixtures (requires VNPT credentials)
+python scripts/smoke_vnpt_smartreader.py
 ```
-
-
-If `paddlepaddle` fails to install on your platform, check the [PaddlePaddle install guide](https://www.paddlepaddle.org.cn/install/quick) for the correct wheel, then `pip install paddleocr`.
 
 ## API
 
@@ -66,7 +75,7 @@ If `paddlepaddle` fails to install on your platform, check the [PaddlePaddle ins
 - `POST /api/shield/challenge/upload-ekyc` — legacy selfie upload
 - `POST /api/shield/challenge/upload-audio` — legacy audio upload
 - `POST /api/grow/upload-receipt` — upload PNG/JPG/WEBP receipt; returns `input_source`
-- `POST /api/grow/process-invoice` — minimal input; runs PaddleOCR on receipt PNG then credit pipeline
+- `POST /api/grow/process-invoice` — minimal input; runs SmartReader OCR on receipt PNG then credit pipeline
 - `POST /api/grow/analyze-invoice` — full payload scoring (compat)
 
 ## SDK Scaffolds
@@ -79,6 +88,8 @@ The SDK design and platform boundaries are documented in `docs/sdk_scaffold.md`.
 ## Demo Dataset
 
 Synthetic demo fixtures live in `backend/app/data/demo_dataset.json`.
+
+Native mobile UI (design + Shield Path B): `sdks/mobile/sample-banking-app/` — Jetpack Compose + FIDES SDK.
 
 The current dataset includes:
 
@@ -139,7 +150,7 @@ Files are written to `frontend/static/fixtures/receipts/` for upload/OCR testing
 `POST /api/grow/process-invoice` no longer loads curated demo JSON for scoring inputs.
 
 1. Resolve `input_source` under allowed receipt paths (path-safe).
-2. Run **PaddleOCR** on the PNG.
+2. Run **VNPT SmartReader** OCR on the PNG.
 3. Parse fields (`seller`, `buyer`, `invoice_id`, `total`, line items).
 4. Normalize a ledger entry from OCR output.
 5. Score with **LightGBM** and return `{ request, analysis }` for the Grow wizard.
@@ -164,7 +175,7 @@ python scripts/smoke_grow_ml.py
 
 Model artifacts: `backend/app/data/models/grow_credit_lgb.txt` and `grow_credit_model_meta.json`.
 
-The live Grow pipeline: **PaddleOCR → ledger → Neo4j trust graph → LightGBM + SHAP**. Mock vnSocial, cashflow, tax, e-invoice, and partner capital blocks were removed from the pipeline and wizard.
+The live Grow pipeline: **SmartReader OCR → ledger → Neo4j trust graph → LightGBM + SHAP**. Mock vnSocial, cashflow, tax, e-invoice, and partner capital blocks were removed from the pipeline and wizard.
 
 Trust graph design: [`docs/grow_trust_graph_neo4j_plan.md`](docs/grow_trust_graph_neo4j_plan.md).
 
@@ -187,7 +198,7 @@ Demo business IDs (seeded graph history): `biz_an_nhien_coffee`, `biz_bep_nha_li
 
 ## Next Build Steps
 
-1. Expand the VNPT adapter pattern to Grow SmartReader OCR and SmartVoice bookkeeping.
+1. Expand the VNPT adapter pattern to Grow SmartVoice bookkeeping.
 2. Keep keys in `.env`; never place them in frontend code.
 3. Add file upload for scam audio and invoice images.
 4. Add a shared trust profile/dashboard once both flows are stable.

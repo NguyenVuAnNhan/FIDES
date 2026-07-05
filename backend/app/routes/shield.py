@@ -4,13 +4,20 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from backend.app.models import ShieldAnalyzeRequest, ShieldAnalyzeResponse, ShieldChallengeRequest
+from backend.app.models import (
+    ShieldAnalyzeRequest,
+    ShieldAnalyzeResponse,
+    ShieldChallengeRequest,
+    ShieldSessionHeartbeatRequest,
+    ShieldSessionHeartbeatResponse,
+)
 from backend.app.services.ekyc.paths import ALLOWED_EKYC_EXTENSIONS, ensure_ekyc_upload_dir
 from backend.app.services.shield.paths import ALLOWED_VIDEO_EXTENSIONS, ensure_shield_upload_dir
-from backend.app.services.shield.video import extract_audio_wav, extract_video_frames
+from backend.app.services.shield.video import resolve_stt_audio_ref
 from backend.app.services.smartvoice.paths import ALLOWED_AUDIO_EXTENSIONS, ensure_smartvoice_upload_dir
 from backend.app.services.shield_challenge_service import run_transfer_monitoring_challenge
 from backend.app.services.shield_service import analyze_shield_risk
+from backend.app.services.shield_session_service import process_session_heartbeat
 
 router = APIRouter(prefix="/api/shield", tags=["shield"])
 
@@ -40,11 +47,11 @@ _ALLOWED_AUDIO_TYPES = {
 
 class ShieldEkycUploadResponse(BaseModel):
     ekyc_image_ref: str
-    ekyc_document_ref: str | None = None
+    ekyc_document_ref: str
     selfie_filename: str
-    document_filename: str | None = None
+    document_filename: str
     selfie_size_bytes: int = Field(ge=0)
-    document_size_bytes: int | None = Field(default=None, ge=0)
+    document_size_bytes: int = Field(ge=0)
 
 
 class ShieldAudioUploadResponse(BaseModel):
@@ -55,7 +62,7 @@ class ShieldAudioUploadResponse(BaseModel):
 
 class ShieldLiveCheckUploadResponse(BaseModel):
     ekyc_image_ref: str
-    ekyc_document_ref: str | None = None
+    ekyc_document_ref: str
     stt_audio_ref: str
     challenge_video_ref: str
     challenge_frame_refs: list[str] = Field(default_factory=list)
@@ -70,6 +77,12 @@ def analyze(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
     return analyze_shield_risk(request)
 
 
+@router.post("/session/heartbeat", response_model=ShieldSessionHeartbeatResponse)
+def session_heartbeat(request: ShieldSessionHeartbeatRequest) -> ShieldSessionHeartbeatResponse:
+    """Path B: continuous app-session context scoring from app entry."""
+    return process_session_heartbeat(request)
+
+
 @router.post("/challenge", response_model=ShieldAnalyzeResponse)
 def challenge(request: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
     return run_transfer_monitoring_challenge(request)
@@ -78,14 +91,10 @@ def challenge(request: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
 @router.post("/challenge/upload-ekyc", response_model=ShieldEkycUploadResponse)
 async def upload_ekyc_challenge(
     selfie: UploadFile = File(...),
-    document: UploadFile | None = File(default=None),
+    document: UploadFile = File(...),
 ) -> ShieldEkycUploadResponse:
     selfie_ref, selfie_name, selfie_size = await _save_ekyc_upload(selfie, "selfie")
-    document_ref = None
-    document_name = None
-    document_size = None
-    if document is not None and document.filename:
-        document_ref, document_name, document_size = await _save_ekyc_upload(document, "document")
+    document_ref, document_name, document_size = await _save_ekyc_upload(document, "document")
 
     return ShieldEkycUploadResponse(
         ekyc_image_ref=selfie_ref,
@@ -108,7 +117,8 @@ _ALLOWED_VIDEO_TYPES = {
 @router.post("/challenge/upload-live-check", response_model=ShieldLiveCheckUploadResponse)
 async def upload_live_check(
     challenge_video: UploadFile = File(...),
-    document: UploadFile | None = File(default=None),
+    document: UploadFile = File(...),
+    challenge_audio: UploadFile | None = File(default=None),
     frame_0: UploadFile | None = File(default=None),
     frame_1: UploadFile | None = File(default=None),
     frame_2: UploadFile | None = File(default=None),
@@ -118,9 +128,7 @@ async def upload_live_check(
     """Upload a live camera challenge clip plus sampled JPEG frames for eKYC + SmartVision."""
     video_ref, video_name, video_size = await _save_video_upload(challenge_video, "live-check")
 
-    document_ref = None
-    if document is not None and document.filename:
-        document_ref, _, _ = await _save_ekyc_upload(document, "document")
+    document_ref, _, _ = await _save_ekyc_upload(document, "document")
 
     uploaded_frames: list[tuple[str, str]] = []
     for index, frame_upload in enumerate([frame_0, frame_1, frame_2, frame_3, frame_4]):
@@ -130,27 +138,18 @@ async def upload_live_check(
         uploaded_frames.append((frame_ref, frame_name))
 
     if not uploaded_frames:
-        frame_batch = uuid.uuid4().hex
-        extracted_dir = ensure_shield_upload_dir()
-        for index, extracted in enumerate(extract_video_frames(video_ref, extracted_dir, count=3)):
-            target_name = f"extracted-{frame_batch}-frame-{index:02d}.jpg"
-            target_path = extracted_dir / target_name
-            extracted.rename(target_path)
-            uploaded_frames.append((f"uploads/shield/{target_name}", target_name))
-
-    if not uploaded_frames:
         raise HTTPException(
             status_code=422,
-            detail="Live check must include sampled JPEG frames (client-side) or ffmpeg on the server.",
+            detail="Live check must include sampled JPEG frames from the browser camera.",
         )
 
-    primary_ref, primary_name = uploaded_frames[len(uploaded_frames) // 2]
+    primary_ref, primary_name = uploaded_frames[0]
     frame_refs = [item[0] for item in uploaded_frames]
 
-    audio_ref = video_ref
-    wav_path = ensure_smartvoice_upload_dir() / f"live-audio-{uuid.uuid4().hex}.wav"
-    if extract_audio_wav(video_ref, wav_path):
-        audio_ref = f"uploads/smartvoice/{wav_path.name}"
+    if challenge_audio is not None and challenge_audio.filename:
+        audio_ref, _, _ = await _save_audio_upload(challenge_audio, "live-audio")
+    else:
+        audio_ref, _audio_format = resolve_stt_audio_ref(video_ref, ensure_smartvoice_upload_dir())
 
     return ShieldLiveCheckUploadResponse(
         ekyc_image_ref=primary_ref,

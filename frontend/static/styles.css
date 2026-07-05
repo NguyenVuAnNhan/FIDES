@@ -747,6 +747,44 @@ button:disabled {
   color: var(--shield);
 }
 
+.shield-transfer-card {
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.shield-signals {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.shield-signal {
+  align-items: flex-start;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid #f59e0b;
+  border-radius: 10px;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.shield-signal.is-neutral {
+  border-left-color: #94a3b8;
+}
+
+.shield-signal strong {
+  font-size: 13px;
+}
+
+.shield-signal span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .grow-stage h4 {
   font-size: 12px;
   letter-spacing: 0;
