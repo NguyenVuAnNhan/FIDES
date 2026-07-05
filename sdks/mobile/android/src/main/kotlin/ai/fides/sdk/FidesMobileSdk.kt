@@ -149,14 +149,18 @@ class FidesMobileSdk(
             when (uploadResult) {
                 is FidesSdkResult.Failure -> completion(uploadResult)
                 is FidesSdkResult.Success -> {
-                    challengeShield(
-                        transaction = transaction,
-                        consent = consent,
-                        artifacts = ShieldJson.toChallengeArtifacts(uploadResult.value),
-                        overrides = overrides,
-                        clientSession = clientSession,
-                        completion = completion,
-                    )
+                    try {
+                        challengeShield(
+                            transaction = transaction,
+                            consent = consent,
+                            artifacts = ShieldJson.toChallengeArtifacts(uploadResult.value),
+                            overrides = overrides,
+                            clientSession = clientSession,
+                            completion = completion,
+                        )
+                    } catch (error: Throwable) {
+                        completion(FidesSdkResult.Failure(error.message ?: "Challenge request failed.", error))
+                    }
                 }
             }
         }

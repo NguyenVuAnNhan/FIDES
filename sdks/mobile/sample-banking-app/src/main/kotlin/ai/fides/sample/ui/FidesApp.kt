@@ -1,6 +1,7 @@
 package ai.fides.sample.ui
 
 import androidx.camera.view.PreviewView
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.zIndex
 import ai.fides.sample.AppOverlay
 import ai.fides.sample.AppTab
 import ai.fides.sample.ShieldUiState
@@ -43,13 +45,7 @@ fun FidesApp(
         Box(modifier = Modifier.weight(1f)) {
             when (state.tab) {
                 AppTab.HOME -> if (state.overlay == AppOverlay.NONE || state.overlay == AppOverlay.WARNING) {
-                    HomeScreen(
-                        sessionRiskScore = state.sessionRiskScore,
-                        sessionRiskLevel = state.sessionRiskLevel,
-                        sessionMonitoringMessage = state.sessionMonitoringMessage,
-                        sessionEarlyWarning = state.sessionEarlyWarning,
-                        onCheckTransaction = onCheckTransaction,
-                    )
+                    HomeScreen(onCheckTransaction = onCheckTransaction)
                 }
                 AppTab.STATS -> StatisticsScreen()
                 AppTab.LOAN -> if (state.overlay == AppOverlay.NONE) {
@@ -61,6 +57,54 @@ fun FidesApp(
                 }
             }
 
+            if (state.overlay != AppOverlay.NONE) {
+                BackHandler { onCloseOverlay() }
+            }
+
+            if (state.overlay != AppOverlay.NONE) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .zIndex(1f)
+                        .background(Color.White),
+                ) {
+                    OverlayContent(
+                        state = state,
+                        onCloseOverlay = onCloseOverlay,
+                        onConfirmTransfer = onConfirmTransfer,
+                        onWarningBack = onWarningBack,
+                        onWarningContinue = onWarningContinue,
+                        onPickGrowReceipt = onPickGrowReceipt,
+                        onAnalyzeGrow = onAnalyzeGrow,
+                        onPickCccd = onPickCccd,
+                        onStartLiveCheck = onStartLiveCheck,
+                        onVerify = onVerify,
+                        previewViewFactory = previewViewFactory,
+                    )
+                }
+            }
+        }
+
+        if (state.overlay == AppOverlay.NONE) {
+            FidesBottomNav(active = state.tab, onNavigate = onNavigate)
+        }
+    }
+}
+
+@Composable
+private fun OverlayContent(
+    state: ShieldUiState,
+    onCloseOverlay: () -> Unit,
+    onConfirmTransfer: (ShieldTransaction) -> Unit,
+    onWarningBack: () -> Unit,
+    onWarningContinue: () -> Unit,
+    onPickGrowReceipt: () -> Unit,
+    onAnalyzeGrow: () -> Unit,
+    onPickCccd: () -> Unit,
+    onStartLiveCheck: () -> Unit,
+    onVerify: () -> Unit,
+    previewViewFactory: () -> PreviewView,
+) {
             when (state.overlay) {
                 AppOverlay.TRANSFER -> TransferScreen(
                     loading = state.loading,
@@ -82,6 +126,7 @@ fun FidesApp(
                         cccdFilename = state.cccdFilename,
                         cameraReady = state.cameraReady,
                         liveCheckStatus = state.liveCheckStatus,
+                        errorMessage = state.errorMessage,
                         recordingSeconds = state.recordingSeconds,
                         liveCheckReady = state.liveCheckReady,
                         verifying = state.loading,
@@ -123,10 +168,4 @@ fun FidesApp(
                 )
                 AppOverlay.NONE -> Unit
             }
-        }
-
-        if (state.overlay == AppOverlay.NONE) {
-            FidesBottomNav(active = state.tab, onNavigate = onNavigate)
-        }
-    }
 }

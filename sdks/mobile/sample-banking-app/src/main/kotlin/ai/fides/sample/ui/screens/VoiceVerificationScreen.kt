@@ -5,22 +5,26 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -41,6 +45,7 @@ fun VoiceVerificationScreen(
     cccdFilename: String?,
     cameraReady: Boolean,
     liveCheckStatus: String,
+    errorMessage: String?,
     recordingSeconds: Int?,
     liveCheckReady: Boolean,
     verifying: Boolean,
@@ -56,6 +61,7 @@ fun VoiceVerificationScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
+            .statusBarsPadding()
             .padding(20.dp),
     ) {
         RowHeader(onClose)
@@ -89,6 +95,14 @@ fun VoiceVerificationScreen(
         if (liveCheckStatus.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(liveCheckStatus, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        }
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(errorMessage, color = Color(0xFFC62828), style = MaterialTheme.typography.bodySmall)
+        }
+        if (verifying) {
+            Spacer(modifier = Modifier.height(12.dp))
+            RowWithProgress("Đang upload và xác minh với FIDES Shield...")
         }
         if (recordingSeconds != null) {
             Text("Đang ghi… ${recordingSeconds}s", color = FidesTeal, fontWeight = FontWeight.Bold)
@@ -144,3 +158,20 @@ private fun RowHeader(onClose: () -> Unit) {
 
 private fun formatVnd(amount: Long): String =
     NumberFormat.getNumberInstance(Locale("vi", "VN")).format(amount) + " VND"
+
+@Composable
+private fun RowWithProgress(message: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(18.dp),
+            color = FidesTeal,
+            strokeWidth = 2.dp,
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(message, color = FidesTeal, style = MaterialTheme.typography.bodySmall)
+    }
+}

@@ -56,10 +56,6 @@ private val demoTransactions = listOf(
 
 @Composable
 fun HomeScreen(
-    sessionRiskScore: Int?,
-    sessionRiskLevel: String?,
-    sessionMonitoringMessage: String?,
-    sessionEarlyWarning: Boolean,
     onCheckTransaction: () -> Unit,
 ) {
     Column(
@@ -73,32 +69,6 @@ fun HomeScreen(
         Text("Xin chào,", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
         Text("Jay Nguyễn!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
         Text("FIDES – Bảo vệ tài chính của bạn.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-
-        if (sessionRiskScore != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (sessionEarlyWarning) Color(0xFFFFF3E0) else Color(0xFFE8F5F4))
-                    .padding(14.dp),
-            ) {
-                Text(
-                    "Shield đang theo dõi phiên app",
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (sessionEarlyWarning) Color(0xFFE65100) else FidesTeal,
-                )
-                Text(
-                    "Session risk ${sessionRiskScore}/100 · ${sessionRiskLevel ?: "unknown"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.DarkGray,
-                )
-                if (!sessionMonitoringMessage.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(sessionMonitoringMessage, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-            }
-        }
 
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             ShieldIllustration()
@@ -367,13 +337,13 @@ fun LoanScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            "Thông tin Đăng ký vay nhanh sẽ được chuyển về ngân hàng và xử lý trong vòng 2h sau khi đăng ký!",
+            "Chọn khoản vay quan tâm, sau đó upload hóa đơn để Grow phân tích sơ bộ. Cần thêm 2–3 hóa đơn trước khi đề xuất hạn mức.",
             color = Color.Gray,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
         Spacer(modifier = Modifier.height(20.dp))
-        FidesPrimaryButton(text = "Đăng ký ngay", onClick = { onRegister(amount, selectedTerm) })
+        FidesPrimaryButton(text = "Phân tích Grow", onClick = { onRegister(amount, selectedTerm) })
         Spacer(modifier = Modifier.height(24.dp))
     }
 }

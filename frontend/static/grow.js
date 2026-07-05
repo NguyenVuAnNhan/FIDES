@@ -181,10 +181,14 @@ function renderWizardResults(response) {
   const contributions = explainability.feature_contributions ?? [];
 
   growStepCreditBody.innerHTML = `
+    <p class="grow-disclaimer stage-muted">
+      <strong>Preliminary only.</strong> One invoice cannot describe the whole business.
+      Upload 2–3 more receipts (same business ID) before recommending a working-capital limit.
+    </p>
     <div class="metric-row">
       <span class="pill ${analysis.credit_band}">Trust ${analysis.trust_score}/100</span>
       <span class="pill ${analysis.credit_band}">${formatValue(analysis.credit_band)}</span>
-      <span class="pill">${formatMoney(analysis.monthly_revenue_estimate)}/mo</span>
+      <span class="pill">Est. ${formatMoney(analysis.monthly_revenue_estimate)}/mo (rough, from this invoice)</span>
       <span class="pill">${formatValue(analysis.loan_readiness)}</span>
     </div>
     <p class="grow-summary">${escapeHtml(analysis.recommended_action)}</p>

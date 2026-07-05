@@ -122,17 +122,17 @@ def _credit_band_from_score(trust_score: int) -> tuple[str, str, str]:
     if trust_score >= 75:
         return (
             "strong",
-            "ready_for_small_working_capital_offer",
-            "Prepare a small working-capital loan offer with invoice-backed limits.",
+            "needs_more_transaction_history",
+            "Preliminary pass on this invoice only. Upload 2–3 more invoices (or bank snapshots) before recommending a credit limit.",
         )
     if trust_score >= 55:
         return (
             "emerging",
             "needs_more_transaction_history",
-            "Ask for two more invoices or bank-statement snapshots to improve confidence.",
+            "Preliminary analysis from one receipt. Add 2–3 more invoices to build cashflow history and suggest a limit.",
         )
     return (
         "thin_file",
         "not_ready",
-        "Keep building invoice history before recommending credit.",
+        "One invoice is not enough to describe the business. Collect more invoices before any lending recommendation.",
     )
