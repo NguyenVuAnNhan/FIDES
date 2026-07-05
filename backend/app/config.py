@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     vnpt_smartvoice_api_key: str | None = None
     vnpt_smartbot_api_key: str | None = None
     vnpt_smartreader_api_key: str | None = None
+    voice_stress_enabled: bool = True
+    voice_stress_mode: str = "auto"
+    voice_stress_locale: str = "vi"
+    voice_stress_backend: str = "emotion2vec"
+    voice_stress_model_name: str = "iic/emotion2vec_plus_base"
+    voice_stress_model_hub: str = "hf"
+    voice_stress_arousal_weight: float = 0.55
+    voice_stress_prosody_weight: float = 0.45
     neo4j_enabled: bool = False
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"

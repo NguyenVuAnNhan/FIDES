@@ -9,6 +9,7 @@ from typing import Any
 from backend.app.config import get_settings
 from backend.app.models import Explanation, ShieldAnalyzeResponse, ShieldChallengeRequest
 from backend.app.services.shield_service import analyze_shield_risk, match_transcript_pattern
+from backend.app.services.voice_stress import analyze_voice_stress
 from backend.app.services.vnpt_client import VnptClient
 
 VNPT_MOCK_DIR = Path(__file__).resolve().parents[1] / "data" / "vnpt_mocks"
@@ -55,7 +56,7 @@ def _run_challenge_apis(
     ekyc_fields, ekyc_call, ekyc_raw = _ekyc_api(challenge, vnpt_client)
     smartvoice_fields, smartvoice_call, smartvoice_raw = _smartvoice_api(challenge, vnpt_client)
     smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]))
-    coercion_fields, coercion_call = _mock_coercion_api(
+    coercion_fields, coercion_call, voice_stress_raw = _coercion_api(
         str(ekyc_fields["ekyc_verification_status"]),
         challenge.stt_audio_ref,
         str(smartvoice_fields["stt_transcript"]),
@@ -79,6 +80,7 @@ def _run_challenge_apis(
         "ekyc_face_mask": ekyc_raw["face_mask"],
         "ekyc_face_compare": ekyc_raw["face_compare"],
         "smartvoice_stt": smartvoice_raw,
+        "voice_stress": voice_stress_raw,
     }
     return fields, [ekyc_call, smartvoice_call, smartbot_call, coercion_call], raw_responses, provider_mode
 
@@ -415,63 +417,97 @@ def _mock_smartbot_api(transcript: str) -> tuple[dict[str, object], Explanation]
     )
 
 
-def _mock_coercion_api(
+def _coercion_api(
     ekyc_verification_status: str,
     stt_audio_ref: str,
     stt_transcript: str = "",
     smartvoice_enabled: bool = False,
-) -> tuple[dict[str, object], Explanation]:
+) -> tuple[dict[str, object], Explanation, dict[str, object]]:
+    settings = get_settings()
+    voice_result = analyze_voice_stress(stt_audio_ref, settings)
+
     stt_failed = not _stt_passed(stt_transcript, stt_audio_ref, smartvoice_enabled)
     ekyc_failed = ekyc_verification_status not in {"passed", "review"}
-    if stt_failed:
-        selected = {
-            "voice": 0.83,
-            "voice_labels": ["elevated_pitch", "speech_hesitation"],
-            "face": 0.77 if not ekyc_failed else 0.68,
-            "face_labels": ["fear", "low_eye_contact"],
-            "scripted": 0.81,
-            "scripted_labels": ["monotone_reading", "repeats_caller_phrasing"],
-            "coercion": 0.84,
-            "confidence": 0.86,
-            "detail": f"Mock coercion API used {stt_audio_ref} and found distress plus scripted behavior.",
-        }
-    elif ekyc_failed:
-        selected = {
-            "voice": 0.28,
-            "voice_labels": ["steady_voice"],
-            "face": 0.46,
-            "face_labels": ["visual_artifact"],
-            "scripted": 0.18,
-            "scripted_labels": [],
-            "coercion": 0.22,
-            "confidence": 0.78,
-            "detail": "Mock coercion API found biometric verification failure without coercion signals.",
-        }
-    else:
-        selected = {
-            "voice": 0.18,
-            "voice_labels": ["steady_voice"],
-            "face": 0.16,
-            "face_labels": ["calm"],
-            "scripted": 0.12,
-            "scripted_labels": ["free_response"],
-            "coercion": 0.14,
-            "confidence": 0.82,
-            "detail": f"Mock coercion API used {stt_audio_ref}; no distress pattern found.",
-        }
+    scripted_score, scripted_labels = _scripted_behavior(stt_transcript, stt_failed)
+    face_score, face_labels = _face_distress_proxy(ekyc_failed, stt_failed, voice_result.voice_stress_score)
+
+    coercion_score = round(
+        0.5 * voice_result.voice_stress_score + 0.25 * face_score + 0.25 * scripted_score,
+        3,
+    )
+    coercion_confidence = round(0.82 if voice_result.model_used else 0.68, 3)
+
+    detail = (
+        f"{voice_result.detail} "
+        f"Fusion coercion={coercion_score:.2f} "
+        f"(face={face_score:.2f}, scripted={scripted_score:.2f})."
+    )
+    provider_label = "Voice stress analyzer"
+    if voice_result.model_used and voice_result.model_backend == "emotion2vec":
+        provider_label = f"Voice stress analyzer (emotion2vec + prosody, locale={voice_result.locale})"
+    elif voice_result.model_used:
+        provider_label = "Voice stress analyzer (wav2vec arousal + prosody)"
+
+    raw = {
+        "voice_stress_score": voice_result.voice_stress_score,
+        "voice_stress_labels": voice_result.voice_stress_labels,
+        "arousal": voice_result.arousal,
+        "valence": voice_result.valence,
+        "dominance": voice_result.dominance,
+        "distress_score": voice_result.distress_score,
+        "top_emotions": voice_result.top_emotions,
+        "locale": voice_result.locale,
+        "model_backend": voice_result.model_backend,
+        "model_used": voice_result.model_used,
+        "model_name": voice_result.model_name,
+        "prosody": {
+            "f0_mean_hz": voice_result.prosody.f0_mean_hz,
+            "f0_std_hz": voice_result.prosody.f0_std_hz,
+            "pause_ratio": voice_result.prosody.pause_ratio,
+            "long_pause_count": voice_result.prosody.long_pause_count,
+            "speech_rate_syms_per_s": voice_result.prosody.speech_rate_syms_per_s,
+            "prosody_stress_score": voice_result.prosody.prosody_stress_score,
+        },
+        **voice_result.raw,
+    }
+
     return (
         {
-            "voice_stress_score": selected["voice"],
-            "voice_stress_labels": selected["voice_labels"],
-            "face_emotion_score": selected["face"],
-            "face_emotion_labels": selected["face_labels"],
-            "scripted_behavior_score": selected["scripted"],
-            "scripted_behavior_labels": selected["scripted_labels"],
-            "coercion_score": selected["coercion"],
-            "coercion_confidence": selected["confidence"],
+            "voice_stress_score": voice_result.voice_stress_score,
+            "voice_stress_labels": voice_result.voice_stress_labels,
+            "face_emotion_score": face_score,
+            "face_emotion_labels": face_labels,
+            "scripted_behavior_score": scripted_score,
+            "scripted_behavior_labels": scripted_labels,
+            "coercion_score": coercion_score,
+            "coercion_confidence": coercion_confidence,
         },
-        Explanation(label="Mock coercion API", detail=str(selected["detail"]), weight=0),
+        Explanation(label=provider_label, detail=detail, weight=0),
+        raw,
     )
+
+
+def _scripted_behavior(stt_transcript: str, stt_failed: bool) -> tuple[float, list[str]]:
+    if stt_failed:
+        return 0.81, ["monotone_reading", "repeats_caller_phrasing"]
+    if match_transcript_pattern(stt_transcript.lower()):
+        return 0.74, ["repeats_caller_phrasing"]
+    return 0.12, ["free_response"]
+
+
+def _face_distress_proxy(
+    ekyc_failed: bool,
+    stt_failed: bool,
+    voice_stress_score: float,
+) -> tuple[float, list[str]]:
+    if stt_failed:
+        face_score = 0.72 if not ekyc_failed else 0.64
+        return face_score, ["fear", "low_eye_contact"]
+    if ekyc_failed:
+        return 0.46, ["visual_artifact"]
+    if voice_stress_score >= 0.55:
+        return min(0.85, 0.35 + voice_stress_score * 0.5), ["distress"]
+    return 0.16, ["calm"]
 
 
 def detected_patterns_for_challenge(scam_type: str | None) -> list[str]:

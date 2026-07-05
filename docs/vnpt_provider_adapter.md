@@ -97,7 +97,9 @@ Real mode targets the contracts in `docs/api_references/vnpt/endpoint_contracts.
 | eKYC | `POST /ai/v1/face/compare` | JSON `img_front`, `img_face` (hashes), `client_session`, `token`. |
 | SmartVoice | `POST /stt-service/v1/grpc/standard` | Multipart `audioFile`, `clientSession`, optional STT tuning fields. |
 
-The adapter normalizes provider JSON into Shield fields including `ekyc_verification_status`, `ekyc_liveness_passed`, `ekyc_mask_detected`, `ekyc_face_match_score`, `ekyc_injection_risk_score`, `stt_transcript`, and `stt_confidence`.
+Challenge audio is also analyzed locally for voice stress (`voice_stress_score`, `voice_stress_labels`) using **emotion2vec+** (multilingual, suitable for Vietnamese) plus language-agnostic prosody rules. Configure via `VOICE_STRESS_*` in `.env`. Default locale is `vi` with higher prosody weight; set `VOICE_STRESS_BACKEND=wav2vec` only for English-centric experiments.
+
+The adapter normalizes provider JSON into Shield fields including `ekyc_verification_status`, `ekyc_liveness_passed`, `ekyc_mask_detected`, `ekyc_face_match_score`, `ekyc_injection_risk_score`, `stt_transcript`, `stt_confidence`, `voice_stress_score`, and `voice_stress_labels`.
 
 VNPT face liveness is treated as boolean. `object.liveness=false` fails the challenge.
 
