@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>FIDES Web SDK Shield Demo</title>
+  </head>
+  <body>
+    <form id="transfer-form">
+      <label>
+        Amount
+        <input name="amount" value="75000000" />
+      </label>
+      <label>
+        Recipient
+        <input name="recipient" value="Nguyen Van A" />
+      </label>
+      <button type="submit">Analyze</button>
+    </form>
+    <pre id="output"></pre>
+    <script type="module">
+      import { createFidesWebSdk } from "../src/index.js";
+
+      const sdk = createFidesWebSdk({
+        baseUrl: "http://127.0.0.1:8000",
+        consent: { telemetry: true }
+      });
+      sdk.attachDefaultListeners(document);
+
+      document.querySelector("#transfer-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const result = await sdk.analyzeShield({
+          transaction_amount: Number(form.get("amount")),
+          recipient_name: String(form.get("recipient")),
+          recipient_account: "9704 0000 1234",
+          active_call: true,
+          caller_type: "unknown",
+          caller_number: "+882 13 456 789",
+          recipient_known: false
+        });
+        document.querySelector("#output").textContent = JSON.stringify(result, null, 2);
+      });
+    </script>
+  </body>
+</html>
+

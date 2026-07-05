@@ -1,0 +1,1523 @@
+{
+  "version": "mvp-demo-2026-06-28",
+  "shield_scenarios": [
+    {
+      "id": "shield-fake-police-critical",
+      "title": "Fake police verification",
+      "persona": "Retail banking customer",
+      "demo_goal": "Show the circuit breaker pausing a transfer while the user is being coached on a call.",
+      "payload": {
+        "transaction_amount": 75000000,
+        "recipient_name": "Nguyen Van A",
+        "recipient_account": "9704 0000 1234",
+        "active_call": true,
+        "caller_type": "unknown",
+        "caller_number": "+882 13 456 789",
+        "recipient_known": false,
+        "recipient_phone": "+84 903 777 888",
+        "vn_social_report_count": 27,
+        "vn_social_recent_keywords": [
+          "cong an",
+          "xac minh tai khoan",
+          "chuyen tien"
+        ],
+        "simo_status": "not_listed",
+        "simo_last_checked_at": "2026-06-28T10:00:00Z",
+        "graph_risk_score": 0.88,
+        "graph_pattern": "fan_in_fan_out",
+        "inbound_sender_count_10m": 14,
+        "outbound_account_count_10m": 9,
+        "median_pass_through_minutes": 3.0,
+        "account_age_days": 4,
+        "shared_device_cluster_size": 6,
+        "funds_moved_within_minutes": true,
+        "recipient_risk_level": "critical",
+        "remote_control_detected": false,
+        "native_telemetry_available": true,
+        "native_telemetry_source": "mock_android_sdk",
+        "installed_remote_access_app_detected": false,
+        "accessibility_service_risk": false,
+        "screen_sharing_detected": false,
+        "ekyc_verification_status": "passed",
+        "ekyc_liveness_passed": true,
+        "ekyc_liveness_score": 0.91,
+        "ekyc_mask_detected": false,
+        "ekyc_face_match_score": 0.88,
+        "ekyc_injection_risk_score": 0.12,
+        "smartux_behavior_anomaly_score": 0.58,
+        "smartux_remote_control_score": 0.31,
+        "smartux_signals": [
+          "unusual_navigation_sequence",
+          "paste_into_amount_field"
+        ],
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/fake-police-001.wav",
+        "stt_transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat.",
+        "stt_confidence": 0.94,
+        "voice_reference_source": null,
+        "voice_verification_status": "passed",
+        "voice_match_score": 0.91,
+        "voice_match_threshold": 0.75,
+        "detected_patterns": [
+          "fake_authority",
+          "case_involvement",
+          "transfer_for_verification",
+          "secrecy_pressure"
+        ],
+        "llm_scam_type": "fake_authority",
+        "llm_confidence": 0.91,
+        "voice_stress_score": 0.82,
+        "voice_stress_labels": [
+          "elevated_pitch",
+          "speech_hesitation",
+          "fast_breathing"
+        ],
+        "face_emotion_score": 0.76,
+        "face_emotion_labels": [
+          "fear",
+          "distress",
+          "low_eye_contact"
+        ],
+        "scripted_behavior_score": 0.71,
+        "scripted_behavior_labels": [
+          "monotone_reading",
+          "long_pauses_before_answers",
+          "repeats_caller_phrasing"
+        ],
+        "coercion_score": 0.79,
+        "coercion_confidence": 0.84,
+                "transcript": "Toi la cong an. Tai khoan cua ban lien quan vu an. Hay chuyen tien de xac minh va giu bi mat."
+            }
+        },
+        {
+            "id": "shield-stage-one-challenge-required",
+            "title": "High-risk context before camera check",
+            "persona": "Retail banking customer",
+            "demo_goal": "Show the outer circuit breaker requesting a consented camera and voice challenge before making a final decision.",
+            "payload": {
+                "transaction_amount": 65000000,
+                "recipient_name": "Tran Van B",
+                "recipient_account": "9704 2222 8800",
+                "active_call": true,
+                "caller_type": "unknown",
+                "caller_number": "+84 909 000 555",
+                "recipient_known": false,
+                "recipient_phone": "+84 909 000 555",
+                "vn_social_report_count": 0,
+                "vn_social_recent_keywords": [],
+                "simo_status": "not_checked",
+                "simo_last_checked_at": null,
+                "graph_risk_score": null,
+                "graph_pattern": null,
+                "inbound_sender_count_10m": 0,
+                "outbound_account_count_10m": 0,
+                "median_pass_through_minutes": null,
+                "account_age_days": null,
+                "shared_device_cluster_size": 0,
+                "funds_moved_within_minutes": false,
+                "recipient_risk_level": "unknown",
+                "remote_control_detected": false,
+                "native_telemetry_available": true,
+                "native_telemetry_source": "mock_android_sdk",
+                "installed_remote_access_app_detected": false,
+                "accessibility_service_risk": false,
+                "screen_sharing_detected": false,
+                "consent_call_monitoring": false,
+                "consent_transfer_check": false,
+                "shield_path": "transfer_monitoring",
+                "ekyc_verification_status": "not_checked",
+                "ekyc_liveness_passed": null,
+                "ekyc_liveness_score": null,
+                "ekyc_mask_detected": false,
+                "ekyc_face_match_score": null,
+                "ekyc_injection_risk_score": null,
+                "smartux_behavior_anomaly_score": 0.22,
+                "smartux_remote_control_score": 0.08,
+                "smartux_signals": [],
+                "consent_granted": false,
+                "audio_source": null,
+                "stt_transcript": "",
+                "stt_confidence": null,
+                "voice_reference_source": null,
+                "voice_verification_status": "not_checked",
+                "voice_match_score": null,
+                "voice_match_threshold": null,
+                "detected_patterns": [],
+                "llm_scam_type": null,
+                "llm_confidence": null,
+                "voice_stress_score": null,
+                "voice_stress_labels": [],
+                "face_emotion_score": null,
+                "face_emotion_labels": [],
+                "scripted_behavior_score": null,
+                "scripted_behavior_labels": [],
+                "coercion_score": null,
+                "coercion_confidence": null,
+                "transcript": ""
+            }
+        },
+        {
+            "id": "shield-otp-theft-critical",
+            "title": "OTP theft coaching",
+            "persona": "Digital wallet user",
+            "demo_goal": "Show detection of direct credential extraction during a payment flow.",
+      "payload": {
+        "transaction_amount": 52000000,
+        "recipient_name": "Tai khoan ho tro bao mat",
+        "recipient_account": "9704 8888 6622",
+        "active_call": true,
+        "caller_type": "voip",
+        "caller_number": "1900 999 888",
+        "recipient_known": false,
+        "recipient_phone": "+84 907 222 444",
+        "vn_social_report_count": 9,
+        "vn_social_recent_keywords": [
+          "otp",
+          "ma xac thuc",
+          "khoa giao dich"
+        ],
+        "simo_status": "watchlisted",
+        "simo_last_checked_at": "2026-06-28T10:02:00Z",
+        "graph_risk_score": 0.74,
+        "graph_pattern": "rapid_pass_through",
+        "inbound_sender_count_10m": 7,
+        "outbound_account_count_10m": 4,
+        "median_pass_through_minutes": 6.0,
+        "account_age_days": 12,
+        "shared_device_cluster_size": 3,
+        "funds_moved_within_minutes": true,
+        "recipient_risk_level": "elevated",
+        "remote_control_detected": false,
+        "native_telemetry_available": true,
+        "native_telemetry_source": "mock_android_sdk",
+        "installed_remote_access_app_detected": false,
+        "accessibility_service_risk": false,
+        "screen_sharing_detected": false,
+        "ekyc_verification_status": "passed",
+        "ekyc_liveness_passed": true,
+        "ekyc_liveness_score": 0.93,
+        "ekyc_mask_detected": false,
+        "ekyc_face_match_score": 0.9,
+        "ekyc_injection_risk_score": 0.08,
+        "smartux_behavior_anomaly_score": 0.79,
+        "smartux_remote_control_score": 0.48,
+        "smartux_signals": [
+          "paste_into_otp_field",
+          "rapid_focus_switching"
+        ],
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/otp-theft-001.wav",
+        "stt_transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan.",
+        "stt_confidence": 0.92,
+        "voice_reference_source": null,
+        "voice_verification_status": "passed",
+        "voice_match_score": 0.88,
+        "voice_match_threshold": 0.75,
+        "detected_patterns": [
+          "otp_theft",
+          "credential_extraction",
+          "security_support_impersonation"
+        ],
+        "llm_scam_type": "otp_theft",
+        "llm_confidence": 0.89,
+        "voice_stress_score": 0.68,
+        "voice_stress_labels": [
+          "short_answers",
+          "speech_hesitation"
+        ],
+        "face_emotion_score": 0.52,
+        "face_emotion_labels": [
+          "concern",
+          "reduced_attention"
+        ],
+        "scripted_behavior_score": 0.64,
+        "scripted_behavior_labels": [
+          "repeats_caller_phrasing",
+          "long_pauses_before_answers"
+        ],
+        "coercion_score": 0.63,
+        "coercion_confidence": 0.81,
+        "transcript": "De khoa giao dich la, anh chi doc ma OTP vua nhan duoc. Ma xac thuc nay chi dung de bao ve tai khoan."
+      }
+    },
+    {
+      "id": "shield-investment-critical",
+      "title": "Guaranteed investment return",
+      "persona": "Young investor",
+      "demo_goal": "Show a critical warning for a classic high-return investment script with an unknown recipient.",
+      "payload": {
+        "transaction_amount": 30000000,
+        "recipient_name": "Cong ty Dau Tu Sao Viet",
+        "recipient_account": "9704 3456 7810",
+        "active_call": true,
+        "caller_type": "unknown",
+        "caller_number": "+84 901 456 222",
+        "recipient_known": false,
+        "recipient_phone": "+84 909 123 333",
+        "vn_social_report_count": 4,
+        "vn_social_recent_keywords": [
+          "dau tu",
+          "loi nhuan cao"
+        ],
+        "simo_status": "not_listed",
+        "simo_last_checked_at": "2026-06-28T10:05:00Z",
+        "graph_risk_score": 0.46,
+        "graph_pattern": "new_account_high_activity",
+        "inbound_sender_count_10m": 3,
+        "outbound_account_count_10m": 1,
+        "median_pass_through_minutes": null,
+        "account_age_days": 18,
+        "shared_device_cluster_size": 0,
+        "funds_moved_within_minutes": false,
+        "recipient_risk_level": "elevated",
+        "remote_control_detected": false,
+        "native_telemetry_available": true,
+        "native_telemetry_source": "mock_android_sdk",
+        "installed_remote_access_app_detected": false,
+        "accessibility_service_risk": false,
+        "screen_sharing_detected": false,
+        "ekyc_verification_status": "passed",
+        "ekyc_liveness_passed": true,
+        "ekyc_liveness_score": 0.92,
+        "ekyc_mask_detected": false,
+        "ekyc_face_match_score": 0.87,
+        "ekyc_injection_risk_score": 0.11,
+        "smartux_behavior_anomaly_score": 0.41,
+        "smartux_remote_control_score": 0.18,
+        "smartux_signals": [
+          "repeated_amount_edits"
+        ],
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/investment-001.wav",
+        "stt_transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao.",
+        "stt_confidence": 0.9,
+        "voice_reference_source": null,
+        "voice_verification_status": "passed",
+        "voice_match_score": 0.9,
+        "voice_match_threshold": 0.75,
+        "detected_patterns": [
+          "investment",
+          "guaranteed_return",
+          "urgency_pressure"
+        ],
+        "llm_scam_type": "investment",
+        "llm_confidence": 0.86,
+        "voice_stress_score": 0.46,
+        "voice_stress_labels": [
+          "excited_speech",
+          "rapid_response"
+        ],
+        "face_emotion_score": 0.38,
+        "face_emotion_labels": [
+          "high_engagement"
+        ],
+        "scripted_behavior_score": 0.41,
+        "scripted_behavior_labels": [
+          "repeats_caller_phrasing"
+        ],
+        "coercion_score": 0.42,
+        "coercion_confidence": 0.74,
+        "transcript": "Goi dau tu nay cam ket loi nhuan 30 phan tram moi thang. Neu chuyen tien trong hom nay thi duoc uu tien rut von bat cu luc nao."
+      }
+    },
+    {
+      "id": "shield-remote-support-critical",
+      "title": "Remote screen-control payment",
+      "persona": "Mobile banking user",
+      "demo_goal": "Show the circuit breaker reacting when a transfer happens during a call with remote-control app signals.",
+      "payload": {
+        "transaction_amount": 42000000,
+        "recipient_name": "Trung Tam Ho Tro Thiet Bi",
+        "recipient_account": "9704 9000 7744",
+        "active_call": true,
+        "caller_type": "voip",
+        "caller_number": "+883 77 900 112",
+        "recipient_known": false,
+        "recipient_phone": "+84 905 444 111",
+        "vn_social_report_count": 16,
+        "vn_social_recent_keywords": [
+          "ho tro tu xa",
+          "chia se man hinh",
+          "hoan tien"
+        ],
+        "simo_status": "watchlisted",
+        "simo_last_checked_at": "2026-06-28T10:07:00Z",
+        "graph_risk_score": 0.81,
+        "graph_pattern": "fan_in_fan_out",
+        "inbound_sender_count_10m": 11,
+        "outbound_account_count_10m": 8,
+        "median_pass_through_minutes": 4.5,
+        "account_age_days": 6,
+        "shared_device_cluster_size": 5,
+        "funds_moved_within_minutes": true,
+        "recipient_risk_level": "critical",
+        "remote_control_detected": true,
+        "native_telemetry_available": true,
+        "native_telemetry_source": "mock_android_sdk",
+        "installed_remote_access_app_detected": true,
+        "accessibility_service_risk": true,
+        "screen_sharing_detected": true,
+        "ekyc_verification_status": "review",
+        "ekyc_liveness_passed": true,
+        "ekyc_liveness_score": 0.86,
+        "ekyc_mask_detected": false,
+        "ekyc_face_match_score": 0.84,
+        "ekyc_injection_risk_score": 0.18,
+        "smartux_behavior_anomaly_score": 0.82,
+        "smartux_remote_control_score": 0.89,
+        "smartux_signals": [
+          "rapid_pointer_jumps",
+          "screen_instruction_following",
+          "paste_into_amount_field",
+          "unusual_navigation_sequence"
+        ],
+        "consent_granted": true,
+        "audio_source": "fixtures/audio/remote-support-001.wav",
+        "stt_transcript": "Anh chi mo ung dung dieu khien man hinh de toi sua loi. Sau do chuyen tien kiem tra va toi se hoan lai.",
+        "stt_confidence": 0.93,
+        "voice_reference_source": null,
+        "voice_verification_status": "passed",
+        "voice_match_score": 0.82,
+        "voice_match_threshold": 0.75,
+        "detected_patterns": [
+          "remote_support",
+          "screen_control",
+          "refund_promise",
+          "transfer_test"
+        ],
+        "llm_scam_type": "remote_support",
+        "llm_confidence": 0.9,
+        "voice_stress_score": 0.77,
+        "voice_stress_labels": [
+          "speech_hesitation",
+          "fast_breathing"
+        ],
+        "face_emotion_score": 0.69,
+        "face_emotion_labels": [
+          "distress",
+          "low_eye_contact"
+        ],
+        "scripted_behavior_score": 0.82,
+        "scripted_behavior_labels": [
+          "monotone_reading",
+          "repeats_caller_phrasing",
+          "screen_instruction_following"
+        ],
+        "coercion_score": 0.76,
+        "coercion_confidence": 0.86,
+        "transcript": "Anh chi mo ung dung dieu khien man hinh de toi sua loi. Sau do chuyen tien kiem tra va toi se hoan lai."
+      }
+    },
+    {
+      "id": "shield-legit-supplier-low",
+      "title": "Known supplier payment",
+      "persona": "Household business owner",
+      "demo_goal": "Show that normal business payments can pass with low friction.",
+      "payload": {
+        "transaction_amount": 18000000,
+        "recipient_name": "Minh Phu Packaging",
+        "recipient_account": "9704 1122 3344",
+        "active_call": false,
+        "caller_type": "trusted",
+        "caller_number": "+84 902 222 111",
+        "recipient_known": true,
+        "recipient_phone": "+84 902 222 111",
+        "vn_social_report_count": 0,
+        "vn_social_recent_keywords": [],
+        "simo_status": "not_listed",
+        "simo_last_checked_at": "2026-06-28T10:09:00Z",
+        "graph_risk_score": 0.08,
+        "graph_pattern": "trusted_supplier_history",
+        "inbound_sender_count_10m": 1,
+        "outbound_account_count_10m": 0,
+        "median_pass_through_minutes": null,
+        "account_age_days": 720,
+        "shared_device_cluster_size": 0,
+        "funds_moved_within_minutes": false,
+        "recipient_risk_level": "low",
+        "remote_control_detected": false,
+        "native_telemetry_available": true,
+        "native_telemetry_source": "mock_android_sdk",
+        "installed_remote_access_app_detected": false,
+        "accessibility_service_risk": false,
+        "screen_sharing_detected": false,
+        "ekyc_verification_status": "passed",
+        "ekyc_liveness_passed": true,
+        "ekyc_liveness_score": 0.95,
+        "ekyc_mask_detected": false,
+        "ekyc_face_match_score": 0.96,
+        "ekyc_injection_risk_score": 0.02,
+        "smartux_behavior_anomaly_score": 0.08,
+        "smartux_remote_control_score": 0.03,
+        "smartux_signals": [],
+        "consent_granted": false,
+        "audio_source": null,
+        "stt_transcript": "",
+        "stt_confidence": null,
+        "voice_reference_source": null,
+        "voice_verification_status": "not_checked",
+        "voice_match_score": null,
+        "voice_match_threshold": null,
+        "detected_patterns": [],
+        "llm_scam_type": null,
+        "llm_confidence": null,
+        "voice_stress_score": null,
+        "voice_stress_labels": [],
+        "face_emotion_score": null,
+        "face_emotion_labels": [],
+        "scripted_behavior_score": null,
+        "scripted_behavior_labels": [],
+        "coercion_score": null,
+        "coercion_confidence": null,
+        "transcript": "Thanh toan hoa don bao bi thang 6 theo hop dong da doi soat."
+      }
+    }
+  ],
+  "grow_invoices": [
+    {
+      "id": "grow-coffee-strong",
+      "title": "Coffee shop catering invoice",
+      "business_stage": "Established household business",
+      "demo_goal": "Show a strong invoice-backed credit profile from structured revenue and on-time payment.",
+      "payload": {
+        "business_id": "biz_an_nhien_coffee",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-coffee-strong.png",
+        "business_name": "An Nhien Coffee",
+        "invoice_id": "INV-2026-001",
+        "customer_name": "Office Pantry Co.",
+        "invoice_total": 32000000,
+        "paid_on_time": true,
+        "items": [
+          {
+            "description": "Monthly coffee bean supply",
+            "quantity": 1,
+            "unit_price": 18000000,
+            "amount": 18000000
+          },
+          {
+            "description": "Office catering package",
+            "quantity": 1,
+            "unit_price": 14000000,
+            "amount": 14000000
+          }
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.93,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-001",
+            "seller_name": "An Nhien Coffee",
+            "buyer_name": "Office Pantry Co.",
+            "issue_date": "2026-06-21",
+            "due_date": "2026-06-28",
+            "total_amount": 32000000,
+            "tax_amount": 2909091,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Monthly coffee bean supply",
+                "quantity": 1,
+                "unit_price": 18000000,
+                "amount": 18000000
+              },
+              {
+                "description": "Office catering package",
+                "quantity": 1,
+                "unit_price": 14000000,
+                "amount": 14000000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_001",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "Office Pantry Co.",
+          "amount": 32000000,
+          "currency": "VND",
+          "transaction_date": "2026-06-21",
+          "category": "sales_revenue",
+          "confidence": 0.93
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 128000000,
+          "total_outflow": 74240000,
+          "net_cashflow": 53760000,
+          "largest_customer": "Office Pantry Co.",
+          "revenue_confidence": 0.93
+        },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 131200000,
+          "projected_outflow": 96000000,
+          "projected_net_cashflow": 35200000,
+          "minimum_cash_buffer": 20800000,
+          "liquidity_risk_level": "low",
+          "shortfall_amount": 0,
+          "shortfall_expected_date": null,
+          "recommended_borrowing_window": "not_required",
+          "recommended_credit_amount": 0,
+          "drivers": [
+            "stable_repeat_customer_payments",
+            "positive_cash_buffer",
+            "predictable_supplier_costs"
+          ],
+          "confidence": 0.78
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 11636364,
+          "taxable_revenue": 128000000,
+          "deductible_expenses": 40832000,
+          "estimated_tax_due": 4358400,
+          "filing_status": "draft_ready"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "draft_ready",
+          "invoice_id": "INV-2026-001",
+          "validation_errors": [],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.88,
+          "repeat_counterparty_count": 16,
+          "verified_counterparty_count": 12,
+          "network_centrality_score": 0.74,
+          "cashflow_stability_score": 0.86,
+          "vn_social_reputation_score": 0.81,
+          "vn_social_mentions_30d": 54,
+          "vn_social_sentiment": "positive",
+          "vn_social_complaint_count_30d": 0,
+          "alternative_credit_score": 88,
+          "confidence": 0.82,
+          "signals": [
+            "repeat_buyer_relationships",
+            "verified_supplier_network",
+            "positive_social_reputation"
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 88,
+            "reason_codes": [
+              "trust_graph_score",
+              "repeat_counterparty_count",
+              "cashflow_stability_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "trust_graph_score",
+                "value": 0.88,
+                "shap_value": 8.4,
+                "direction": "positive",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 16,
+                "shap_value": 7.2,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.86,
+                "shap_value": 6.5,
+                "direction": "positive",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "paid_on_time",
+                "value": true,
+                "shap_value": 5.5,
+                "direction": "positive",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.81,
+                "shap_value": 4.3,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 12,
+                "shap_value": 4.2,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 0,
+                "shap_value": -0.0,
+                "direction": "neutral",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              }
+            ]
+          }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_30000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_30000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 30000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 5300000,
+              "premium_estimate": null,
+              "eligibility_status": "prequalified",
+              "fit_score": 0.86,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot"
+              ],
+              "reason": "Optional growth line for a merchant with stable cashflow.",
+              "next_step": "show_prequalified_terms"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 48000000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 576000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.56,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "No urgent borrowing is required, but a small prequalified line can support planned inventory growth.",
+            "confidence": 0.78,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices"
+          ],
+          "consent_required": true
+        }
+      }
+    },
+    {
+      "id": "grow-food-stall-emerging",
+      "title": "Street food stall bulk order",
+      "business_stage": "Newly digitized household business",
+      "demo_goal": "Show an emerging profile that needs more transaction history.",
+      "payload": {
+        "business_id": "biz_bep_nha_linh",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-food-stall-emerging.png",
+        "business_name": "Bep Nha Linh",
+        "invoice_id": "INV-2026-017",
+        "customer_name": "Co-working Lunch Club",
+        "invoice_total": 12500000,
+        "paid_on_time": true,
+        "items": [
+          {
+            "description": "Lunch boxes and delivery",
+            "quantity": 1,
+            "unit_price": 12500000,
+            "amount": 12500000
+          }
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.89,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-017",
+            "seller_name": "Bep Nha Linh",
+            "buyer_name": "Co-working Lunch Club",
+            "issue_date": "2026-06-24",
+            "due_date": "2026-06-30",
+            "total_amount": 12500000,
+            "tax_amount": 1136364,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Lunch boxes and delivery",
+                "quantity": 1,
+                "unit_price": 12500000,
+                "amount": 12500000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_017",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "Co-working Lunch Club",
+          "amount": 12500000,
+          "currency": "VND",
+          "transaction_date": "2026-06-24",
+          "category": "food_sales",
+          "confidence": 0.89
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 50000000,
+          "total_outflow": 29000000,
+          "net_cashflow": 21000000,
+          "largest_customer": "Co-working Lunch Club",
+          "revenue_confidence": 0.89
+        },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 41250000,
+          "projected_outflow": 36250000,
+          "projected_net_cashflow": 5000000,
+          "minimum_cash_buffer": 9375000,
+          "liquidity_risk_level": "medium",
+          "shortfall_amount": 4375000,
+          "shortfall_expected_date": "2026-07-18",
+          "recommended_borrowing_window": "2026-07-10_to_2026-07-17",
+          "recommended_credit_amount": 6000000,
+          "drivers": [
+            "thin_recent_revenue",
+            "starter_cash_buffer_gap",
+            "limited_payment_history"
+          ],
+          "confidence": 0.64
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 4545455,
+          "taxable_revenue": 50000000,
+          "deductible_expenses": 15950000,
+          "estimated_tax_due": 1702500,
+          "filing_status": "draft_ready"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "draft_ready",
+          "invoice_id": "INV-2026-017",
+          "validation_errors": [],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.61,
+          "repeat_counterparty_count": 3,
+          "verified_counterparty_count": 1,
+          "network_centrality_score": 0.42,
+          "cashflow_stability_score": 0.58,
+          "vn_social_reputation_score": 0.64,
+          "vn_social_mentions_30d": 12,
+          "vn_social_sentiment": "mixed",
+          "vn_social_complaint_count_30d": 0,
+          "alternative_credit_score": 61,
+          "confidence": 0.63,
+          "signals": [
+            "newly_digitized_business",
+            "thin_network_history"
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 61,
+            "reason_codes": [
+              "paid_on_time",
+              "trust_graph_score",
+              "vn_social_reputation_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "paid_on_time",
+                "value": true,
+                "shap_value": 5.5,
+                "direction": "positive",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "trust_graph_score",
+                "value": 0.61,
+                "shap_value": 2.4,
+                "direction": "positive",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.64,
+                "shap_value": 2.0,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 3,
+                "shap_value": 1.4,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.58,
+                "shap_value": 1.4,
+                "direction": "positive",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 1,
+                "shap_value": 0.3,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 0,
+                "shap_value": -0.0,
+                "direction": "neutral",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              }
+            ]
+          }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_6000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_6000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 6000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 1060000,
+              "premium_estimate": null,
+              "eligibility_status": "eligible",
+              "fit_score": 0.68,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot"
+              ],
+              "reason": "Small working-capital line can cover the projected starter cash-buffer gap.",
+              "next_step": "request_partner_review"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 18750000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 250000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.61,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "A modest 6,000,000 VND working-capital offer may help cover the projected cash-buffer gap.",
+            "confidence": 0.66,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices"
+          ],
+          "consent_required": true
+        }
+      }
+    },
+    {
+      "id": "grow-retail-late-payment",
+      "title": "Retail stock invoice with late payment",
+      "business_stage": "Thin-file retailer",
+      "demo_goal": "Show how late payment weakens loan readiness even when revenue exists.",
+      "payload": {
+        "business_id": "biz_thanh_tam_mini_mart",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-retail-late-payment.png",
+        "business_name": "Thanh Tam Mini Mart",
+        "invoice_id": "INV-2026-042",
+        "customer_name": "Local Wholesale Buyer",
+        "invoice_total": 23000000,
+        "paid_on_time": false,
+        "items": [
+          {
+            "description": "Packaged goods",
+            "quantity": 1,
+            "unit_price": 23000000,
+            "amount": 23000000
+          }
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.87,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-042",
+            "seller_name": "Thanh Tam Mini Mart",
+            "buyer_name": "Local Wholesale Buyer",
+            "issue_date": "2026-06-10",
+            "due_date": "2026-06-17",
+            "total_amount": 23000000,
+            "tax_amount": 2090909,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Packaged goods",
+                "quantity": 1,
+                "unit_price": 23000000,
+                "amount": 23000000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_042",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "Local Wholesale Buyer",
+          "amount": 23000000,
+          "currency": "VND",
+          "transaction_date": "2026-06-10",
+          "category": "retail_sales",
+          "confidence": 0.87
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 92000000,
+          "total_outflow": 53360000,
+          "net_cashflow": 38640000,
+          "largest_customer": "Local Wholesale Buyer",
+          "revenue_confidence": 0.87
+        },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 62100000,
+          "projected_outflow": 80500000,
+          "projected_net_cashflow": -18400000,
+          "minimum_cash_buffer": 18400000,
+          "liquidity_risk_level": "high",
+          "shortfall_amount": 36800000,
+          "shortfall_expected_date": "2026-07-18",
+          "recommended_borrowing_window": "2026-07-10_to_2026-07-17",
+          "recommended_credit_amount": 44000000,
+          "drivers": [
+            "late_receivable_risk",
+            "cashflow_volatility",
+            "upcoming_supplier_payment"
+          ],
+          "confidence": 0.68
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 8363636,
+          "taxable_revenue": 92000000,
+          "deductible_expenses": 29348000,
+          "estimated_tax_due": 3132600,
+          "filing_status": "needs_review"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "needs_review",
+          "invoice_id": "INV-2026-042",
+          "validation_errors": [
+            "payment_status_late"
+          ],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.49,
+          "repeat_counterparty_count": 5,
+          "verified_counterparty_count": 2,
+          "network_centrality_score": 0.38,
+          "cashflow_stability_score": 0.41,
+          "vn_social_reputation_score": 0.53,
+          "vn_social_mentions_30d": 19,
+          "vn_social_sentiment": "mixed",
+          "vn_social_complaint_count_30d": 2,
+          "alternative_credit_score": 47,
+          "confidence": 0.66,
+          "signals": [
+            "delayed_settlement",
+            "cashflow_volatility"
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 47,
+            "reason_codes": [
+              "repeat_counterparty_count",
+              "verified_counterparty_count",
+              "vn_social_reputation_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "paid_on_time",
+                "value": false,
+                "shap_value": -9.5,
+                "direction": "negative",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 2,
+                "shap_value": -5.0,
+                "direction": "negative",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 5,
+                "shap_value": 2.2,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.41,
+                "shap_value": -1.6,
+                "direction": "negative",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 2,
+                "shap_value": 0.7,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.53,
+                "shap_value": 0.4,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "trust_graph_score",
+                "value": 0.49,
+                "shap_value": -0.2,
+                "direction": "negative",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              }
+            ]
+          }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_44000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_44000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 44000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 7773333,
+              "premium_estimate": null,
+              "eligibility_status": "needs_review",
+              "fit_score": 0.52,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot",
+                "receivables_aging"
+              ],
+              "reason": "Partner review required because delayed receivables weaken affordability.",
+              "next_step": "request_partner_review"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 34500000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 414000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.63,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "Wait for partner review before borrowing; focus on collecting late receivables and avoid over-borrowing.",
+            "confidence": 0.64,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices",
+            "receivables_aging"
+          ],
+          "consent_required": true
+        }
+      }
+    },
+    {
+      "id": "grow-electronics-strong",
+      "title": "Electronics reseller invoice",
+      "business_stage": "Growing SME",
+      "demo_goal": "Show a high-volume merchant ready for a small working-capital offer.",
+      "payload": {
+        "business_id": "biz_nam_phuong_devices",
+        "input_mode": "invoice_photo",
+        "input_source": "/static/fixtures/receipts/grow-electronics-strong.png",
+        "business_name": "Nam Phuong Devices",
+        "invoice_id": "INV-2026-108",
+        "customer_name": "District Repair Network",
+        "invoice_total": 86000000,
+        "paid_on_time": true,
+        "items": [
+          {
+            "description": "Replacement screens",
+            "quantity": 1,
+            "unit_price": 42000000,
+            "amount": 42000000
+          },
+          {
+            "description": "Charging ports and cables",
+            "quantity": 1,
+            "unit_price": 24000000,
+            "amount": 24000000
+          },
+          {
+            "description": "Repair tool kits",
+            "quantity": 1,
+            "unit_price": 20000000,
+            "amount": 20000000
+          }
+        ],
+        "ocr": {
+          "provider": "SmartReader",
+          "status": "completed",
+          "confidence": 0.95,
+          "extracted_fields": {
+            "invoice_id": "INV-2026-108",
+            "seller_name": "Nam Phuong Devices",
+            "buyer_name": "District Repair Network",
+            "issue_date": "2026-06-26",
+            "due_date": "2026-07-03",
+            "total_amount": 86000000,
+            "tax_amount": 7818182,
+            "currency": "VND",
+            "line_items": [
+              {
+                "description": "Replacement screens",
+                "quantity": 1,
+                "unit_price": 42000000,
+                "amount": 42000000
+              },
+              {
+                "description": "Charging ports and cables",
+                "quantity": 1,
+                "unit_price": 24000000,
+                "amount": 24000000
+              },
+              {
+                "description": "Repair tool kits",
+                "quantity": 1,
+                "unit_price": 20000000,
+                "amount": 20000000
+              }
+            ]
+          }
+        },
+        "voice_entry": {
+          "provider": "SmartVoice",
+          "status": "not_used",
+          "audio_source": null,
+          "transcript": "",
+          "confidence": null,
+          "parsed_fields": null
+        },
+        "normalized_ledger_entry": {
+          "entry_id": "ledger_inv_2026_108",
+          "source_type": "invoice_photo",
+          "transaction_type": "sale",
+          "counterparty_name": "District Repair Network",
+          "amount": 86000000,
+          "currency": "VND",
+          "transaction_date": "2026-06-26",
+          "category": "electronics_sales",
+          "confidence": 0.95
+        },
+        "cashflow_summary": {
+          "period": "2026-06",
+          "total_inflow": 344000000,
+          "total_outflow": 199520000,
+          "net_cashflow": 144480000,
+          "largest_customer": "District Repair Network",
+          "revenue_confidence": 0.95
+        },
+        "cashflow_forecast": {
+          "forecast_period_days": 30,
+          "projected_inflow": 361200000,
+          "projected_outflow": 275200000,
+          "projected_net_cashflow": 86000000,
+          "minimum_cash_buffer": 55900000,
+          "liquidity_risk_level": "low",
+          "shortfall_amount": 0,
+          "shortfall_expected_date": null,
+          "recommended_borrowing_window": "not_required",
+          "recommended_credit_amount": 0,
+          "drivers": [
+            "large_repeat_buyer_pipeline",
+            "positive_cash_buffer",
+            "working_capital_ready"
+          ],
+          "confidence": 0.83
+        },
+        "tax_summary": {
+          "period": "2026-06",
+          "vat_estimate": 31272727,
+          "taxable_revenue": 344000000,
+          "deductible_expenses": 109736000,
+          "estimated_tax_due": 11713200,
+          "filing_status": "draft_ready"
+        },
+        "einvoice_status": {
+          "provider": "mock_einvoice",
+          "status": "draft_ready",
+          "invoice_id": "INV-2026-108",
+          "validation_errors": [],
+          "compliance_notes": [
+            "Required buyer and seller fields present",
+            "VAT estimate generated",
+            "Ledger entry linked to source document"
+          ]
+        },
+        "alternative_credit_profile": {
+          "trust_graph_score": 0.92,
+          "repeat_counterparty_count": 22,
+          "verified_counterparty_count": 16,
+          "network_centrality_score": 0.81,
+          "cashflow_stability_score": 0.9,
+          "vn_social_reputation_score": 0.84,
+          "vn_social_mentions_30d": 71,
+          "vn_social_sentiment": "positive",
+          "vn_social_complaint_count_30d": 0,
+          "alternative_credit_score": 92,
+          "confidence": 0.86,
+          "signals": [
+            "high_volume_repeat_buyers",
+            "verified_counterparty_network",
+            "positive_social_reputation"
+          ],
+          "explainability": {
+            "model_type": "gradient_boosted_trees",
+            "model_version": "grow_alt_credit_mock_v1",
+            "baseline_score": 55,
+            "final_score": 92,
+            "reason_codes": [
+              "trust_graph_score",
+              "repeat_counterparty_count",
+              "cashflow_stability_score"
+            ],
+            "feature_contributions": [
+              {
+                "feature": "trust_graph_score",
+                "value": 0.92,
+                "shap_value": 9.2,
+                "direction": "positive",
+                "reason": "A stronger transaction graph improves confidence in real business activity."
+              },
+              {
+                "feature": "repeat_counterparty_count",
+                "value": 22,
+                "shap_value": 8.1,
+                "direction": "positive",
+                "reason": "Repeat counterparties show durable buyer or supplier relationships."
+              },
+              {
+                "feature": "cashflow_stability_score",
+                "value": 0.9,
+                "shap_value": 7.2,
+                "direction": "positive",
+                "reason": "Stable cashflow reduces short-term repayment uncertainty."
+              },
+              {
+                "feature": "paid_on_time",
+                "value": true,
+                "shap_value": 5.5,
+                "direction": "positive",
+                "reason": "Payment timeliness is a direct repayment-quality signal."
+              },
+              {
+                "feature": "verified_counterparty_count",
+                "value": 16,
+                "shap_value": 4.9,
+                "direction": "positive",
+                "reason": "Verified counterparties reduce identity and invoice-quality uncertainty."
+              },
+              {
+                "feature": "vn_social_reputation_score",
+                "value": 0.84,
+                "shap_value": 4.8,
+                "direction": "positive",
+                "reason": "Positive public reputation supports business legitimacy."
+              },
+              {
+                "feature": "vn_social_complaint_count_30d",
+                "value": 0,
+                "shap_value": -0.0,
+                "direction": "neutral",
+                "reason": "Recent complaints reduce confidence and trigger review."
+              }
+            ]
+          }
+        },
+        "capital_connection": {
+          "status": "matched",
+          "recommended_offer_id": "mock_wc_60000000_6mo",
+          "partner_offers": [
+            {
+              "offer_id": "mock_wc_60000000_6mo",
+              "partner_name": "Mock Partner Bank A",
+              "product_type": "working_capital_loan",
+              "max_amount": 60000000,
+              "term_months": 6,
+              "monthly_payment_estimate": 10600000,
+              "premium_estimate": null,
+              "eligibility_status": "prequalified",
+              "fit_score": 0.91,
+              "required_documents": [
+                "recent_invoices",
+                "bank_statement_snapshot"
+              ],
+              "reason": "Supports larger repeat-buyer orders without over-borrowing.",
+              "next_step": "show_prequalified_terms"
+            },
+            {
+              "offer_id": "mock_inventory_cover_basic",
+              "partner_name": "Mock Insurance Partner B",
+              "product_type": "inventory_insurance",
+              "max_amount": 129000000,
+              "term_months": 12,
+              "monthly_payment_estimate": null,
+              "premium_estimate": 1548000,
+              "eligibility_status": "eligible",
+              "fit_score": 0.72,
+              "required_documents": [
+                "inventory_photo",
+                "recent_invoice"
+              ],
+              "reason": "Protects stock or seasonal inventory tied to upcoming sales.",
+              "next_step": "show_insurance_summary"
+            }
+          ],
+          "smartbot_advice": {
+            "provider": "Smartbot",
+            "message": "A prequalified 60,000,000 VND line can support larger repeat-buyer orders while preserving cash buffer.",
+            "confidence": 0.81,
+            "disclaimer": "Demo advisory output, not a binding credit decision."
+          },
+          "data_sharing_scope": [
+            "business_profile",
+            "cashflow_forecast",
+            "recent_invoices"
+          ],
+          "consent_required": true
+        }
+      }
+    }
+  ],
+  "trust_profiles": [
+    {
+      "id": "profile-an-nhien-coffee",
+      "owner": "An Nhien Coffee",
+      "type": "business",
+      "signals": {
+        "known_supplier_count": 8,
+        "invoice_months": 9,
+        "on_time_payment_rate": 0.94,
+        "recent_alerts": 0
+      }
+    },
+    {
+      "id": "profile-nguyen-van-a",
+      "owner": "Nguyen Van A",
+      "type": "recipient",
+      "signals": {
+        "known_supplier_count": 0,
+        "invoice_months": 0,
+        "on_time_payment_rate": 0.0,
+        "recent_alerts": 7
+      }
+    },
+    {
+      "id": "profile-minh-phu-packaging",
+      "owner": "Minh Phu Packaging",
+      "type": "recipient",
+      "signals": {
+        "known_supplier_count": 14,
+        "invoice_months": 18,
+        "on_time_payment_rate": 0.98,
+        "recent_alerts": 0
+      }
+    }
+  ]
+}

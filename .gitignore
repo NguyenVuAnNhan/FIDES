@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+frontend/static/uploads/receipts/*
+!frontend/static/uploads/receipts/.gitkeep
+uploads/ekyc/*
+!uploads/ekyc/.gitkeep
+uploads/shield/*
+!uploads/shield/.gitkeep
+uploads/smartvoice/*
+!uploads/smartvoice/.gitkeep
+

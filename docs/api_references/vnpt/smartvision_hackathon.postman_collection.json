@@ -1,0 +1,275 @@
+{
+	"info": {
+		"_postman_id": "7c257d04-b88d-4a68-be74-4db759966b6a",
+		"name": "smartvision-hackathon",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "15668398"
+	},
+	"item": [
+		{
+			"name": "Upload ảnh",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": ""
+					},
+					{
+						"key": "Token-id",
+						"value": ""
+					},
+					{
+						"key": "Token-key",
+						"value": ""
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/C:/Users/Yen Nhi/Downloads/Samle_Face_Biển số_Người.jpg"
+						},
+						{
+							"key": "title",
+							"value": "anh1",
+							"type": "text"
+						},
+						{
+							"key": "description",
+							"value": "test1",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://api.idg.vnpt.vn/file-service/v1/addFile",
+					"protocol": "https",
+					"host": [
+						"api",
+						"idg",
+						"vnpt",
+						"vn"
+					],
+					"path": [
+						"file-service",
+						"v1",
+						"addFile"
+					]
+				},
+				"description": "Generated from cURL: curl --location 'https://sandbox-idg.vnpt.vn/file-service/v1/addFile' \\\r\n--header 'Authorization: ' \\\r\n--header 'Token-id: ' \\\r\n--header 'Token-key: ' \\\r\n--header 'Content-Type: application/json' \\\r\n--form 'file=@\"/C:/Users/Yen Nhi/Downloads/Samle_Face_Biển số_Người.jpg\"' \\\r\n--form 'title=\"anh1\"' \\\r\n--form 'description=\"test1\"'"
+			},
+			"response": []
+		},
+		{
+			"name": "Lấy link download",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": ""
+					},
+					{
+						"key": "Token-id",
+						"value": ""
+					},
+					{
+						"key": "Token-key",
+						"value": ""
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"url": {
+					"raw": "https://api.idg.vnpt.vn/proxy-service/url-file?hash=idg20251211-45a8889a-8838-5dc1-e063-63199f0ad74d/IDG01_35be7729-d65e-11f0-b76e-5be6991d845d",
+					"protocol": "https",
+					"host": [
+						"api",
+						"idg",
+						"vnpt",
+						"vn"
+					],
+					"path": [
+						"proxy-service",
+						"url-file"
+					],
+					"query": [
+						{
+							"key": "hash",
+							"value": "idg20251211-45a8889a-8838-5dc1-e063-63199f0ad74d/IDG01_35be7729-d65e-11f0-b76e-5be6991d845d"
+						}
+					]
+				},
+				"description": "Generated from cURL: curl --location --request GET 'https://sandbox-idg.vnpt.vn/proxy-service/url-file?hash=idg20251202-44f4fea8-53df-675a-e063-1f08a30af53c%2FIDG01_06132770-cf5a-11f0-9a08-55ff75bbc011' \\\r\n--header 'Authorization: ' \\\r\n--header 'Token-id:' \\\r\n--header 'Token-key:' \\\r\n--header 'Content-Type: application/json' \\\r\n--data '{\r\n    \"data\": \"https://drive.google.com/drive/folders/1G83rl2BBG4JNPQrUcSyJycOo7TYy5Fbu\"\r\n}'"
+			},
+			"response": []
+		},
+		{
+			"name": "detect-people",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Token-id",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Token-key",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"data\": \"https://idg-obs.vnpt.vn/storage_idg/idg20251211-45a8889a-8838-5dc1-e063-63199f0ad74d/IDG01_9d7e2d8e-d65d-11f0-b513-67a29cbe6c4b?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=idgadmin%2F20251211%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251211T065039Z&X-Amz-Expires=28800&X-Amz-SignedHeaders=host&X-Amz-Signature=93e3af67140f88251c6a06ad95220f494ab35f3cd61564f9ad472802baaed5a8\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://api.idg.vnpt.vn/data-service/v1/smartvision/detect-people",
+					"protocol": "https",
+					"host": [
+						"api",
+						"idg",
+						"vnpt",
+						"vn"
+					],
+					"path": [
+						"data-service",
+						"v1",
+						"smartvision",
+						"detect-people"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "detect-vehicle",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Token-id",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Token-key",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"data\": \"https://idg-obs.vnpt.vn/storage_idg/idg20251211-45a8889a-8838-5dc1-e063-63199f0ad74d/IDG01_f6bd7867-d65d-11f0-9375-5fdc6e6738a1?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=idgadmin%2F20251211%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251211T065245Z&X-Amz-Expires=28800&X-Amz-SignedHeaders=host&X-Amz-Signature=7fb92a785b3704865659e9fdf1ad805c06440f7cbf537047056d9dd7f828606f\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://api.idg.vnpt.vn/data-service/v1/smartvision/detect-vehicle",
+					"protocol": "https",
+					"host": [
+						"api",
+						"idg",
+						"vnpt",
+						"vn"
+					],
+					"path": [
+						"data-service",
+						"v1",
+						"smartvision",
+						"detect-vehicle"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "detect-face",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Token-id",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Token-key",
+						"value": "",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"data\": \"https://idg-obs.vnpt.vn/storage_idg/idg20251211-45a8889a-8838-5dc1-e063-63199f0ad74d/IDG01_35be7729-d65e-11f0-b76e-5be6991d845d?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=idgadmin%2F20251211%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251211T065426Z&X-Amz-Expires=28800&X-Amz-SignedHeaders=host&X-Amz-Signature=b9f12dfb6e69e196e9c7217881054f7f621cffa90ae662c833715fa629dfad07\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://api.idg.vnpt.vn/data-service/v1/smartvision/detect-face",
+					"protocol": "https",
+					"host": [
+						"api",
+						"idg",
+						"vnpt",
+						"vn"
+					],
+					"path": [
+						"data-service",
+						"v1",
+						"smartvision",
+						"detect-face"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

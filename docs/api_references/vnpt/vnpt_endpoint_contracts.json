@@ -1,0 +1,1169 @@
+{
+  "generated_at": "2026-06-28",
+  "scope": "Public unauthenticated VNPT documentation and frontend bundles only. Contracts are normalized summaries, not verbatim vendor documentation.",
+  "common": {
+    "default_base_url": "https://api.idg.vnpt.vn",
+    "token_headers": [
+      "Content-Type: application/json",
+      "Authorization: Bearer ${access_token}",
+      "Token-id: ${token_id}",
+      "Token-key: ${token_key}"
+    ],
+    "ekyc_extra_headers": [
+      "mac-address: TEST1"
+    ]
+  },
+  "products": [
+    {
+      "name": "VNPT eKYC",
+      "status": "public_contracts_found",
+      "base_url": "https://api.idg.vnpt.vn",
+      "sources": [
+        "https://ekyc.vnpt.vn/admin-dashboard/en/documents/api"
+      ],
+      "endpoints": [
+        {
+          "id": "ekyc.upload_file",
+          "method": "POST",
+          "path": "/file-service/v1/addFile",
+          "content_type": "multipart/form-data",
+          "request_fields": [
+            {"name": "file", "type": "File", "required": true},
+            {"name": "title", "type": "string", "required": false},
+            {"name": "description", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.fileName",
+            "object.title",
+            "object.description",
+            "object.hash",
+            "object.fileType",
+            "object.uploadedDate",
+            "object.storageType",
+            "object.tokenId"
+          ]
+        },
+        {
+          "id": "ekyc.classify_id",
+          "method": "POST",
+          "path": "/ai/v1/classify/id",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img_card", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "token", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.type",
+            "object.name"
+          ],
+          "notes": [
+            "type: 0/1 old ID front/back, 2/3 new ID front/back, 5 passport, 4 other"
+          ]
+        },
+        {
+          "id": "ekyc.card_liveness",
+          "method": "POST",
+          "path": "/ai/v1/card/liveness",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.liveness",
+            "object.liveness_msg",
+            "object.face_swapping",
+            "object.fake_liveness"
+          ]
+        },
+        {
+          "id": "ekyc.ocr_id_front",
+          "method": "POST",
+          "path": "/ai/v1/ocr/id/front",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img_front", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "type", "type": "integer", "required": false},
+            {"name": "validate_postcode", "type": "boolean", "required": false},
+            {"name": "token", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.msg",
+            "object.card_type",
+            "object.id",
+            "object.id_probs",
+            "object.name",
+            "object.birth_day",
+            "object.birth_day_prob",
+            "object.nationality",
+            "object.nation",
+            "object.gender",
+            "object.valid_date",
+            "object.origin_location",
+            "object.origin_location_prob",
+            "object.recent_location",
+            "object.recent_location_prob",
+            "object.type_id",
+            "object.warning",
+            "object.warning_msg",
+            "object.expire_warning",
+            "object.back_expire_warning",
+            "object.post_code",
+            "object.tampering.is_legal",
+            "object.tampering.warning"
+          ]
+        },
+        {
+          "id": "ekyc.ocr_id_back",
+          "method": "POST",
+          "path": "/ai/v1/ocr/id/back",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img_back", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "type", "type": "integer", "required": true},
+            {"name": "token", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.issue_place",
+            "object.issue_date",
+            "object.issue_date_prob",
+            "object.issue_date_probs",
+            "object.issue_place_prob",
+            "object.back_type_id",
+            "object.back_expire_warning",
+            "object.msg_back"
+          ]
+        },
+        {
+          "id": "ekyc.ocr_id_combined",
+          "method": "POST",
+          "path": "/ai/v1/ocr/id",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img_front", "type": "string", "required": true},
+            {"name": "img_back", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "type", "type": "integer", "required": false},
+            {"name": "crop_param", "type": "string", "required": false},
+            {"name": "validate_postcode", "type": "boolean", "required": false},
+            {"name": "token", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object",
+            "server_version"
+          ],
+          "notes": [
+            "object combines the front and back OCR field families"
+          ]
+        },
+        {
+          "id": "ekyc.face_compare",
+          "method": "POST",
+          "path": "/ai/v1/face/compare",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img_front", "type": "string", "required": true},
+            {"name": "img_face", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "token", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "server_version",
+            "object.result",
+            "object.msg",
+            "object.prob"
+          ]
+        },
+        {
+          "id": "ekyc.face_liveness",
+          "method": "POST",
+          "path": "/ai/v1/face/liveness",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "token", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.liveness",
+            "object.liveness_msg",
+            "object.is_eye_open"
+          ]
+        },
+        {
+          "id": "ekyc.face_mask",
+          "method": "POST",
+          "path": "/ai/v1/face/mask",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img", "type": "string", "required": true},
+            {"name": "face_bbox", "type": "string", "required": false},
+            {"name": "face_lmark", "type": "string", "required": false},
+            {"name": "client_session", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.masked"
+          ]
+        },
+        {
+          "id": "ekyc.face_add",
+          "method": "POST",
+          "path": "/face-service/face/add",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "bbox", "type": "object|null", "required": false},
+            {"name": "landmark", "type": "object|null", "required": false},
+            {"name": "customer_information", "type": "object", "required": true},
+            {"name": "unit", "type": "string", "required": true}
+          ],
+          "nested_request_fields": {
+            "customer_information": [
+              "card_id",
+              "passport_id",
+              "driver_license_id",
+              "military_id",
+              "police_id",
+              "other_id",
+              "fullname",
+              "dob",
+              "gender",
+              "address",
+              "hometown",
+              "nationality",
+              "ipfs",
+              "title",
+              "other_type",
+              "extra_info"
+            ]
+          },
+          "response_fields": [
+            "message",
+            "object.result",
+            "object.msg",
+            "object.customer_information",
+            "object.customer_information.customer_id"
+          ]
+        },
+        {
+          "id": "ekyc.face_verify",
+          "method": "POST",
+          "path": "/face-service/face/verify",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img", "type": "string", "required": true},
+            {"name": "id_card", "type": "string", "required": true},
+            {"name": "id_type", "type": "integer|string", "required": true},
+            {"name": "unit", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.result",
+            "object.msg",
+            "object.prob",
+            "object.id_card",
+            "object.id_type"
+          ]
+        },
+        {
+          "id": "ekyc.face_search",
+          "method": "POST",
+          "path": "/face-service/face/search",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img", "type": "string", "required": true},
+            {"name": "unit", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.result",
+            "object.msg",
+            "object.customer_information",
+            "object.face_probability"
+          ]
+        },
+        {
+          "id": "ekyc.face_search_k",
+          "method": "POST",
+          "path": "/face-service/face/search-k",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img", "type": "string", "required": true},
+            {"name": "unit", "type": "string", "required": true},
+            {"name": "k", "type": "integer", "required": true},
+            {"name": "threshold", "type": "float", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.result",
+            "object.msg",
+            "object.customer_informations[]",
+            "object.customer_informations[].customer_information",
+            "object.customer_informations[].face_probability"
+          ]
+        },
+        {
+          "id": "ekyc.cic_verify_face",
+          "method": "POST",
+          "path": "/aicommon-service/cic/v1/verify_face",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "img_face", "type": "string", "required": false},
+            {"name": "img_front", "type": "string", "required": false},
+            {"name": "card_id", "type": "string", "required": true},
+            {"name": "type_card", "type": "integer|string", "required": true},
+            {"name": "fullname", "type": "string", "required": false},
+            {"name": "birth_day", "type": "string", "required": false},
+            {"name": "origin_location", "type": "string", "required": false},
+            {"name": "recent_location", "type": "string", "required": false},
+            {"name": "gender", "type": "string", "required": false},
+            {"name": "nationality", "type": "string", "required": false},
+            {"name": "issue_date", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.informations",
+            "object.result",
+            "object.msg"
+          ],
+          "notes": [
+            "This contract is present in the public bundle but appears inside a commented block in the rendered docs."
+          ]
+        },
+        {
+          "id": "ekyc.cic_verify_customer",
+          "method": "POST",
+          "path": "/aicommon-service/cic/v1/verify_customer",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "card_id", "type": "string", "required": true},
+            {"name": "fullname", "type": "string", "required": true},
+            {"name": "type_card", "type": "integer", "required": true},
+            {"name": "phonenumber", "type": "string", "required": true},
+            {"name": "verify", "type": "boolean", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.informations.card_id",
+            "object.informations.phonenumber",
+            "object.informations.fullname",
+            "object.result",
+            "object.msg"
+          ]
+        }
+      ],
+      "common_error_fields": [
+        "status",
+        "message",
+        "statusCode",
+        "errors[]"
+      ]
+    },
+    {
+      "name": "VNPT SmartVoice",
+      "status": "public_contracts_found",
+      "base_url": "https://api.idg.vnpt.vn",
+      "voice_verification_base_url": "https://api.idg.vnpt.vn/voice-service",
+      "sources": [
+        "https://smartvoice.vnpt.vn/documents/api",
+        "https://smartvoice.vnpt.vn/en/sdk",
+        "https://vnptai.io/smartvoice/en/documents/api"
+      ],
+      "endpoints": [
+        {
+          "id": "smartvoice.auth_token",
+          "method": "POST",
+          "path": "/auth-service/oauth/token",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "username", "type": "string", "required": true},
+            {"name": "password", "type": "string", "required": true},
+            {"name": "client_id", "type": "string", "required": true},
+            {"name": "grant_type", "type": "string", "required": true},
+            {"name": "client_secret", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "access_token",
+            "token_type",
+            "refresh_token",
+            "expires_in",
+            "scope"
+          ],
+          "notes": [
+            "Vendor text renders this once with a space as /auth-service /oauth/token."
+          ]
+        },
+        {
+          "id": "smartvoice.tts_public_submit",
+          "method": "POST",
+          "path": "/ai/api/v1/text-to-speech",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text", "type": "string", "required": true},
+            {"name": "text_split", "type": "boolean", "required": false},
+            {"name": "model", "type": "string", "required": false},
+            {"name": "region", "type": "string", "required": false},
+            {"name": "captcha", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "code",
+            "text_id",
+            "version"
+          ]
+        },
+        {
+          "id": "smartvoice.tts_public_status",
+          "method": "POST",
+          "path": "/ai/api/v1/text-to-speech/check-status",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "code",
+            "playlist[]",
+            "playlist[].idx",
+            "playlist[].text",
+            "playlist[].text_len",
+            "playlist[].total",
+            "playlist[].audio_link",
+            "text_id",
+            "version"
+          ]
+        },
+        {
+          "id": "smartvoice.tts_public_download",
+          "method": "POST",
+          "path": "/ai/api/v1/text-to-speech/download",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text_id", "type": "string", "required": true},
+            {"name": "type", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "binary_audio"
+          ],
+          "notes": [
+            "type accepts MP3 or WAV in public docs."
+          ]
+        },
+        {
+          "id": "smartvoice.tts_v1_standard",
+          "method": "POST",
+          "path": "/tts-service/v1/standard",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text", "type": "string", "required": true},
+            {"name": "text_split", "type": "boolean", "required": false},
+            {"name": "model", "type": "string", "required": false},
+            {"name": "region", "type": "string", "required": false},
+            {"name": "audio_format", "type": "string", "required": false},
+            {"name": "sample_rate", "type": "integer", "required": false},
+            {"name": "use_abbr_converter", "type": "boolean", "required": false},
+            {"name": "auto_silence", "type": "boolean", "required": false},
+            {"name": "clear_cached", "type": "boolean", "required": false},
+            {"name": "combine_final", "type": "boolean", "required": false},
+            {"name": "domain", "type": "string", "required": false},
+            {"name": "speed", "type": "float", "required": false},
+            {"name": "prosody", "type": "float", "required": false},
+            {"name": "captcha", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.code",
+            "object.text_id",
+            "object.version",
+            "hash_text",
+            "length_text"
+          ]
+        },
+        {
+          "id": "smartvoice.tts_v1_status",
+          "method": "POST",
+          "path": "/tts-service/v1/check-status",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.code",
+            "object.playlist[]",
+            "object.r_audio_full_finished",
+            "object.r_audio_full",
+            "object.text_id",
+            "object.version",
+            "object.version_ai"
+          ]
+        },
+        {
+          "id": "smartvoice.tts_v2_standard",
+          "method": "POST",
+          "path": "/tts-service/v2/standard",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text", "type": "string", "required": true},
+            {"name": "model", "type": "string", "required": false},
+            {"name": "region", "type": "string", "required": false},
+            {"name": "audio_format", "type": "string", "required": false},
+            {"name": "sample_rate", "type": "integer", "required": false},
+            {"name": "use_abbr_converter", "type": "boolean", "required": false},
+            {"name": "auto_silence", "type": "boolean", "required": false},
+            {"name": "clear_cached", "type": "boolean", "required": false},
+            {"name": "domain", "type": "string", "required": false},
+            {"name": "speed", "type": "float", "required": false},
+            {"name": "prosody", "type": "float", "required": false},
+            {"name": "captcha", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.code",
+            "object.playlist[]",
+            "object.r_audio_full_finished",
+            "object.r_audio_full",
+            "object.text_id",
+            "object.version",
+            "object.version_ai"
+          ]
+        },
+        {
+          "id": "smartvoice.tts_v2_grpc",
+          "method": "POST",
+          "path": "/tts-service/v2/grpc",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "text", "type": "string", "required": true},
+            {"name": "model", "type": "string", "required": false},
+            {"name": "region", "type": "string", "required": false},
+            {"name": "audio_format", "type": "string", "required": false},
+            {"name": "sample_rate", "type": "integer", "required": false},
+            {"name": "domain", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "audio_or_streaming_tts_result"
+          ],
+          "notes": [
+            "Public docs expose gRPC method names and note a max text length of 1800 characters."
+          ]
+        },
+        {
+          "id": "smartvoice.stt_v3_standard",
+          "method": "POST",
+          "path": "/stt-service/v3/standard",
+          "content_type": "binary audio",
+          "request_headers": [
+            "Enable-Lm",
+            "Sample-Rate",
+            "content-type",
+            "bit-per-rate",
+            "domain",
+            "save-log",
+            "cap_punct_recovery"
+          ],
+          "request_fields": [
+            {"name": "file audio", "type": "binary", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.id",
+            "object.audio_type",
+            "object.audio_url",
+            "object.audio_hash",
+            "object.sample_rate",
+            "object.transcript_model",
+            "object.transcript",
+            "object.transcript_list"
+          ]
+        },
+        {
+          "id": "smartvoice.stt_grpc_standard",
+          "method": "POST",
+          "path": "/stt-service/v1/grpc/standard",
+          "content_type": "binary audio",
+          "request_fields": [
+            {"name": "audioFile", "type": "binary", "required": true},
+            {"name": "clientSession", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.results[]",
+            "object.results[].alternatives[]",
+            "object.results[].alternatives[].transcript",
+            "object.results[].alternatives[].confidence"
+          ]
+        },
+        {
+          "id": "smartvoice.stt_grpc_async_standard",
+          "method": "POST",
+          "path": "/stt-service/v1/grpc/async/standard",
+          "content_type": "binary audio",
+          "request_fields": [
+            {"name": "audioFile", "type": "binary", "required": false},
+            {"name": "clientSession", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.status",
+            "object.results[]"
+          ],
+          "notes": [
+            "First call sends audioFile and clientSession; later retrieval can use clientSession."
+          ]
+        },
+        {
+          "id": "smartvoice.stt_async_vn",
+          "method": "POST",
+          "path": "/stt-service/v1/async/vn",
+          "content_type": "binary audio",
+          "request_fields": [
+            {"name": "file audio", "type": "binary", "required": true}
+          ],
+          "response_fields": [
+            "description",
+            "errors[]",
+            "message",
+            "object.audio_id",
+            "status"
+          ]
+        },
+        {
+          "id": "smartvoice.stt_async_status",
+          "method": "POST",
+          "path": "/stt-service/v1/async/status",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "audio_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.message",
+            "object.status",
+            "object.audio_duration",
+            "object.results[]",
+            "object.results[].alternatives[]",
+            "object.results[].alternatives[].transcript",
+            "object.results[].alternatives[].confidence",
+            "object.results[].channelTag"
+          ]
+        },
+        {
+          "id": "smartvoice.stt_websocket_streaming",
+          "method": "WEBSOCKET",
+          "path": "wss://websocket.vnpt.vn/v1/streaming-recognize?authorization=<accessToken>&token-id=<token-id>&token-key=<token-key>",
+          "content_type": "stream",
+          "request_fields": [
+            {"name": "streamingConfig.config.encoding", "type": "string", "required": true},
+            {"name": "streamingConfig.config.sampleRateHertz", "type": "integer", "required": true},
+            {"name": "streamingConfig.config.languageCode", "type": "string", "required": false},
+            {"name": "streamingConfig.config.maxAlternatives", "type": "integer", "required": false},
+            {"name": "streamingConfig.config.audioChannelCount", "type": "integer", "required": false},
+            {"name": "streamingConfig.config.enableWordTimeOffsets", "type": "boolean", "required": false},
+            {"name": "streamingConfig.config.enableSeparateRecognitionPerChannel", "type": "boolean", "required": false},
+            {"name": "streamingConfig.config.model", "type": "string", "required": false},
+            {"name": "streamingConfig.config.customConfiguration.invert_text", "type": "boolean", "required": false},
+            {"name": "streamingConfig.config.customConfiguration.cap_punct_recovery", "type": "boolean|integer", "required": false},
+            {"name": "streamingConfig.interimResults", "type": "boolean", "required": false},
+            {"name": "audio", "type": "binary stream", "required": true}
+          ],
+          "response_fields": [
+            "streaming_recognition_events"
+          ]
+        },
+        {
+          "id": "smartvoice.voice_upload",
+          "method": "POST",
+          "base_url": "https://api.idg.vnpt.vn/voice-service",
+          "path": "/v1/voice-id/audio/upload",
+          "content_type": "multipart/form-data",
+          "request_fields": [
+            {"name": "file", "type": "audio/wav", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.ok",
+            "object.result"
+          ]
+        },
+        {
+          "id": "smartvoice.voice_encode",
+          "method": "POST",
+          "base_url": "https://api.idg.vnpt.vn/voice-service",
+          "path": "/v1/voice-id/audio/encode",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "audio_url", "type": "string", "required": true},
+            {"name": "registered", "type": "integer", "required": false},
+            {"name": "data.email", "type": "string", "required": true},
+            {"name": "data.name", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.ok",
+            "object.result"
+          ]
+        },
+        {
+          "id": "smartvoice.voice_unregister",
+          "method": "GET",
+          "base_url": "https://api.idg.vnpt.vn/voice-service",
+          "path": "/v1/voice-id/audio/unregister",
+          "request_fields": [
+            {"name": "email", "in": "query", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.ok",
+            "object.result",
+            "challengeCode"
+          ]
+        },
+        {
+          "id": "smartvoice.voice_search_by_upload",
+          "method": "POST",
+          "base_url": "https://api.idg.vnpt.vn/voice-service",
+          "path": "/v1/voice-id/audio/search-by-upload",
+          "content_type": "audio upload/search payload",
+          "request_fields": [
+            {"name": "audio", "type": "upload or audio reference", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.ok",
+            "object.result"
+          ],
+          "contract_status": "listed_with_partial_public_details"
+        },
+        {
+          "id": "smartvoice.voice_info_by_email",
+          "method": "GET",
+          "base_url": "https://api.idg.vnpt.vn/voice-service",
+          "path": "/v1/voice-id/audio/info-by-email",
+          "request_fields": [
+            {"name": "email", "in": "query", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.ok",
+            "object.result",
+            "challengeCode"
+          ]
+        },
+        {
+          "id": "smartvoice.voice_verify",
+          "method": "GET",
+          "base_url": "https://api.idg.vnpt.vn/voice-service",
+          "path": "/voiceid/api/v1/audio/verify",
+          "request_fields": [
+            {"name": "audio_id1", "in": "query", "type": "string", "required": true},
+            {"name": "audio_id2", "in": "query", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "message",
+            "object.ok",
+            "object.result.similarity",
+            "object.result.score",
+            "object.error_code",
+            "object.description"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "VNPT SmartReader",
+      "status": "public_contracts_found",
+      "base_url": "https://api.idg.vnpt.vn",
+      "sources": [
+        "https://console-smartreader.vnpt.vn/docs",
+        "https://console-smartreader.vnpt.vn/assets/docs/danh-sach-api/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tich-hop-api-upload-file/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tich-hop-api-ocr/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tich-hop-api-kie/vi.md",
+        "https://console-smartreader.vnpt.vn/assets/docs/tu-xay-dung-mau-boc-tach-vb/vi.md"
+      ],
+      "common_request_fields": [
+        {"name": "token", "type": "string", "required": true},
+        {"name": "client_session", "type": "string", "required": true},
+        {"name": "file_hash", "type": "string", "required": true},
+        {"name": "file_type", "type": "string", "required": true},
+        {"name": "details", "type": "boolean", "required": false},
+        {"name": "exporter", "type": "string", "required": false}
+      ],
+      "endpoints": [
+        {
+          "id": "smartreader.upload_file",
+          "method": "POST",
+          "path": "/file-service/v1/addFile",
+          "content_type": "multipart/form-data",
+          "request_fields": [
+            {"name": "file", "type": "File", "required": true},
+            {"name": "title", "type": "string", "required": false},
+            {"name": "description", "type": "string", "required": false}
+          ],
+          "response_fields": [
+            "message",
+            "object.fileName",
+            "object.tokenId",
+            "object.description",
+            "object.storageType",
+            "object.title",
+            "object.uploadedDate",
+            "object.hash",
+            "object.fileType"
+          ]
+        },
+        {
+          "id": "smartreader.ocr_scan",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/ocr/scan",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields_without_exporter",
+          "response_fields": [
+            "status",
+            "statusCode",
+            "message",
+            "server_version",
+            "object.lines",
+            "object.paragraphs",
+            "object.phrases",
+            "object.num_of_pages",
+            "object.warning_messages",
+            "object.warnings"
+          ]
+        },
+        {
+          "id": "smartreader.ocr_scan_table",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/ocr/scan-table",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields_with_exporter",
+          "response_fields": [
+            "status",
+            "statusCode",
+            "message",
+            "server_version",
+            "object.lines",
+            "object.paragraphs",
+            "object.phrases",
+            "object.tables",
+            "object.link",
+            "object.num_of_pages",
+            "object.warning_messages",
+            "object.warnings"
+          ]
+        },
+        {
+          "id": "smartreader.async_ocr_scan_start",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields",
+          "response_fields": [
+            "status",
+            "statusCode",
+            "message",
+            "server_version",
+            "object.session_id",
+            "object.num_of_pages",
+            "object.warning_messages",
+            "object.warnings"
+          ]
+        },
+        {
+          "id": "smartreader.async_ocr_scan_result",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan/result",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "session_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "object.link",
+            "object.num_of_pages",
+            "object.num_of_processed_page",
+            "object.num_of_remaining_pages",
+            "object.warning_messages",
+            "object.warnings"
+          ]
+        },
+        {
+          "id": "smartreader.async_ocr_scan_cancel",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan/cancel",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "session_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "object.status"
+          ]
+        },
+        {
+          "id": "smartreader.async_ocr_scan_table_start",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan-table",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields",
+          "response_fields": [
+            "status",
+            "statusCode",
+            "message",
+            "server_version",
+            "object.session_id",
+            "object.num_of_pages",
+            "object.warning_messages",
+            "object.warnings"
+          ]
+        },
+        {
+          "id": "smartreader.async_ocr_scan_table_result",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan-table/result",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "session_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "object.link",
+            "object.tables",
+            "object.num_of_pages",
+            "object.num_of_processed_page",
+            "object.num_of_remaining_pages",
+            "object.warning_messages",
+            "object.warnings"
+          ]
+        },
+        {
+          "id": "smartreader.async_ocr_scan_table_cancel",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/integration/ocr/scan-table/cancel",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "session_id", "type": "string", "required": true}
+          ],
+          "response_fields": [
+            "object.status"
+          ]
+        },
+        {
+          "id": "smartreader.kie_admin_doc_v1",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/ocr/van-ban-hanh-chinh",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields",
+          "response_fields": [
+            "object.category",
+            "object.left_m_cited",
+            "object.m_date",
+            "object.m_month",
+            "object.m_number",
+            "object.m_origin",
+            "object.m_year",
+            "object.num_of_pages",
+            "object.warnings",
+            "object.warning_messages"
+          ]
+        },
+        {
+          "id": "smartreader.kie_admin_doc_v2",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v2/ocr/van-ban-hanh-chinh",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields",
+          "response_fields": [
+            "object.base",
+            "object.category",
+            "object.group",
+            "object.left_m_cited",
+            "object.m_date",
+            "object.m_month",
+            "object.m_number",
+            "object.m_origin",
+            "object.m_sign",
+            "object.m_year",
+            "object.signer_position",
+            "object.num_of_pages",
+            "object.warnings",
+            "object.warning_messages"
+          ]
+        },
+        {
+          "id": "smartreader.kie_business_registration",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/ocr/dang-ky-kinh-doanh",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields",
+          "response_fields": [
+            "object.CHU_SO_HUU_*",
+            "object.DANG_KY_LAN_DAU",
+            "object.DANG_KY_THAY_DOI",
+            "object.DANH_SACH_THANH_VIEN_GOP_VON",
+            "object.DIA_CHI_TRU_SO_CHINH",
+            "object.num_of_pages",
+            "object.warnings",
+            "object.warning_messages"
+          ]
+        },
+        {
+          "id": "smartreader.kie_vat_invoice",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/ocr/hoa-don-gtgt",
+          "content_type": "application/json",
+          "request_ref": "common_request_fields",
+          "response_fields": [
+            "object.buyer_address",
+            "object.buyer_company_name",
+            "object.buyer_name",
+            "object.buyer_tax_code",
+            "object.details",
+            "object.general_tax_rates",
+            "object.grand_total_after_tax",
+            "object.grand_total_after_tax_in_text",
+            "object.grand_total_before_tax",
+            "object.num_of_pages",
+            "object.warnings",
+            "object.warning_messages"
+          ]
+        },
+        {
+          "id": "smartreader.template_config_detail_path",
+          "method": "CRUD",
+          "path": "/template/config",
+          "content_type": "application/json",
+          "request_fields": [
+            {"name": "token", "type": "string", "required": true},
+            {"name": "client_session", "type": "string", "required": true},
+            {"name": "action", "type": "string", "required": true},
+            {"name": "id", "type": "string", "required": false},
+            {"name": "name", "type": "string", "required": false},
+            {"name": "document_id", "type": "string", "required": false},
+            {"name": "file_link", "type": "string", "required": false},
+            {"name": "config", "type": "object", "required": false}
+          ],
+          "response_fields": [
+            "dataSign",
+            "dataBase64",
+            "logID",
+            "message",
+            "server_version",
+            "status",
+            "statusCode",
+            "object.name",
+            "object.file_link",
+            "object.id",
+            "object.document_id",
+            "object.config"
+          ],
+          "notes": [
+            "Detailed template docs use /template/config."
+          ]
+        },
+        {
+          "id": "smartreader.template_config_inventory_path",
+          "method": "CRUD",
+          "path": "/rpa-service/aidigdoc/template/config",
+          "contract_status": "listed_only",
+          "notes": [
+            "API list uses this path, while detailed template docs use /template/config."
+          ]
+        },
+        {
+          "id": "smartreader.llm_extraction",
+          "method": "POST",
+          "path": "/rpa-service/aidigdoc/v1/llm/extraction",
+          "contract_status": "listed_only",
+          "notes": [
+            "Listed in public API inventory; no detailed public contract found."
+          ]
+        }
+      ],
+      "common_error_labels": [
+        "TOKEN ID IS BLOCKED",
+        "ACCESS TOKEN IS INVALID",
+        "NO PERMISSION TO ACCESS API",
+        "TOKEN INVALID",
+        "TOKEN DEACTIVE"
+      ]
+    },
+    {
+      "name": "VNPT SmartUX",
+      "status": "no_public_endpoint_contract_found",
+      "sources": [
+        "https://vnptai.io/smartux/en",
+        "https://smartux.vnpt.vn/en",
+        "https://console-smartux.vnpt.vn/sdk/web/core-track.js"
+      ],
+      "observed_public_integration": [
+        "Web tracking SDK scripts",
+        "track_sessions",
+        "track_pageview",
+        "track_clicks",
+        "track_scrolls",
+        "track_errors",
+        "track_links",
+        "track_forms",
+        "collect_from_forms"
+      ],
+      "endpoints": []
+    },
+    {
+      "name": "VNPT SmartBot",
+      "status": "no_public_endpoint_contract_found",
+      "sources": [
+        "https://vnptai.io/smartbot/en",
+        "https://vnptai.io/smartbot/en/engine-specs"
+      ],
+      "notes": [
+        "Public engine specs mention API and RAG integration, but no endpoint reference was found."
+      ],
+      "endpoints": []
+    },
+    {
+      "name": "VNPT SmartVision",
+      "status": "no_public_endpoint_contract_found",
+      "sources": [
+        "https://vnptai.io/smartvision/en",
+        "https://vnptai.io/smartvision/en/feature"
+      ],
+      "notes": [
+        "Public pages mention API/SDK deployment and list a Face Camera API document filename, but no public endpoint page was found."
+      ],
+      "endpoints": []
+    },
+    {
+      "name": "vnSocial",
+      "status": "no_public_endpoint_contract_found",
+      "sources": [
+        "https://vnptai.io/vnsocial/en",
+        "https://vnptai.io/vnsocial/en/price-1"
+      ],
+      "notes": [
+        "Product pages list an API integration document filename, but no public endpoint page was found."
+      ],
+      "endpoints": []
+    },
+    {
+      "name": "vnFace",
+      "status": "no_public_endpoint_contract_found",
+      "sources": [
+        "https://vnptai.io/vnface/en",
+        "https://vnptai.io/vnface/en/documents/setting",
+        "https://vnptai.io/vnface/en/specs"
+      ],
+      "notes": [
+        "Public guide/spec pages cover product/admin setup, not request/response endpoint contracts."
+      ],
+      "endpoints": []
+    }
+  ]
+}

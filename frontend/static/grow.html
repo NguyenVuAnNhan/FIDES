@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIDES Grow</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body data-page="grow">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FIDES Grow</p>
+        <h1>Invoice to trust profile</h1>
+      </div>
+      <nav aria-label="Primary">
+        <a href="/shield" data-nav="shield">Shield</a>
+        <a href="/grow" data-nav="grow">Grow</a>
+      </nav>
+    </header>
+
+    <main class="workspace workspace-single">
+      <section class="panel panel-grow">
+        <div class="section-heading">
+          <p class="eyebrow">Empowerment</p>
+          <h2>Alternative credit from invoice evidence</h2>
+        </div>
+
+        <ol class="wizard-steps" id="grow-wizard-steps" aria-label="Grow flow progress">
+          <li class="wizard-step is-active" data-step="1">Capture</li>
+          <li class="wizard-step" data-step="2">Extract</li>
+          <li class="wizard-step" data-step="3">Credit score</li>
+        </ol>
+
+        <form id="grow-form" class="grow-wizard">
+          <input type="hidden" name="input_mode" value="invoice_photo" />
+          <input type="hidden" name="input_source" value="" />
+          <input type="hidden" name="invoice_id" value="" />
+          <input type="hidden" name="business_name" value="" />
+          <input type="hidden" name="customer_name" value="" />
+          <input type="hidden" name="invoice_total" value="0" />
+
+          <div class="wizard-panel is-active" data-step="1">
+            <h3 class="wizard-panel-title">1. Capture invoice evidence</h3>
+            <p class="wizard-panel-lead">
+              Upload a receipt image. Grow runs <strong>PaddleOCR</strong> on the file, normalizes a
+              ledger entry, then scores credit with the trained <strong>LightGBM</strong> model.
+            </p>
+            <div class="wizard-grid">
+              <label class="wide">
+                Upload receipt image (PNG / JPG / WEBP)
+                <input id="grow-upload" type="file" accept="image/png,image/jpeg,image/webp" />
+              </label>
+              <p class="wide stage-muted" id="grow-upload-label">No receipt uploaded yet.</p>
+              <div class="wide receipt-preview">
+                <img id="grow-receipt-preview" alt="Receipt preview" hidden />
+              </div>
+              <label>
+                Business ID
+                <input name="business_id" value="biz_an_nhien_coffee" list="grow-business-ids" />
+              </label>
+              <datalist id="grow-business-ids">
+                <option value="biz_an_nhien_coffee">An Nhien Coffee (strong graph)</option>
+                <option value="biz_bep_nha_linh">Bep Nha Linh (thin file)</option>
+                <option value="biz_thanh_tam_mini_mart">Thanh Tam Mini Mart (late payment)</option>
+                <option value="biz_nam_phuong_devices">Nam Phuong Devices (high volume)</option>
+              </datalist>
+              <label class="checkbox-row">
+                <input name="paid_on_time" type="checkbox" checked />
+                Paid on time
+              </label>
+            </div>
+          </div>
+
+          <div class="wizard-panel" data-step="2" id="grow-step-extract" hidden>
+            <h3 class="wizard-panel-title">2. PaddleOCR extraction &amp; ledger</h3>
+            <div class="wizard-panel-body" id="grow-step-extract-body"></div>
+          </div>
+
+          <div class="wizard-panel" data-step="3" id="grow-step-credit" hidden>
+            <h3 class="wizard-panel-title">3. Credit score</h3>
+            <div class="wizard-panel-body" id="grow-step-credit-body"></div>
+          </div>
+
+          <div class="wizard-nav">
+            <button type="button" class="wizard-back" id="grow-back" disabled>Back</button>
+            <button type="button" class="wizard-next" id="grow-next">Run analysis</button>
+          </div>
+
+          <p class="wizard-status" id="grow-status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/shared.js?v=grow-real-3"></script>
+    <script src="/static/grow.js?v=grow-real-3"></script>
+  </body>
+</html>
