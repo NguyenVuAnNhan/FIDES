@@ -22,7 +22,11 @@ SCAM_INTENT_ALIASES = {
     "fake_authority": ("fake_authority", "authority", "cong_an", "police"),
     "remote_support": ("remote_support", "remote", "screen"),
     "otp_theft": ("otp_theft", "otp"),
-    "investment": ("investment", "invest"),
+    "investment": ("investment", "invest", "investment_scam"),
+}
+PATTERN_SCAM_TYPE_ALIASES = {
+    "investment_scam": "investment",
+    "scam_pattern_detected": None,
 }
 
 
@@ -42,17 +46,15 @@ def parse_smartbot_response(response: dict[str, Any], transcript: str) -> Smartb
 
     structured = _parse_structured_json(reply_text)
     if structured is not None:
-        scam_type = structured.get("scam_type") or structured.get("llm_scam_type")
-        if structured.get("safe") is True:
-            scam_type = None
-        elif scam_type == "suspected_scam":
-            transcript_match = match_transcript_pattern(transcript.lower())
-            if transcript_match:
-                scam_type = transcript_match[0]
-            elif _looks_like_safe_confirmation(transcript):
-                scam_type = None
         patterns = _normalize_patterns(structured.get("detected_patterns"))
         confidence = _normalize_confidence(structured.get("confidence") or structured.get("llm_confidence"))
+        scam_type = _resolve_scam_type(
+            structured.get("scam_type") or structured.get("llm_scam_type"),
+            patterns,
+            intent_name,
+            transcript,
+            structured.get("safe") is True,
+        )
         if scam_type and not patterns:
             patterns = detected_patterns_for_challenge(str(scam_type))
         return SmartbotClassification(
@@ -150,6 +152,50 @@ def _looks_like_safe_confirmation(transcript: str) -> bool:
     if not normalized:
         return False
     return any(phrase in normalized for phrase in SAFE_CONFIRMATION_PHRASES)
+
+
+def _resolve_scam_type(
+    raw_scam_type: object,
+    patterns: list[str],
+    intent_name: str | None,
+    transcript: str,
+    safe_flag: bool,
+) -> str | None:
+    if safe_flag or _looks_like_safe_confirmation(transcript):
+        return None
+
+    from_bot_patterns = _scam_type_from_bot_patterns(patterns)
+    if from_bot_patterns:
+        return from_bot_patterns
+
+    normalized_type = str(raw_scam_type).strip() if raw_scam_type else ""
+    if normalized_type and normalized_type not in {"suspected_scam", "scam", "unknown"}:
+        mapped = PATTERN_SCAM_TYPE_ALIASES.get(normalized_type, normalized_type)
+        if mapped:
+            return mapped
+
+    from_intent = _map_intent_name(intent_name)
+    if from_intent:
+        return from_intent
+
+    transcript_match = match_transcript_pattern(transcript.lower())
+    if transcript_match:
+        return transcript_match[0]
+
+    return None
+
+
+def _scam_type_from_bot_patterns(patterns: list[str]) -> str | None:
+    for pattern in patterns:
+        alias = PATTERN_SCAM_TYPE_ALIASES.get(pattern)
+        if alias:
+            return alias
+        if alias is None and pattern in PATTERN_SCAM_TYPE_ALIASES:
+            continue
+        for scam_type, aliases in SCAM_INTENT_ALIASES.items():
+            if pattern == scam_type or pattern in aliases:
+                return scam_type
+    return None
 
 
 def _map_intent_name(intent_name: str | None) -> str | None:

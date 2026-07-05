@@ -46,6 +46,52 @@ class SmartbotParserTests(unittest.TestCase):
         result = parse_smartbot_response(response, "toi tu xac nhan")
         self.assertIsNone(result.llm_scam_type)
 
+    def test_parse_suspected_scam_from_detected_patterns(self) -> None:
+        response = {
+            "object": {
+                "sb": {
+                    "card_data": [
+                        {
+                            "text": (
+                                '{"safe": false, "scam_type": "suspected_scam", '
+                                '"detected_patterns": ["fake_authority"], "confidence": 0.95}'
+                            ),
+                            "type": "text",
+                        }
+                    ],
+                    "intent_name": "fake_authority",
+                }
+            }
+        }
+        result = parse_smartbot_response(
+            response,
+            "Cong an dang dieu tra vu an, yeu cau chuyen tien xac minh",
+        )
+        self.assertEqual(result.llm_scam_type, "fake_authority")
+        self.assertEqual(result.detected_patterns, ["fake_authority"])
+        self.assertEqual(result.parse_source, "json")
+
+    def test_parse_suspected_scam_investment_pattern(self) -> None:
+        response = {
+            "object": {
+                "sb": {
+                    "card_data": [
+                        {
+                            "text": (
+                                '{"safe": false, "scam_type": "suspected_scam", '
+                                '"detected_patterns": ["investment_scam"], "confidence": 0.9}'
+                            ),
+                            "type": "text",
+                        }
+                    ],
+                    "intent_name": "investment_scam",
+                }
+            }
+        }
+        result = parse_smartbot_response(response, "cam ket loi nhuan cao")
+        self.assertEqual(result.llm_scam_type, "investment")
+        self.assertEqual(result.detected_patterns, ["investment_scam"])
+
     def test_parse_suspected_scam_with_transcript_keywords(self) -> None:
         response = {
             "object": {
