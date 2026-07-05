@@ -16,10 +16,17 @@ VNPT_MOCK_DIR = Path(__file__).resolve().parents[1] / "data" / "vnpt_mocks"
 
 def run_transfer_monitoring_challenge(challenge: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
     """Run Path B in-app check, merge provider fields, and re-score with E0/E2."""
-    provider_fields, provider_calls, raw_responses, provider_mode = _run_challenge_apis(challenge)
+    settings = get_settings()
+    vnpt_client = VnptClient(settings)
+    provider_fields, provider_calls, raw_responses, provider_mode = _run_challenge_apis(
+        challenge,
+        vnpt_client,
+    )
     profile = _challenge_profile_from_results(
         str(provider_fields.get("ekyc_verification_status", "failed")),
+        str(provider_fields.get("stt_transcript", "")),
         challenge.stt_audio_ref,
+        vnpt_client.smartvoice_enabled,
     )
     challenged_request = challenge.transaction.model_copy(update=provider_fields)
     response = analyze_shield_risk(challenged_request)
@@ -42,9 +49,8 @@ run_mock_camera_voice_challenge = run_transfer_monitoring_challenge
 
 def _run_challenge_apis(
     challenge: ShieldChallengeRequest,
+    vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], list[Explanation], dict[str, dict[str, Any]], str]:
-    settings = get_settings()
-    vnpt_client = VnptClient(settings)
     provider_mode = vnpt_client.mode
     ekyc_fields, ekyc_call, ekyc_raw = _ekyc_api(challenge, vnpt_client)
     smartvoice_fields, smartvoice_call, smartvoice_raw = _smartvoice_api(challenge, vnpt_client)
@@ -53,6 +59,8 @@ def _run_challenge_apis(
     coercion_fields, coercion_call = _mock_coercion_api(
         str(ekyc_fields["ekyc_verification_status"]),
         challenge.stt_audio_ref,
+        str(smartvoice_fields["stt_transcript"]),
+        vnpt_client.smartvoice_enabled,
     )
 
     fields = {
@@ -78,9 +86,14 @@ def _run_challenge_apis(
     return fields, [ekyc_call, smartvoice_call, voice_call, smartbot_call, coercion_call], raw_responses, provider_mode
 
 
-def _challenge_profile_from_results(ekyc_verification_status: str, stt_audio_ref: str) -> str:
+def _challenge_profile_from_results(
+    ekyc_verification_status: str,
+    stt_transcript: str,
+    stt_audio_ref: str,
+    smartvoice_real: bool,
+) -> str:
     ekyc_passed = ekyc_verification_status == "passed"
-    stt_passed = _artifact_name(stt_audio_ref) == "stt_audio_1"
+    stt_passed = _stt_passed(stt_transcript, stt_audio_ref, smartvoice_real)
     if ekyc_passed and stt_passed:
         return "clear_user"
     if not ekyc_passed and stt_passed:
@@ -88,6 +101,14 @@ def _challenge_profile_from_results(ekyc_verification_status: str, stt_audio_ref
     if ekyc_passed and not stt_passed:
         return "stt_failed"
     return "ekyc_and_stt_failed"
+
+
+def _stt_passed(stt_transcript: str, stt_audio_ref: str, smartvoice_real: bool) -> bool:
+    if smartvoice_real:
+        if not stt_transcript.strip():
+            return False
+        return match_transcript_pattern(stt_transcript.lower()) is None
+    return _artifact_name(stt_audio_ref) == "stt_audio_1"
 
 
 def _artifact_name(ref: str) -> str:
@@ -315,15 +336,20 @@ def _smartvoice_api(
         source_detail = "loaded VNPT-like STT response"
 
     stt_object = _object(stt_response)
+    stt_failed = _vnpt_call_failed(stt_response)
     alternatives = stt_object.get("transcript_list") or []
     first_alternative = alternatives[0] if alternatives else {}
-    transcript = str(stt_object.get("transcript") or first_alternative.get("transcript") or "")
-    confidence = _bounded_float(first_alternative.get("confidence"), default=0.0)
+    transcript = "" if stt_failed else str(stt_object.get("transcript") or first_alternative.get("transcript") or "")
+    confidence = 0.0 if stt_failed else _bounded_float(first_alternative.get("confidence"), default=0.0)
 
+    provider_notes = []
+    if stt_failed:
+        provider_notes.append(_vnpt_error_detail(stt_response))
+    note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
         f"{provider_label} {source_detail} for {challenge.stt_audio_ref}. "
         f"Audio id={stt_object.get('id')}, model={stt_object.get('transcript_model')}, "
-        f"confidence={confidence:.2f}."
+        f"confidence={confidence:.2f}.{note_suffix}"
     )
     return (
         {
@@ -359,22 +385,27 @@ def _voice_verification_api(
 
     voice_object = _object(voice_response)
     result_object = voice_object.get("result") if isinstance(voice_object.get("result"), dict) else {}
-    score = _provider_score(result_object.get("score") or result_object.get("similarity"), default=0.0)
+    voice_failed = _vnpt_call_failed(voice_response)
+    score = 0.0 if voice_failed else _provider_score(result_object.get("score") or result_object.get("similarity"), default=0.0)
     threshold = 0.75
-    provider_ok = _truthy_provider_bool(voice_object.get("ok", True))
+    provider_ok = False if voice_failed else _truthy_provider_bool(voice_object.get("ok", True))
     status = "passed"
     if voice_response.get("skipped"):
         status = "skipped"
-    elif not provider_ok:
-        status = "review"
+    elif voice_failed or not provider_ok:
+        status = "failed" if score < 0.55 else "review"
     elif score < 0.55:
         status = "failed"
     elif score < threshold:
         status = "review"
 
+    provider_notes = []
+    if voice_failed:
+        provider_notes.append(_vnpt_error_detail(voice_response))
+    note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
         f"{provider_label} {source_detail} for reference {challenge.voice_reference_ref} "
-        f"and challenge audio {challenge.stt_audio_ref}. Status={status}, score={score:.2f}."
+        f"and challenge audio {challenge.stt_audio_ref}. Status={status}, score={score:.2f}.{note_suffix}"
     )
     return (
         {
@@ -412,8 +443,13 @@ def _mock_smartbot_api(transcript: str) -> tuple[dict[str, object], Explanation]
     )
 
 
-def _mock_coercion_api(ekyc_verification_status: str, stt_audio_ref: str) -> tuple[dict[str, object], Explanation]:
-    stt_failed = _artifact_name(stt_audio_ref) != "stt_audio_1"
+def _mock_coercion_api(
+    ekyc_verification_status: str,
+    stt_audio_ref: str,
+    stt_transcript: str = "",
+    smartvoice_enabled: bool = False,
+) -> tuple[dict[str, object], Explanation]:
+    stt_failed = not _stt_passed(stt_transcript, stt_audio_ref, smartvoice_enabled)
     ekyc_failed = ekyc_verification_status not in {"passed", "review"}
     if stt_failed:
         selected = {

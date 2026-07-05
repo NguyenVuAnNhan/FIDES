@@ -5,7 +5,7 @@
 Shield Path B challenge calls VNPT for eKYC (face) and optionally SmartVoice (STT/voice verify).
 
 - **eKYC** always uses the real VNPT API when `VNPT_EKYC_MODE=real` and credentials are configured. There is no offline eKYC mock path.
-- **SmartVoice** can stay on mock fixtures in `backend/app/data/vnpt_mocks/smartvoice/` until credentials are ready.
+- **SmartVoice** uses the real VNPT API when `VNPT_SMARTVOICE_MODE=real` and credentials are configured. Mock fixtures in `backend/app/data/vnpt_mocks/smartvoice/` are used only when SmartVoice mode is `mock`.
 
 The normalized Shield schema stays the same regardless of provider mode.
 
@@ -15,7 +15,7 @@ Copy `.env.example` to `.env` and fill:
 
 ```bash
 VNPT_EKYC_MODE=real
-VNPT_SMARTVOICE_MODE=mock
+VNPT_SMARTVOICE_MODE=real
 VNPT_BASE_URL=https://api.idg.vnpt.vn
 VNPT_EKYC_ACCESS_TOKEN=...
 VNPT_EKYC_TOKEN_ID=...
@@ -27,7 +27,7 @@ VNPT_MAC_ADDRESS=TEST1
 
 Per-product credentials override the global fallback (`VNPT_ACCESS_TOKEN`, `VNPT_TOKEN_ID`, `VNPT_TOKEN_KEY`).
 
-Set `VNPT_SMARTVOICE_MODE=real` when SmartVoice credentials are available.
+Set `VNPT_SMARTVOICE_MODE=mock` to fall back to offline SmartVoice fixtures.
 
 ## Shield Challenge Request
 
@@ -51,8 +51,8 @@ Field meaning:
 | `transaction` | Original Stage 1 Shield transaction context. |
 | `ekyc_image_ref` | **Required.** Live selfie path returned from upload or stored customer file ref. |
 | `ekyc_document_ref` | Optional CCCD/portrait image for face compare. |
-| `stt_audio_ref` | Audio file reference for SmartVoice STT (mock or real). |
-| `voice_reference_ref` | Stored customer voice sample for SmartVoice voice verification. |
+| `stt_audio_ref` | **Required.** Challenge audio path from upload or stored file ref. |
+| `voice_reference_ref` | Optional enrolled customer voice sample for voice verification. |
 | `client_session` | Correlation ID passed to VNPT eKYC endpoints. |
 
 When a reference resolves to a local file, the backend uploads it via `POST /file-service/v1/addFile` and passes the returned `object.hash` to face APIs (not base64).
@@ -68,12 +68,24 @@ When a reference resolves to a local file, the backend uploads it via `POST /fil
 
 Saved files are stored under `uploads/ekyc/` and returned as refs such as `uploads/ekyc/selfie-<uuid>.jpg`.
 
-The Shield demo UI always uploads a selfie in step 2 before calling `/api/shield/challenge`.
+## Upload SmartVoice Audio
+
+`POST /api/shield/challenge/upload-audio` accepts multipart form data:
+
+| Field | Required | Notes |
+| --- | --- | --- |
+| `challenge_audio` | yes | Short spoken confirmation (WAV/MP3/WEBM, max 16MB). |
+| `voice_reference` | no | Enrolled customer voice sample for voice verification. |
+
+Saved files are stored under `uploads/smartvoice/` and returned as refs such as `uploads/smartvoice/challenge-<uuid>.wav`.
+
+The Shield demo UI uploads selfie and challenge audio in step 2 before calling `/api/shield/challenge`.
 
 Smoke-test credentials and endpoints:
 
 ```bash
 python3 scripts/smoke_vnpt_ekyc.py --selfie /path/to/selfie.jpg --document /path/to/cmnd.jpg
+python3 scripts/smoke_vnpt_smartvoice.py --challenge-audio /path/to/challenge.wav --reference-audio /path/to/reference.wav
 ```
 
 ## Called VNPT Endpoints

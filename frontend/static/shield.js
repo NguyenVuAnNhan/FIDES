@@ -6,10 +6,14 @@ const shieldNext = document.querySelector("#shield-next");
 const shieldStatus = document.querySelector("#shield-status");
 const shieldStepContextBody = document.querySelector("#shield-step-context-body");
 const shieldStepChallengeBody = document.querySelector("#shield-step-challenge-body");
-const shieldChallengeProfile = document.querySelector("#shield-challenge-profile");
 const shieldEkycSelfie = document.querySelector("#shield-ekyc-selfie");
 const shieldEkycDocument = document.querySelector("#shield-ekyc-document");
 const shieldEkycUploadStatus = document.querySelector("#shield-ekyc-upload-status");
+const shieldSttAudio = document.querySelector("#shield-stt-audio");
+const shieldVoiceReference = document.querySelector("#shield-voice-reference");
+const shieldAudioUploadStatus = document.querySelector("#shield-audio-upload-status");
+const shieldRecordAudio = document.querySelector("#shield-record-audio");
+const shieldStopRecordAudio = document.querySelector("#shield-stop-record-audio");
 
 const WIZARD_STEPS = [
   { id: 1, nextLabel: "Analyze transfer" },
@@ -17,21 +21,13 @@ const WIZARD_STEPS = [
   { id: 3, nextLabel: "Start new case" },
 ];
 
-const STT_PROFILES = {
-  pass: {
-    stt_audio_ref: "mock_payload/stt_audio_1",
-    voice_reference_ref: "mock_payload/customer_voice_samples/voice_ref_1",
-  },
-  fail_scam: {
-    stt_audio_ref: "mock_payload/stt_audio_2",
-    voice_reference_ref: "mock_payload/customer_voice_samples/voice_ref_1",
-  },
-};
-
 let currentStep = 1;
 let lastAnalyzeResponse = null;
 let lastAnalyzePayload = null;
 let uploadedEkycArtifacts = null;
+let uploadedAudioArtifacts = null;
+let audioRecorder = null;
+let audioRecordChunks = [];
 
 initShieldPage();
 
@@ -44,7 +40,7 @@ async function initShieldPage() {
     }
     shieldScenario.dispatchEvent(new Event("change"));
     setWizardStep(1);
-    setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC with uploaded photos.");
+    setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC and SmartVoice with uploaded media.");
   } catch (error) {
     console.error(error);
     setShieldStatus("Failed to load Shield demo scenarios.");
@@ -62,6 +58,7 @@ shieldScenario.addEventListener("change", () => {
     lastAnalyzeResponse = null;
     lastAnalyzePayload = null;
     uploadedEkycArtifacts = null;
+    uploadedAudioArtifacts = null;
     clearResultPanels();
     setWizardStep(1);
     setShieldStatus("Scenario loaded. Click Analyze transfer.");
@@ -92,6 +89,13 @@ shieldForm.addEventListener("submit", (event) => {
   event.preventDefault();
 });
 
+if (shieldRecordAudio) {
+  shieldRecordAudio.addEventListener("click", startAudioRecording);
+}
+if (shieldStopRecordAudio) {
+  shieldStopRecordAudio.addEventListener("click", stopAudioRecording);
+}
+
 async function runShieldAnalyze() {
   const payload = buildShieldAnalyzePayload(new FormData(shieldForm));
   lastAnalyzePayload = payload;
@@ -105,7 +109,7 @@ async function runShieldAnalyze() {
 
     if (lastAnalyzeResponse.invasive_check_required) {
       setShieldStatus(
-        "Circuit breaker tripped. Upload selfie (+ optional CCCD) and run in-app check (step 2).",
+        "Circuit breaker tripped. Upload selfie, voice audio (+ optional CCCD/voice reference) and run in-app check (step 2).",
       );
       setWizardStep(2);
     } else {
@@ -128,14 +132,13 @@ async function runShieldChallenge() {
     return;
   }
 
-  const profileKey = shieldChallengeProfile?.value || "pass";
-  const sttArtifacts = STT_PROFILES[profileKey] || STT_PROFILES.pass;
-
   let ekycArtifacts;
+  let audioArtifacts;
   try {
     ekycArtifacts = await resolveEkycArtifacts();
+    audioArtifacts = await resolveAudioArtifacts();
   } catch (error) {
-    setShieldStatus(`eKYC upload failed: ${formatApiError(error.message)}`);
+    setShieldStatus(`Upload failed: ${formatApiError(error.message)}`);
     return;
   }
 
@@ -146,7 +149,7 @@ async function runShieldChallenge() {
     const response = await postJson("/api/shield/challenge", {
       transaction: lastAnalyzePayload,
       ...ekycArtifacts,
-      ...sttArtifacts,
+      ...audioArtifacts,
       client_session: "shield-path-b-demo",
     });
     lastAnalyzeResponse = response;
@@ -175,10 +178,129 @@ function resetShieldCase() {
   if (shieldEkycUploadStatus) {
     shieldEkycUploadStatus.textContent = "";
   }
+  uploadedAudioArtifacts = null;
+  if (shieldSttAudio) {
+    shieldSttAudio.value = "";
+  }
+  if (shieldVoiceReference) {
+    shieldVoiceReference.value = "";
+  }
+  if (shieldAudioUploadStatus) {
+    shieldAudioUploadStatus.textContent = "";
+  }
+  if (shieldRecordAudio) {
+    shieldRecordAudio.hidden = false;
+  }
+  if (shieldStopRecordAudio) {
+    shieldStopRecordAudio.hidden = true;
+  }
   clearResultPanels();
   shieldScenario.dispatchEvent(new Event("change"));
   setWizardStep(1);
-  setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC with uploaded photos.");
+  setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC and SmartVoice with uploaded media.");
+}
+
+async function resolveAudioArtifacts() {
+  const challengeFile = shieldSttAudio?.files?.[0];
+  if (!challengeFile) {
+    throw new Error("Choose or record challenge audio for VNPT SmartVoice.");
+  }
+
+  const referenceFile = shieldVoiceReference?.files?.[0];
+  const challengeChanged = uploadedAudioArtifacts?.challengeFileName !== challengeFile.name;
+  const referenceChanged =
+    (uploadedAudioArtifacts?.referenceFileName || null) !== (referenceFile?.name || null);
+  if (uploadedAudioArtifacts && !challengeChanged && !referenceChanged) {
+    return {
+      stt_audio_ref: uploadedAudioArtifacts.stt_audio_ref,
+      voice_reference_ref: uploadedAudioArtifacts.voice_reference_ref,
+    };
+  }
+
+  const formData = new FormData();
+  formData.append("challenge_audio", challengeFile);
+  if (referenceFile) {
+    formData.append("voice_reference", referenceFile);
+  }
+
+  if (shieldAudioUploadStatus) {
+    shieldAudioUploadStatus.textContent = "Uploading audio to /api/shield/challenge/upload-audio...";
+  }
+
+  const uploadResponse = await postFormData("/api/shield/challenge/upload-audio", formData);
+  uploadedAudioArtifacts = {
+    stt_audio_ref: uploadResponse.stt_audio_ref,
+    voice_reference_ref: uploadResponse.voice_reference_ref || null,
+    challengeFileName: challengeFile.name,
+    referenceFileName: referenceFile?.name || null,
+  };
+
+  if (shieldAudioUploadStatus) {
+    shieldAudioUploadStatus.textContent = `Uploaded ${uploadResponse.challenge_filename}${
+      uploadResponse.reference_filename ? ` + ${uploadResponse.reference_filename}` : ""
+    }.`;
+  }
+
+  return {
+    stt_audio_ref: uploadedAudioArtifacts.stt_audio_ref,
+    voice_reference_ref: uploadedAudioArtifacts.voice_reference_ref,
+  };
+}
+
+async function startAudioRecording() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setShieldStatus("This browser does not support microphone recording.");
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioRecordChunks = [];
+    audioRecorder = new MediaRecorder(stream);
+    audioRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data.size > 0) {
+        audioRecordChunks.push(event.data);
+      }
+    });
+    audioRecorder.addEventListener("stop", () => {
+      stream.getTracks().forEach((track) => track.stop());
+      const blob = new Blob(audioRecordChunks, { type: audioRecorder.mimeType || "audio/webm" });
+      const file = new File([blob], `challenge-recording-${Date.now()}.webm`, {
+        type: blob.type || "audio/webm",
+      });
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      if (shieldSttAudio) {
+        shieldSttAudio.files = transfer.files;
+      }
+      uploadedAudioArtifacts = null;
+      if (shieldAudioUploadStatus) {
+        shieldAudioUploadStatus.textContent = `Recorded ${file.name}. It will upload when you run the in-app check.`;
+      }
+      if (shieldRecordAudio) {
+        shieldRecordAudio.hidden = false;
+      }
+      if (shieldStopRecordAudio) {
+        shieldStopRecordAudio.hidden = true;
+      }
+    });
+    audioRecorder.start();
+    if (shieldRecordAudio) {
+      shieldRecordAudio.hidden = true;
+    }
+    if (shieldStopRecordAudio) {
+      shieldStopRecordAudio.hidden = false;
+    }
+    setShieldStatus("Recording challenge audio. Stop when finished speaking.");
+  } catch (error) {
+    setShieldStatus(`Microphone access failed: ${error.message}`);
+  }
+}
+
+function stopAudioRecording() {
+  if (audioRecorder && audioRecorder.state !== "inactive") {
+    audioRecorder.stop();
+  }
 }
 
 async function resolveEkycArtifacts() {

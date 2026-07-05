@@ -157,13 +157,14 @@ class VnptClient:
 
     def smartvoice_stt(self, audio_ref: str) -> dict[str, Any]:
         audio_path = self._resolve_ref(audio_ref)
-        if not audio_path.exists():
+        if not audio_path.is_file():
             return self._error_response(
                 "Local audio file not found",
                 {
                     "audio_ref": audio_ref,
                     "resolved_path": str(audio_path),
                 },
+                provider_mode=self.smartvoice_mode,
             )
 
         headers = {
@@ -177,7 +178,7 @@ class VnptClient:
         return self._post_binary(
             "/stt-service/v3/standard",
             audio_path.read_bytes(),
-            self.settings.vnpt_stt_content_type,
+            self._audio_content_type(audio_path),
             headers,
             product="smartvoice",
         )
@@ -213,6 +214,7 @@ class VnptClient:
                     "reference_upload": reference_upload,
                     "challenge_upload": challenge_upload,
                 },
+                provider_mode=self.smartvoice_mode,
             )
 
         reference_encode = self._voice_encode(str(reference_url), registered=1, client_session=client_session)
@@ -226,6 +228,7 @@ class VnptClient:
                     "reference_encode": reference_encode,
                     "challenge_encode": challenge_encode,
                 },
+                provider_mode=self.smartvoice_mode,
             )
 
         verification = self._voice_verify_ids(str(reference_audio_id), str(challenge_audio_id))
@@ -282,6 +285,7 @@ class VnptClient:
                     "audio_ref": audio_ref,
                     "resolved_path": str(audio_path),
                 },
+                provider_mode=self.smartvoice_mode,
             )
         return self._post_multipart_file(
             "/v1/voice-id/audio/upload",
@@ -289,6 +293,7 @@ class VnptClient:
             self.settings.vnpt_voice_base_url,
             provider_mode=self.smartvoice_mode,
             product="smartvoice",
+            file_content_type=self._audio_content_type(audio_path),
         )
 
     def _voice_encode(self, audio_url: str, registered: int, client_session: str) -> dict[str, Any]:
@@ -345,6 +350,7 @@ class VnptClient:
         product: str = "smartvoice",
         extra_fields: dict[str, str] | None = None,
         timeout: float | None = None,
+        file_content_type: str = "application/octet-stream",
     ) -> dict[str, Any]:
         boundary = f"----fides-{uuid.uuid4().hex}"
         parts: list[bytes] = []
@@ -364,7 +370,7 @@ class VnptClient:
                     'Content-Disposition: form-data; name="file"; '
                     f'filename="{file_path.name}"\r\n'
                 ).encode("utf-8"),
-                b"Content-Type: application/octet-stream\r\n\r\n",
+                f"Content-Type: {file_content_type}\r\n\r\n".encode("utf-8"),
                 file_path.read_bytes(),
                 b"\r\n",
                 f"--{boundary}--\r\n".encode("utf-8"),
@@ -519,6 +525,18 @@ class VnptClient:
         hash_str = str(hash_value)
         self._image_hash_cache[cache_key] = hash_str
         return hash_str, None
+
+    def _audio_content_type(self, path: Path) -> str:
+        mapping = {
+            ".wav": "audio/wav",
+            ".mp3": "audio/mpeg",
+            ".mpeg": "audio/mpeg",
+            ".webm": "audio/webm",
+            ".ogg": "audio/ogg",
+            ".m4a": "audio/mp4",
+            ".aac": "audio/aac",
+        }
+        return mapping.get(path.suffix.lower(), self.settings.vnpt_stt_content_type)
 
     def _resolve_ref(self, ref: str) -> Path:
         path = Path(ref)

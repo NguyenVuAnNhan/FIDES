@@ -17,6 +17,7 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
 | `mock_payload/` | Fake Shield STT audio pass/fail demo assets. |
 | `uploads/ekyc/` | Uploaded selfie and CCCD images for real VNPT eKYC. |
+| `uploads/smartvoice/` | Uploaded challenge and reference audio for real VNPT SmartVoice. |
 | `mock_payload/customer_voice_samples/` | Mock enrolled customer voice samples for SmartVoice voice verification. |
 | `backend/app/data/vnpt_mocks/smartvoice/` | VNPT-shaped mock SmartVoice JSON responses when SmartVoice is in mock mode. |
 | `docs/graph_database_schema.md` | Future graph database design. |

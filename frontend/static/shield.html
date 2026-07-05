@@ -313,17 +313,11 @@
           <div class="wizard-panel" data-step="2" id="shield-step-challenge" hidden>
             <h3 class="wizard-panel-title">2. In-app camera &amp; voice check</h3>
             <p class="wizard-panel-lead">
-              Upload a live selfie for VNPT eKYC. Optionally add a CCCD portrait for face compare.
-              Voice check still uses mock audio fixtures until SmartVoice credentials are configured.
+              Upload a live selfie for VNPT eKYC and a short voice clip for VNPT SmartVoice STT
+              and voice verification. Optionally add a CCCD portrait for face compare and an enrolled
+              voice sample for voice match.
             </p>
             <div class="wizard-grid">
-              <label class="wide">
-                Voice challenge profile
-                <select id="shield-challenge-profile">
-                  <option value="pass">Clear user audio (stt_audio_1)</option>
-                  <option value="fail_scam">Scam script audio (stt_audio_2)</option>
-                </select>
-              </label>
               <label class="wide">
                 Selfie (live face)
                 <input id="shield-ekyc-selfie" type="file" accept="image/png,image/jpeg,image/webp" capture="user" />
@@ -332,7 +326,20 @@
                 CCCD / portrait (optional)
                 <input id="shield-ekyc-document" type="file" accept="image/png,image/jpeg,image/webp" />
               </label>
+              <label class="wide">
+                Challenge voice (required)
+                <input id="shield-stt-audio" type="file" accept="audio/wav,audio/mpeg,audio/webm,audio/ogg,audio/mp4" />
+              </label>
+              <label class="wide">
+                Enrolled voice sample (optional)
+                <input id="shield-voice-reference" type="file" accept="audio/wav,audio/mpeg,audio/webm,audio/ogg,audio/mp4" />
+              </label>
+              <div class="wide wizard-inline-actions">
+                <button type="button" class="wizard-secondary" id="shield-record-audio">Record challenge audio</button>
+                <button type="button" class="wizard-secondary" id="shield-stop-record-audio" hidden>Stop recording</button>
+              </div>
               <p class="stage-muted wide" id="shield-ekyc-upload-status"></p>
+              <p class="stage-muted wide" id="shield-audio-upload-status"></p>
             </div>
             <div class="wizard-panel-body" id="shield-step-challenge-body"></div>
           </div>
