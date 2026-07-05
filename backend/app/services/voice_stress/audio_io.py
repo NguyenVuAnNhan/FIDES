@@ -8,7 +8,7 @@ from backend.app.services.voice_stress.prosody import TARGET_SAMPLE_RATE
 
 
 def load_mono_audio(path: Path, target_rate: int = TARGET_SAMPLE_RATE) -> tuple[np.ndarray, int]:
-    signal, sample_rate = _read_with_soundfile(path)
+    signal, sample_rate = _read_audio(path)
     if sample_rate != target_rate:
         signal = _resample_linear(signal, sample_rate, target_rate)
         sample_rate = target_rate
@@ -27,10 +27,24 @@ def load_mono_audio_from_array(
     return _resample_linear(np.asarray(signal, dtype=np.float32), source_rate, target_rate), target_rate
 
 
+def _read_audio(path: Path) -> tuple[np.ndarray, int]:
+    try:
+        return _read_with_soundfile(path)
+    except Exception:
+        return _read_with_librosa(path)
+
+
 def _read_with_soundfile(path: Path) -> tuple[np.ndarray, int]:
     import soundfile as sf
 
     signal, sample_rate = sf.read(path, always_2d=False)
+    return np.asarray(signal, dtype=np.float32), int(sample_rate)
+
+
+def _read_with_librosa(path: Path) -> tuple[np.ndarray, int]:
+    import librosa
+
+    signal, sample_rate = librosa.load(path, sr=None, mono=True)
     return np.asarray(signal, dtype=np.float32), int(sample_rate)
 
 

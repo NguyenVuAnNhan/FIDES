@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from backend.app.config import Settings, get_settings
+from backend.app.services.smartvoice.paths import PROJECT_ROOT
 from backend.app.services.voice_stress.audio_io import load_mono_audio
 from backend.app.services.voice_stress.emotion2vec_model import (
     DEFAULT_EMOTION2VEC_MODEL,
@@ -18,8 +19,6 @@ from backend.app.services.voice_stress.prosody import (
 )
 from backend.app.services.voice_stress.types import VoiceStressResult
 from backend.app.services.voice_stress.wav2vec_model import DEFAULT_WAV2VEC_MODEL
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 LOCALE_WEIGHTS = {
     "vi": (0.40, 0.60),

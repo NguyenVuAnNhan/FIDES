@@ -8,7 +8,8 @@ from typing import Any
 
 from backend.app.config import get_settings
 from backend.app.models import Explanation, ShieldAnalyzeResponse, ShieldChallengeRequest
-from backend.app.services.shield_service import analyze_shield_risk, match_transcript_pattern
+from backend.app.services.shield_service import analyze_shield_risk, detected_patterns_for_challenge, match_transcript_pattern
+from backend.app.services.smartbot.parser import parse_smartbot_response
 from backend.app.services.voice_stress import analyze_voice_stress
 from backend.app.services.vnpt_client import VnptClient
 
@@ -55,7 +56,11 @@ def _run_challenge_apis(
     provider_mode = vnpt_client.mode
     ekyc_fields, ekyc_call, ekyc_raw = _ekyc_api(challenge, vnpt_client)
     smartvoice_fields, smartvoice_call, smartvoice_raw = _smartvoice_api(challenge, vnpt_client)
-    smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]))
+    smartbot_fields, smartbot_call, smartbot_raw = _smartbot_api(
+        str(smartvoice_fields["stt_transcript"]),
+        challenge.client_session,
+        vnpt_client,
+    )
     coercion_fields, coercion_call, voice_stress_raw = _coercion_api(
         str(ekyc_fields["ekyc_verification_status"]),
         challenge.stt_audio_ref,
@@ -80,6 +85,7 @@ def _run_challenge_apis(
         "ekyc_face_mask": ekyc_raw["face_mask"],
         "ekyc_face_compare": ekyc_raw["face_compare"],
         "smartvoice_stt": smartvoice_raw,
+        "smartbot_conversation": smartbot_raw,
         "voice_stress": voice_stress_raw,
     }
     return fields, [ekyc_call, smartvoice_call, smartbot_call, coercion_call], raw_responses, provider_mode
@@ -134,6 +140,9 @@ def _object(response: dict[str, Any]) -> dict[str, Any]:
 
 def _vnpt_call_failed(response: dict[str, Any]) -> bool:
     if response.get("status") == "error":
+        return True
+    http_status = response.get("http_status")
+    if isinstance(http_status, int) and http_status >= 400:
         return True
     provider_status = str(response.get("status", "")).upper()
     if provider_status in {"BAD_REQUEST", "ERROR", "FAIL", "FAILED"}:
@@ -393,27 +402,60 @@ def _smartvoice_api(
     )
 
 
-def _mock_smartbot_api(transcript: str) -> tuple[dict[str, object], Explanation]:
-    scam_type = None
-    transcript_match = match_transcript_pattern(transcript.lower())
-    if transcript_match:
-        scam_type = transcript_match[0]
+def _smartbot_api(
+    transcript: str,
+    client_session: str,
+    vnpt_client: VnptClient,
+) -> tuple[dict[str, object], Explanation, dict[str, Any]]:
+    if vnpt_client.smartbot_enabled:
+        response = vnpt_client.smartbot_conversation(transcript, client_session)
+        provider_label = "VNPT Smartbot API"
+        source_detail = "called assistant-stream /v1/conversation"
+        smartbot_failed = _vnpt_call_failed(response)
+    else:
+        artifact = "stt_audio_1" if not transcript.strip() else "stt_audio_2"
+        if not match_transcript_pattern(transcript.lower()):
+            artifact = "stt_audio_1"
+        response = _load_vnpt_mock("smartbot", f"{artifact}_smartbot.json")
+        provider_label = "Mock Smartbot API"
+        source_detail = "loaded VNPT-like Smartbot response"
+        smartbot_failed = _vnpt_call_failed(response)
 
-    detected_patterns = detected_patterns_for_challenge(scam_type)
-    confidence = 0.91 if scam_type else None
+    classification = parse_smartbot_response(response, transcript)
+    if smartbot_failed and vnpt_client.smartbot_enabled:
+        keyword_match = match_transcript_pattern(transcript.lower())
+        scam_type = keyword_match[0] if keyword_match else None
+        classification = type(classification)(
+            llm_scam_type=scam_type,
+            detected_patterns=detected_patterns_for_challenge(scam_type),
+            llm_confidence=0.75 if scam_type else None,
+            reply_text=classification.reply_text,
+            intent_name=classification.intent_name,
+            parse_source="keyword_fallback_after_error",
+        )
 
+    provider_notes = []
+    if smartbot_failed:
+        provider_notes.append(_vnpt_error_detail(response))
+    note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
-        f"Smartbot classified {scam_type.replace('_', ' ')}."
-        if scam_type
-        else "Smartbot did not find a scam-script pattern."
+        f"{provider_label} {source_detail} for session={client_session}. "
+        f"parse={classification.parse_source}, scam_type={classification.llm_scam_type}, "
+        f"confidence={classification.llm_confidence}, intent={classification.intent_name}."
     )
+    if classification.reply_text:
+        preview = classification.reply_text.replace("\n", " ")[:180]
+        detail += f" reply={preview!r}."
+    detail += note_suffix
+
     return (
         {
-            "detected_patterns": detected_patterns,
-            "llm_scam_type": scam_type,
-            "llm_confidence": confidence,
+            "detected_patterns": classification.detected_patterns,
+            "llm_scam_type": classification.llm_scam_type,
+            "llm_confidence": classification.llm_confidence,
         },
-        Explanation(label="Mock Smartbot API", detail=detail, weight=0),
+        Explanation(label=provider_label, detail=detail, weight=0),
+        response,
     )
 
 
@@ -508,21 +550,3 @@ def _face_distress_proxy(
     if voice_stress_score >= 0.55:
         return min(0.85, 0.35 + voice_stress_score * 0.5), ["distress"]
     return 0.16, ["calm"]
-
-
-def detected_patterns_for_challenge(scam_type: str | None) -> list[str]:
-    if scam_type == "fake_authority":
-        return [
-            "fake_authority",
-            "case_involvement",
-            "transfer_for_verification",
-            "secrecy_pressure",
-        ]
-    if scam_type == "remote_support":
-        return [
-            "remote_support",
-            "screen_control",
-            "refund_promise",
-            "transfer_test",
-        ]
-    return [scam_type] if scam_type else []

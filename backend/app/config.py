@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     vnpt_provider_mode: str = "mock"
     vnpt_ekyc_mode: str | None = None
     vnpt_smartvoice_mode: str | None = None
+    vnpt_smartbot_mode: str | None = None
     vnpt_base_url: str = "https://api.idg.vnpt.vn"
+    vnpt_smartbot_base_url: str = "https://assistant-stream.vnpt.vn"
     vnpt_access_token: str | None = None
     vnpt_token_id: str | None = None
     vnpt_token_key: str | None = None
@@ -18,6 +20,13 @@ class Settings(BaseSettings):
     vnpt_smartvoice_access_token: str | None = None
     vnpt_smartvoice_token_id: str | None = None
     vnpt_smartvoice_token_key: str | None = None
+    vnpt_smartbot_access_token: str | None = None
+    vnpt_smartbot_token_id: str | None = None
+    vnpt_smartbot_token_key: str | None = None
+    vnpt_smartbot_bot_id: str | None = None
+    vnpt_smartbot_input_channel: str = "api"
+    vnpt_smartbot_sender_id: str = "fides-shield-user"
+    vnpt_smartbot_request_timeout_seconds: int = 45
     vnpt_ekyc_token: str | None = None
     vnpt_mac_address: str = "TEST1"
     vnpt_request_timeout_seconds: int = 20

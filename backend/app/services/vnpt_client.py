@@ -18,11 +18,11 @@ class VnptClient:
 
     @property
     def enabled(self) -> bool:
-        return self.ekyc_enabled or self.smartvoice_enabled
+        return self.ekyc_enabled or self.smartvoice_enabled or self.smartbot_enabled
 
     @property
     def mode(self) -> str:
-        return f"ekyc:{self.ekyc_mode},smartvoice:{self.smartvoice_mode}"
+        return f"ekyc:{self.ekyc_mode},smartvoice:{self.smartvoice_mode},smartbot:{self.smartbot_mode}"
 
     @property
     def ekyc_enabled(self) -> bool:
@@ -33,12 +33,22 @@ class VnptClient:
         return self._product_enabled(self._resolved_smartvoice_mode(), "smartvoice")
 
     @property
+    def smartbot_enabled(self) -> bool:
+        if not self.settings.vnpt_smartbot_bot_id:
+            return False
+        return self._product_enabled(self._resolved_smartbot_mode(), "smartbot")
+
+    @property
     def ekyc_mode(self) -> str:
         return "real" if self.ekyc_enabled else "mock"
 
     @property
     def smartvoice_mode(self) -> str:
         return "real" if self.smartvoice_enabled else "mock"
+
+    @property
+    def smartbot_mode(self) -> str:
+        return "real" if self.smartbot_enabled else "mock"
 
     def _resolved_ekyc_mode(self) -> str:
         explicit = self.settings.vnpt_ekyc_mode
@@ -48,6 +58,12 @@ class VnptClient:
 
     def _resolved_smartvoice_mode(self) -> str:
         explicit = self.settings.vnpt_smartvoice_mode
+        if explicit:
+            return explicit.lower()
+        return self.settings.vnpt_provider_mode.lower()
+
+    def _resolved_smartbot_mode(self) -> str:
+        explicit = self.settings.vnpt_smartbot_mode
         if explicit:
             return explicit.lower()
         return self.settings.vnpt_provider_mode.lower()
@@ -73,6 +89,12 @@ class VnptClient:
                 "access_token": self.settings.vnpt_smartvoice_access_token or self.settings.vnpt_access_token,
                 "token_id": self.settings.vnpt_smartvoice_token_id or self.settings.vnpt_token_id,
                 "token_key": self.settings.vnpt_smartvoice_token_key or self.settings.vnpt_token_key,
+            }
+        if product == "smartbot":
+            return {
+                "access_token": self.settings.vnpt_smartbot_access_token or self.settings.vnpt_access_token,
+                "token_id": self.settings.vnpt_smartbot_token_id or self.settings.vnpt_token_id,
+                "token_key": self.settings.vnpt_smartbot_token_key or self.settings.vnpt_token_key,
             }
         raise ValueError(f"Unsupported VNPT product: {product}")
 
@@ -205,21 +227,61 @@ class VnptClient:
             timeout=self.settings.vnpt_request_timeout_seconds,
         )
 
+    def smartbot_conversation(
+        self,
+        text: str,
+        session_id: str,
+        sender_id: str | None = None,
+    ) -> dict[str, Any]:
+        if not text.strip():
+            return self._error_response(
+                "Smartbot conversation text is empty",
+                {"session_id": session_id},
+                provider_mode=self.smartbot_mode,
+            )
+
+        payload: dict[str, Any] = {
+            "bot_id": self.settings.vnpt_smartbot_bot_id,
+            "sender_id": sender_id or self.settings.vnpt_smartbot_sender_id,
+            "text": text,
+            "input_channel": self.settings.vnpt_smartbot_input_channel,
+            "session_id": session_id,
+            "metadata": {"button_variables": []},
+        }
+        return self._post_json(
+            "/v1/conversation",
+            payload,
+            provider_mode=self.smartbot_mode,
+            product="smartbot",
+            base_url=self.settings.vnpt_smartbot_base_url,
+            timeout=self.settings.vnpt_smartbot_request_timeout_seconds,
+        )
+
     def _post_json(
         self,
         path: str,
         payload: dict[str, Any],
         provider_mode: str | None = None,
         product: str = "ekyc",
+        base_url: str | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
-        body = json.dumps(payload).encode("utf-8")
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         headers = self._auth_headers("application/json", product=product)
-        timeout = (
-            self.settings.vnpt_ekyc_request_timeout_seconds
-            if product == "ekyc"
-            else self.settings.vnpt_request_timeout_seconds
+        if product == "ekyc":
+            selected_timeout = timeout or self.settings.vnpt_ekyc_request_timeout_seconds
+        elif product == "smartbot":
+            selected_timeout = timeout or self.settings.vnpt_smartbot_request_timeout_seconds
+        else:
+            selected_timeout = timeout or self.settings.vnpt_request_timeout_seconds
+        return self._request(
+            path,
+            body,
+            headers,
+            provider_mode=provider_mode,
+            base_url=base_url,
+            timeout=selected_timeout,
         )
-        return self._request(path, body, headers, provider_mode=provider_mode, timeout=timeout)
 
     def _post_multipart_file(
         self,

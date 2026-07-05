@@ -42,6 +42,24 @@ def match_transcript_pattern(transcript: str) -> tuple[str, int] | None:
     return _match_transcript_pattern(transcript)
 
 
+def detected_patterns_for_challenge(scam_type: str | None) -> list[str]:
+    if scam_type == "fake_authority":
+        return [
+            "fake_authority",
+            "case_involvement",
+            "transfer_for_verification",
+            "secrecy_pressure",
+        ]
+    if scam_type == "remote_support":
+        return [
+            "remote_support",
+            "screen_control",
+            "refund_promise",
+            "transfer_test",
+        ]
+    return [scam_type] if scam_type else []
+
+
 def analyze_shield_risk(request: ShieldAnalyzeRequest) -> ShieldAnalyzeResponse:
     stage_one_score, stage_one_flags = _score_outer_context(request)
     circuit_breaker_triggered = stage_one_score >= OUTER_BREAKER_THRESHOLD

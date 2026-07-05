@@ -1,0 +1,22 @@
+{
+  "message": "IDG-00000200",
+  "object": {
+    "sb": {
+      "text_id": "mock-smartbot-scam",
+      "card_data": [
+        {
+          "text": "{\"safe\": false, \"scam_type\": \"fake_authority\", \"detected_patterns\": [\"fake_authority\", \"secrecy_pressure\", \"transfer_for_verification\"], \"confidence\": 0.91}",
+          "type": "text",
+          "play_type": "text"
+        }
+      ],
+      "card_data_info": {
+        "totals": 1,
+        "current": 1,
+        "status": 0
+      },
+      "intent_name": "fake_authority"
+    },
+    "type": "normal"
+  }
+}
