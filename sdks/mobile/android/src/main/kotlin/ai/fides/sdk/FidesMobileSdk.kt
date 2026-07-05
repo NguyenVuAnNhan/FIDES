@@ -112,7 +112,7 @@ class FidesMobileSdk(
         transaction: ShieldTransaction,
         consent: FidesConsent,
         overrides: Map<String, Any?> = emptyMap(),
-        ekycImageRef: String = "mock_payload/ekyc_img_1",
+        ekycImageRef: String,
         sttAudioRef: String = "mock_payload/stt_audio_1",
         completion: (FidesSdkResult<String>) -> Unit
     ) {

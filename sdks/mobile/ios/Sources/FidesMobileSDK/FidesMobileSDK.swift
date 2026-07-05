@@ -177,7 +177,7 @@ public final class FidesMobileSDK {
         transaction: ShieldTransaction,
         consent: FidesConsent,
         overrides: [String: Any] = [:],
-        ekycImageRef: String = "mock_payload/ekyc_img_1",
+        ekycImageRef: String,
         sttAudioRef: String = "mock_payload/stt_audio_1",
         completion: @escaping (Result<Data, Error>) -> Void
     ) {

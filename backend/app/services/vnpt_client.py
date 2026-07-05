@@ -1,4 +1,3 @@
-import base64
 import http.client
 import json
 import ssl
@@ -15,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 class VnptClient:
     def __init__(self, settings: Settings):
         self.settings = settings
+        self._image_hash_cache: dict[str, str] = {}
 
     @property
     def enabled(self) -> bool:
@@ -76,24 +76,42 @@ class VnptClient:
             }
         raise ValueError(f"Unsupported VNPT product: {product}")
 
+    def add_file(
+        self,
+        file_path: Path,
+        title: str = "ekyc",
+        description: str = "ekyc",
+    ) -> dict[str, Any]:
+        return self._post_multipart_file(
+            "/file-service/v1/addFile",
+            file_path,
+            base_url=self.settings.vnpt_base_url,
+            provider_mode=self.ekyc_mode,
+            product="ekyc",
+            extra_fields={"title": title, "description": description},
+            timeout=self.settings.vnpt_ekyc_request_timeout_seconds,
+        )
+
     def face_liveness(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        image_hash, upload_error = self._resolve_image_hash(image_ref, title="selfie")
+        if upload_error:
+            return upload_error
         payload: dict[str, Any] = {
-            "img": self._image_payload(image_ref),
+            "img": image_hash,
             "client_session": client_session,
+            "token": self._ekyc_body_token(),
         }
-        product_token = self._ekyc_product_token()
-        if product_token:
-            payload["token"] = product_token
         return self._post_json("/ai/v1/face/liveness", payload, provider_mode=self.ekyc_mode, product="ekyc")
 
     def face_mask(self, image_ref: str, client_session: str) -> dict[str, Any]:
+        image_hash, upload_error = self._resolve_image_hash(image_ref, title="selfie")
+        if upload_error:
+            return upload_error
         payload: dict[str, Any] = {
-            "img": self._image_payload(image_ref),
+            "img": image_hash,
             "client_session": client_session,
+            "token": self._ekyc_body_token(),
         }
-        product_token = self._ekyc_product_token()
-        if product_token:
-            payload["token"] = product_token
         return self._post_json(
             "/ai/v1/face/mask",
             payload,
@@ -118,14 +136,18 @@ class VnptClient:
                 "provider_mode": self.ekyc_mode,
             }
 
+        document_hash, document_error = self._resolve_image_hash(document_ref, title="document")
+        if document_error:
+            return document_error
+        face_hash, face_error = self._resolve_image_hash(face_ref, title="selfie")
+        if face_error:
+            return face_error
         payload: dict[str, Any] = {
-            "img_front": self._image_payload(document_ref),
-            "img_face": self._image_payload(face_ref),
+            "img_front": document_hash,
+            "img_face": face_hash,
             "client_session": client_session,
+            "token": self._ekyc_body_token(),
         }
-        product_token = self._ekyc_product_token()
-        if product_token:
-            payload["token"] = product_token
         return self._post_json(
             "/ai/v1/face/compare",
             payload,
@@ -321,9 +343,21 @@ class VnptClient:
         base_url: str,
         provider_mode: str | None = None,
         product: str = "smartvoice",
+        extra_fields: dict[str, str] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         boundary = f"----fides-{uuid.uuid4().hex}"
-        body = b"".join(
+        parts: list[bytes] = []
+        for field_name, field_value in (extra_fields or {}).items():
+            parts.extend(
+                [
+                    f"--{boundary}\r\n".encode("utf-8"),
+                    f'Content-Disposition: form-data; name="{field_name}"\r\n\r\n'.encode("utf-8"),
+                    field_value.encode("utf-8"),
+                    b"\r\n",
+                ]
+            )
+        parts.extend(
             [
                 f"--{boundary}\r\n".encode("utf-8"),
                 (
@@ -339,11 +373,11 @@ class VnptClient:
         headers = self._auth_headers(f"multipart/form-data; boundary={boundary}", product=product)
         return self._request(
             path,
-            body,
+            b"".join(parts),
             headers,
             base_url=base_url,
             provider_mode=provider_mode,
-            timeout=self.settings.vnpt_request_timeout_seconds,
+            timeout=timeout or self.settings.vnpt_request_timeout_seconds,
         )
 
     def _get_json(
@@ -425,12 +459,11 @@ class VnptClient:
         finally:
             connection.close()
 
-    def _ekyc_product_token(self) -> str | None:
+    def _ekyc_body_token(self) -> str:
         explicit = str(self.settings.vnpt_ekyc_token or "").strip()
         if explicit:
             return explicit
-        fallback = str(self.settings.vnpt_ekyc_token_id or "").strip()
-        return fallback or None
+        return str(self.settings.vnpt_ekyc_token_id or "").strip()
 
     def _auth_headers(self, content_type: str, product: str = "ekyc") -> dict[str, str]:
         credentials = self._product_credentials(product)
@@ -447,11 +480,45 @@ class VnptClient:
             headers["mac-address"] = self.settings.vnpt_mac_address
         return headers
 
-    def _image_payload(self, image_ref: str) -> str:
+    def _looks_like_vnpt_hash(self, value: str) -> bool:
+        normalized = value.strip()
+        return bool(normalized) and "/" in normalized and (
+            normalized.startswith("idg") or "IDG" in normalized
+        )
+
+    def _resolve_image_hash(
+        self,
+        image_ref: str,
+        title: str = "face",
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        if self._looks_like_vnpt_hash(image_ref):
+            return image_ref, None
+
         path = self._resolve_ref(image_ref)
-        if path.exists():
-            return base64.b64encode(path.read_bytes()).decode("ascii")
-        return image_ref
+        if not path.is_file():
+            return image_ref, None
+
+        cache_key = str(path.resolve())
+        cached_hash = self._image_hash_cache.get(cache_key)
+        if cached_hash:
+            return cached_hash, None
+
+        upload = self.add_file(path, title=title, description=title)
+        hash_value = self._nested_value(upload, ["object", "hash"])
+        if not hash_value:
+            return None, self._error_response(
+                "VNPT addFile did not return object.hash",
+                {
+                    "image_ref": image_ref,
+                    "resolved_path": str(path),
+                    "upload_response": upload,
+                },
+                provider_mode=self.ekyc_mode,
+            )
+
+        hash_str = str(hash_value)
+        self._image_hash_cache[cache_key] = hash_str
+        return hash_str, None
 
     def _resolve_ref(self, ref: str) -> Path:
         path = Path(ref)

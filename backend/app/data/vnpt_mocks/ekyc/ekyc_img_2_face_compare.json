@@ -1,9 +1,0 @@
-{
-  "message": "Success",
-  "server_version": "ekyc-mock-1.0",
-  "object": {
-    "result": "NOMATCH",
-    "msg": "NOMATCH",
-    "prob": 0.42
-  }
-}

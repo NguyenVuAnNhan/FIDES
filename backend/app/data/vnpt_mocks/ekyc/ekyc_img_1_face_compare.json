@@ -1,9 +1,0 @@
-{
-  "message": "Success",
-  "server_version": "ekyc-mock-1.0",
-  "object": {
-    "result": "MATCH",
-    "msg": "MATCH",
-    "prob": 0.91
-  }
-}

@@ -1,4 +1,4 @@
-"""Path B transfer monitoring: in-app camera/voice challenge via VNPT (or mocks)."""
+"""Path B transfer monitoring: in-app camera/voice challenge via VNPT."""
 
 from __future__ import annotations
 
@@ -16,8 +16,11 @@ VNPT_MOCK_DIR = Path(__file__).resolve().parents[1] / "data" / "vnpt_mocks"
 
 def run_transfer_monitoring_challenge(challenge: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
     """Run Path B in-app check, merge provider fields, and re-score with E0/E2."""
-    profile = _challenge_profile_from_artifacts(challenge.ekyc_image_ref, challenge.stt_audio_ref)
-    provider_fields, provider_calls, raw_responses, provider_mode = _run_challenge_apis(challenge, profile)
+    provider_fields, provider_calls, raw_responses, provider_mode = _run_challenge_apis(challenge)
+    profile = _challenge_profile_from_results(
+        str(provider_fields.get("ekyc_verification_status", "failed")),
+        challenge.stt_audio_ref,
+    )
     challenged_request = challenge.transaction.model_copy(update=provider_fields)
     response = analyze_shield_risk(challenged_request)
 
@@ -39,7 +42,6 @@ run_mock_camera_voice_challenge = run_transfer_monitoring_challenge
 
 def _run_challenge_apis(
     challenge: ShieldChallengeRequest,
-    profile: str,
 ) -> tuple[dict[str, object], list[Explanation], dict[str, dict[str, Any]], str]:
     settings = get_settings()
     vnpt_client = VnptClient(settings)
@@ -48,7 +50,10 @@ def _run_challenge_apis(
     smartvoice_fields, smartvoice_call, smartvoice_raw = _smartvoice_api(challenge, vnpt_client)
     voice_fields, voice_call, voice_raw = _voice_verification_api(challenge, vnpt_client)
     smartbot_fields, smartbot_call = _mock_smartbot_api(str(smartvoice_fields["stt_transcript"]))
-    coercion_fields, coercion_call = _mock_coercion_api(challenge.ekyc_image_ref, challenge.stt_audio_ref)
+    coercion_fields, coercion_call = _mock_coercion_api(
+        str(ekyc_fields["ekyc_verification_status"]),
+        challenge.stt_audio_ref,
+    )
 
     fields = {
         "consent_granted": True,
@@ -73,8 +78,8 @@ def _run_challenge_apis(
     return fields, [ekyc_call, smartvoice_call, voice_call, smartbot_call, coercion_call], raw_responses, provider_mode
 
 
-def _challenge_profile_from_artifacts(ekyc_image_ref: str, stt_audio_ref: str) -> str:
-    ekyc_passed = _artifact_name(ekyc_image_ref) == "ekyc_img_1"
+def _challenge_profile_from_results(ekyc_verification_status: str, stt_audio_ref: str) -> str:
+    ekyc_passed = ekyc_verification_status == "passed"
     stt_passed = _artifact_name(stt_audio_ref) == "stt_audio_1"
     if ekyc_passed and stt_passed:
         return "clear_user"
@@ -194,27 +199,50 @@ def _derive_injection_risk(face_is_live: bool, mask_detected: bool, face_match_s
     return round(min(risk, 0.95), 2)
 
 
+def _ekyc_unconfigured_response(image_ref: str) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
+    message = "VNPT eKYC credentials are not configured. Set VNPT_EKYC_MODE=real and eKYC tokens in .env."
+    failed = {
+        "message": message,
+        "object": {},
+        "status": "error",
+        "provider_mode": "disabled",
+    }
+    detail = f"VNPT eKYC API skipped for {image_ref}. {message}"
+    fields = {
+        "ekyc_verification_status": "failed",
+        "ekyc_liveness_passed": False,
+        "ekyc_liveness_score": None,
+        "ekyc_mask_detected": False,
+        "ekyc_face_match_score": 0.0,
+        "ekyc_injection_risk_score": 0.77,
+    }
+    return (
+        fields,
+        Explanation(label="VNPT eKYC API", detail=detail, weight=0),
+        {
+            "face_liveness": failed,
+            "face_mask": failed,
+            "face_compare": failed,
+        },
+    )
+
+
 def _ekyc_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
-    if vnpt_client.ekyc_enabled:
-        liveness_response = vnpt_client.face_liveness(challenge.ekyc_image_ref, challenge.client_session)
-        mask_response = vnpt_client.face_mask(challenge.ekyc_image_ref, challenge.client_session)
-        compare_response = vnpt_client.face_compare(
-            challenge.ekyc_document_ref,
-            challenge.ekyc_image_ref,
-            challenge.client_session,
-        )
-        provider_label = "VNPT eKYC API"
-        source_detail = "called VNPT eKYC liveness, mask, and face-compare endpoints"
-    else:
-        artifact = _artifact_name(challenge.ekyc_image_ref)
-        liveness_response = _load_vnpt_mock("ekyc", f"{artifact}_face_liveness.json")
-        mask_response = _load_vnpt_mock("ekyc", f"{artifact}_face_mask.json")
-        compare_response = _load_vnpt_mock("ekyc", f"{artifact}_face_compare.json")
-        provider_label = "Mock eKYC API"
-        source_detail = "loaded VNPT-like liveness, mask, and face-compare responses"
+    if not vnpt_client.ekyc_enabled:
+        return _ekyc_unconfigured_response(challenge.ekyc_image_ref)
+
+    liveness_response = vnpt_client.face_liveness(challenge.ekyc_image_ref, challenge.client_session)
+    mask_response = vnpt_client.face_mask(challenge.ekyc_image_ref, challenge.client_session)
+    compare_response = vnpt_client.face_compare(
+        challenge.ekyc_document_ref,
+        challenge.ekyc_image_ref,
+        challenge.client_session,
+    )
+    provider_label = "VNPT eKYC API"
+    source_detail = "called VNPT eKYC liveness, mask, and face-compare endpoints"
 
     liveness_object = _object(liveness_response)
     mask_object = _object(mask_response)
@@ -384,9 +412,9 @@ def _mock_smartbot_api(transcript: str) -> tuple[dict[str, object], Explanation]
     )
 
 
-def _mock_coercion_api(ekyc_image_ref: str, stt_audio_ref: str) -> tuple[dict[str, object], Explanation]:
+def _mock_coercion_api(ekyc_verification_status: str, stt_audio_ref: str) -> tuple[dict[str, object], Explanation]:
     stt_failed = _artifact_name(stt_audio_ref) != "stt_audio_1"
-    ekyc_failed = _artifact_name(ekyc_image_ref) != "ekyc_img_1"
+    ekyc_failed = ekyc_verification_status not in {"passed", "review"}
     if stt_failed:
         selected = {
             "voice": 0.83,
@@ -409,7 +437,7 @@ def _mock_coercion_api(ekyc_image_ref: str, stt_audio_ref: str) -> tuple[dict[st
             "scripted_labels": [],
             "coercion": 0.22,
             "confidence": 0.78,
-            "detail": f"Mock coercion API used {ekyc_image_ref} and found biometric artifact risk without coercion.",
+            "detail": "Mock coercion API found biometric verification failure without coercion signals.",
         }
     else:
         selected = {
@@ -421,7 +449,7 @@ def _mock_coercion_api(ekyc_image_ref: str, stt_audio_ref: str) -> tuple[dict[st
             "scripted_labels": ["free_response"],
             "coercion": 0.14,
             "confidence": 0.82,
-            "detail": f"Mock coercion API used {ekyc_image_ref} and {stt_audio_ref}; no distress pattern found.",
+            "detail": f"Mock coercion API used {stt_audio_ref}; no distress pattern found.",
         }
     return (
         {

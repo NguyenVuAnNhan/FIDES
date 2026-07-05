@@ -1,9 +1,0 @@
-{
-  "message": "Success",
-  "server_version": "ekyc-mock-1.0",
-  "object": {
-    "liveness": true,
-    "liveness_msg": "LIVE",
-    "is_eye_open": true
-  }
-}

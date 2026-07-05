@@ -85,7 +85,7 @@ The current dataset includes:
 
 The full mock data and future database inventory is tracked in `docs/mock_data_inventory.md`. VNPT API contract alignment and recommended schema updates are documented in `docs/vnpt_schema_integration_plan.md`.
 
-Shield camera/voice challenge fixtures live in `mock_payload/`: `ekyc_img_1` passes mock eKYC, `ekyc_img_2` fails mock eKYC, `stt_audio_1` passes the spoken challenge, and `stt_audio_2` fails it. Mock document/front-ID portrait refs for face compare live in `mock_payload/customer_document_faces/`; enrolled customer voice references live in `mock_payload/customer_voice_samples/`. Example request bodies are included in the same folder.
+Shield voice challenge fixtures live in `mock_payload/`: `stt_audio_1` passes the spoken challenge and `stt_audio_2` fails it. Enrolled customer voice references live in `mock_payload/customer_voice_samples/`. eKYC images are uploaded via `POST /api/shield/challenge/upload-ekyc` and stored under `uploads/ekyc/`.
 
 VNPT-shaped raw mock responses live in `backend/app/data/vnpt_mocks/`. The Shield mock adapters load those JSON files, normalize them into Shield fields, and expose the raw JSON in the API response for demo inspection.
 

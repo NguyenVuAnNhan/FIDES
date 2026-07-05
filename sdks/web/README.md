@@ -46,7 +46,7 @@ Browser SDK scaffold for FIDES Shield and Grow.
       caller_number: "+882 13 456 789",
       recipient_known: false
     }, {
-      ekyc_image_ref: "mock_payload/ekyc_img_2",
+      ekyc_image_ref: "uploads/ekyc/selfie-example.jpg",
       stt_audio_ref: "mock_payload/stt_audio_2"
     });
 

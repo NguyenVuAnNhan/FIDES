@@ -389,28 +389,24 @@ In the MVP frontend, the challenge panel calls `POST /api/shield/challenge` with
 ```json
 {
   "transaction": { "...": "original ShieldAnalyzeRequest" },
-  "ekyc_image_ref": "mock_payload/ekyc_img_1",
-  "ekyc_document_ref": "mock_payload/customer_document_faces/doc_face_1",
+  "ekyc_image_ref": "uploads/ekyc/selfie-abc123.jpg",
+  "ekyc_document_ref": "uploads/ekyc/document-def456.jpg",
   "stt_audio_ref": "mock_payload/stt_audio_1",
   "voice_reference_ref": "mock_payload/customer_voice_samples/voice_ref_1",
   "client_session": "shield-demo-browser-session"
 }
 ```
 
-The backend does not automatically pass the challenge. In default `mock` mode, it calls mocked provider APIs and re-runs Shield analysis from their outputs:
+The backend uploads eKYC images via `POST /api/shield/challenge/upload-ekyc`, then calls VNPT eKYC and re-runs Shield analysis:
 
-- mock eKYC API: liveness, mask/spoof, face match, injection risk
+- VNPT eKYC API: liveness, mask/spoof, face match, injection risk
 - mock SmartVoice API: speech-to-text transcript and confidence
 - mock SmartVoice voice verification API: customer voice match score
 - mock Smartbot API: scam-script classification and confidence
 - mock coercion API: voice stress, visual distress, scripted behavior, aggregate coercion
 
-The current mock artifacts are:
+Voice mock artifacts:
 
-- `mock_payload/ekyc_img_1`: eKYC passes.
-- `mock_payload/ekyc_img_2`: eKYC fails.
-- `mock_payload/customer_document_faces/doc_face_1`: mock document/front-ID portrait source for face compare.
-- `mock_payload/customer_document_faces/doc_face_2`: alternate mock document/front-ID portrait source.
 - `mock_payload/stt_audio_1`: SmartVoice returns a clean challenge transcript.
 - `mock_payload/stt_audio_2`: SmartVoice returns a coached scam transcript.
 - `mock_payload/customer_voice_samples/voice_ref_1`: enrolled customer voice reference.

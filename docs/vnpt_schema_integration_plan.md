@@ -52,9 +52,9 @@ The same boundary is now plug-in ready for real calls. With `VNPT_PROVIDER_MODE=
 - `POST /ai/v1/face/compare`
 - `POST /stt-service/v3/standard`
 
-The adapter keeps credentials out of the frontend, sends image refs as base64 if they resolve to local files, sends STT as binary audio, then normalizes the provider JSON into the existing Shield scoring fields. VNPT face liveness is treated as boolean: not-live fails Stage 2, live adds no liveness risk. Once real payloads are recorded, tune `ekyc_face_match_score`, `stt_confidence`, and intervention thresholds against actual VNPT score distributions.
+The adapter keeps credentials out of the frontend, uploads local image refs via `/file-service/v1/addFile` and passes the returned hash to face APIs, sends STT as binary audio, then normalizes the provider JSON into the existing Shield scoring fields.
 
-For `face/compare`, the request schema accepts `ekyc_document_ref` separately from `ekyc_image_ref`. The browser demo now uses mock document portrait refs from `mock_payload/customer_document_faces/`; production should send a document/front-ID image plus a live face image.
+For `face/compare`, the request schema accepts `ekyc_document_ref` separately from `ekyc_image_ref`. Upload both via `POST /api/shield/challenge/upload-ekyc` or pass stored customer document refs from onboarding.
 
 ## Cross-Check Summary
 
@@ -537,7 +537,6 @@ MVP:
 - Optional raw response mock files later under:
   - `backend/app/data/vnpt_mocks/smartreader/`
   - `backend/app/data/vnpt_mocks/smartvoice/`
-  - `backend/app/data/vnpt_mocks/ekyc/`
 
 Later:
 

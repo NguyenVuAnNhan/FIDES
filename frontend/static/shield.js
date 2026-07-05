@@ -7,7 +7,6 @@ const shieldStatus = document.querySelector("#shield-status");
 const shieldStepContextBody = document.querySelector("#shield-step-context-body");
 const shieldStepChallengeBody = document.querySelector("#shield-step-challenge-body");
 const shieldChallengeProfile = document.querySelector("#shield-challenge-profile");
-const shieldEkycUploadPanel = document.querySelector("#shield-ekyc-upload-panel");
 const shieldEkycSelfie = document.querySelector("#shield-ekyc-selfie");
 const shieldEkycDocument = document.querySelector("#shield-ekyc-document");
 const shieldEkycUploadStatus = document.querySelector("#shield-ekyc-upload-status");
@@ -18,23 +17,13 @@ const WIZARD_STEPS = [
   { id: 3, nextLabel: "Start new case" },
 ];
 
-const CHALLENGE_PROFILES = {
+const STT_PROFILES = {
   pass: {
-    ekyc_image_ref: "mock_payload/ekyc_img_1",
-    ekyc_document_ref: "mock_payload/customer_document_faces/doc_face_1",
     stt_audio_ref: "mock_payload/stt_audio_1",
     voice_reference_ref: "mock_payload/customer_voice_samples/voice_ref_1",
   },
   fail_scam: {
-    ekyc_image_ref: "mock_payload/ekyc_img_1",
-    ekyc_document_ref: "mock_payload/customer_document_faces/doc_face_1",
     stt_audio_ref: "mock_payload/stt_audio_2",
-    voice_reference_ref: "mock_payload/customer_voice_samples/voice_ref_1",
-  },
-  fail_biometric: {
-    ekyc_image_ref: "mock_payload/ekyc_img_2",
-    ekyc_document_ref: "mock_payload/customer_document_faces/doc_face_2",
-    stt_audio_ref: "mock_payload/stt_audio_1",
     voice_reference_ref: "mock_payload/customer_voice_samples/voice_ref_1",
   },
 };
@@ -46,19 +35,6 @@ let uploadedEkycArtifacts = null;
 
 initShieldPage();
 
-shieldChallengeProfile?.addEventListener("change", () => {
-  const useRealUpload = shieldChallengeProfile.value === "real_upload";
-  if (shieldEkycUploadPanel) {
-    shieldEkycUploadPanel.hidden = !useRealUpload;
-  }
-  if (!useRealUpload) {
-    uploadedEkycArtifacts = null;
-    if (shieldEkycUploadStatus) {
-      shieldEkycUploadStatus.textContent = "";
-    }
-  }
-});
-
 async function initShieldPage() {
   try {
     await loadDemoDataset();
@@ -68,7 +44,7 @@ async function initShieldPage() {
     }
     shieldScenario.dispatchEvent(new Event("change"));
     setWizardStep(1);
-    setShieldStatus("Path B: analyze transfer context first. In-app check runs in step 2 when required.");
+    setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC with uploaded photos.");
   } catch (error) {
     console.error(error);
     setShieldStatus("Failed to load Shield demo scenarios.");
@@ -85,6 +61,7 @@ shieldScenario.addEventListener("change", () => {
     }
     lastAnalyzeResponse = null;
     lastAnalyzePayload = null;
+    uploadedEkycArtifacts = null;
     clearResultPanels();
     setWizardStep(1);
     setShieldStatus("Scenario loaded. Click Analyze transfer.");
@@ -128,7 +105,7 @@ async function runShieldAnalyze() {
 
     if (lastAnalyzeResponse.invasive_check_required) {
       setShieldStatus(
-        "Circuit breaker tripped. Continue to in-app camera and voice check (step 2).",
+        "Circuit breaker tripped. Upload selfie (+ optional CCCD) and run in-app check (step 2).",
       );
       setWizardStep(2);
     } else {
@@ -152,15 +129,14 @@ async function runShieldChallenge() {
   }
 
   const profileKey = shieldChallengeProfile?.value || "pass";
-  let artifacts = CHALLENGE_PROFILES[profileKey] || CHALLENGE_PROFILES.pass;
+  const sttArtifacts = STT_PROFILES[profileKey] || STT_PROFILES.pass;
 
-  if (profileKey === "real_upload") {
-    try {
-      artifacts = await resolveRealEkycArtifacts();
-    } catch (error) {
-      setShieldStatus(`eKYC upload failed: ${formatApiError(error.message)}`);
-      return;
-    }
+  let ekycArtifacts;
+  try {
+    ekycArtifacts = await resolveEkycArtifacts();
+  } catch (error) {
+    setShieldStatus(`eKYC upload failed: ${formatApiError(error.message)}`);
+    return;
   }
 
   shieldNext.disabled = true;
@@ -169,7 +145,8 @@ async function runShieldChallenge() {
   try {
     const response = await postJson("/api/shield/challenge", {
       transaction: lastAnalyzePayload,
-      ...artifacts,
+      ...ekycArtifacts,
+      ...sttArtifacts,
       client_session: "shield-path-b-demo",
     });
     lastAnalyzeResponse = response;
@@ -201,22 +178,27 @@ function resetShieldCase() {
   clearResultPanels();
   shieldScenario.dispatchEvent(new Event("change"));
   setWizardStep(1);
-  setShieldStatus("Path B: analyze transfer context first.");
+  setShieldStatus("Path B: analyze transfer context first. Step 2 uses VNPT eKYC with uploaded photos.");
 }
 
-async function resolveRealEkycArtifacts() {
-  if (uploadedEkycArtifacts) {
-    return uploadedEkycArtifacts;
-  }
-
+async function resolveEkycArtifacts() {
   const selfieFile = shieldEkycSelfie?.files?.[0];
   if (!selfieFile) {
-    throw new Error("Choose a selfie image for real VNPT eKYC.");
+    throw new Error("Choose a selfie image for VNPT eKYC.");
+  }
+
+  const documentFile = shieldEkycDocument?.files?.[0];
+  const selfieChanged = uploadedEkycArtifacts?.selfieFileName !== selfieFile.name;
+  const documentChanged = (uploadedEkycArtifacts?.documentFileName || null) !== (documentFile?.name || null);
+  if (uploadedEkycArtifacts && !selfieChanged && !documentChanged) {
+    return {
+      ekyc_image_ref: uploadedEkycArtifacts.ekyc_image_ref,
+      ekyc_document_ref: uploadedEkycArtifacts.ekyc_document_ref,
+    };
   }
 
   const formData = new FormData();
   formData.append("selfie", selfieFile);
-  const documentFile = shieldEkycDocument?.files?.[0];
   if (documentFile) {
     formData.append("document", documentFile);
   }
@@ -229,8 +211,8 @@ async function resolveRealEkycArtifacts() {
   uploadedEkycArtifacts = {
     ekyc_image_ref: uploadResponse.ekyc_image_ref,
     ekyc_document_ref: uploadResponse.ekyc_document_ref || null,
-    stt_audio_ref: CHALLENGE_PROFILES.pass.stt_audio_ref,
-    voice_reference_ref: CHALLENGE_PROFILES.pass.voice_reference_ref,
+    selfieFileName: selfieFile.name,
+    documentFileName: documentFile?.name || null,
   };
 
   if (shieldEkycUploadStatus) {
@@ -239,7 +221,10 @@ async function resolveRealEkycArtifacts() {
     }.`;
   }
 
-  return uploadedEkycArtifacts;
+  return {
+    ekyc_image_ref: uploadedEkycArtifacts.ekyc_image_ref,
+    ekyc_document_ref: uploadedEkycArtifacts.ekyc_document_ref,
+  };
 }
 
 function buildShieldAnalyzePayload(form) {

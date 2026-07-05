@@ -8,4 +8,6 @@ __pycache__/
 .DS_Store
 frontend/static/uploads/receipts/*
 !frontend/static/uploads/receipts/.gitkeep
+uploads/ekyc/*
+!uploads/ekyc/.gitkeep
 

@@ -73,7 +73,7 @@ async def _save_ekyc_upload(upload: UploadFile, prefix: str) -> tuple[str, str, 
     filename = f"{prefix}-{uuid.uuid4().hex}{extension}"
     path = uploads_dir / filename
     path.write_bytes(data)
-    return f"mock_payload/uploads/ekyc/{filename}", filename, len(data)
+    return f"uploads/ekyc/{filename}", filename, len(data)
 
 
 def _extension_for_upload(upload: UploadFile) -> str:

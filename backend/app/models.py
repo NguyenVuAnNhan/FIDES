@@ -97,7 +97,7 @@ class ShieldAnalyzeResponse(BaseModel):
 
 class ShieldChallengeRequest(BaseModel):
     transaction: ShieldAnalyzeRequest
-    ekyc_image_ref: str = "mock_payload/ekyc_img_1"
+    ekyc_image_ref: str
     ekyc_document_ref: str | None = None
     stt_audio_ref: str = "mock_payload/stt_audio_1"
     voice_reference_ref: str | None = "mock_payload/customer_voice_samples/voice_ref_1"

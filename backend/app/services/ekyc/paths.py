@@ -1,7 +1,7 @@
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
-EKYC_UPLOAD_DIR = PROJECT_ROOT / "mock_payload" / "uploads" / "ekyc"
+EKYC_UPLOAD_DIR = PROJECT_ROOT / "uploads" / "ekyc"
 ALLOWED_EKYC_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 
 

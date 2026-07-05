@@ -15,10 +15,10 @@ The guiding rule for the 5-day build: mock service outputs and database state as
 | `scripts/generate_synthetic_dataset.py` | Seeded madlib generator for Shield and Grow records. |
 | `frontend/static/fixtures/receipts/` | Fake receipt PNGs for Grow OCR demos. |
 | `scripts/generate_receipt_fixtures.py` | Receipt fixture generator. |
-| `mock_payload/` | Fake Shield challenge payload assets for eKYC image and STT audio pass/fail demos. |
-| `mock_payload/customer_document_faces/` | Mock document/front-ID portrait sources for eKYC face compare. |
+| `mock_payload/` | Fake Shield STT audio pass/fail demo assets. |
+| `uploads/ekyc/` | Uploaded selfie and CCCD images for real VNPT eKYC. |
 | `mock_payload/customer_voice_samples/` | Mock enrolled customer voice samples for SmartVoice voice verification. |
-| `backend/app/data/vnpt_mocks/` | VNPT-shaped mock eKYC and SmartVoice JSON responses used by the Shield challenge adapters when `VNPT_PROVIDER_MODE=mock`. |
+| `backend/app/data/vnpt_mocks/smartvoice/` | VNPT-shaped mock SmartVoice JSON responses when SmartVoice is in mock mode. |
 | `docs/graph_database_schema.md` | Future graph database design. |
 | `sdks/web/` | Web SDK scaffold for in-page telemetry and Shield/Grow calls. |
 | `sdks/mobile/` | Android/iOS SDK scaffold for host-app telemetry and Shield/Grow calls. |
@@ -243,7 +243,6 @@ MVP:
 -   Optional future mock file paths:
     -   `backend/app/data/vnpt_mocks/smartreader/`
     -   `backend/app/data/vnpt_mocks/smartvoice/`
-    -   `backend/app/data/vnpt_mocks/ekyc/`
 
 Later:
 
