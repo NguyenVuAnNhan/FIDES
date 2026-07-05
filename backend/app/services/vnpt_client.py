@@ -311,15 +311,11 @@ class VnptClient:
         client_session: str,
     ) -> dict[str, Any]:
         if not document_ref:
-            return {
-                "message": "Skipped face compare because no document image was provided",
-                "object": {
-                    "result": "MATCH",
-                    "msg": "SKIPPED_NO_DOCUMENT",
-                    "prob": 1.0,
-                },
-                "provider_mode": self.ekyc_mode,
-            }
+            return self._error_response(
+                "CCCD document image is required for face compare",
+                {"face_ref": face_ref, "session_id": client_session},
+                provider_mode=self.ekyc_mode,
+            )
 
         document_hash, document_error = self._resolve_image_hash(document_ref, title="document")
         if document_error:

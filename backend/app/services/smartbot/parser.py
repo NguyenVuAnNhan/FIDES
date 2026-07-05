@@ -38,6 +38,9 @@ class SmartbotClassification:
     reply_text: str
     intent_name: str | None
     parse_source: str
+    intervention_message: str | None = None
+    recommended_action: str | None = None
+    risk_level: str | None = None
 
 
 def parse_smartbot_response(response: dict[str, Any], transcript: str) -> SmartbotClassification:
@@ -64,6 +67,9 @@ def parse_smartbot_response(response: dict[str, Any], transcript: str) -> Smartb
             reply_text=reply_text,
             intent_name=intent_name,
             parse_source="json",
+            intervention_message=_normalize_text_field(structured.get("intervention_message")),
+            recommended_action=_normalize_text_field(structured.get("recommended_action")),
+            risk_level=_normalize_text_field(structured.get("risk_level")),
         )
 
     mapped = _map_intent_name(intent_name)
@@ -216,6 +222,13 @@ def _normalize_patterns(value: object) -> list[str]:
     if isinstance(value, str) and value.strip():
         return [part.strip() for part in value.split(",") if part.strip()]
     return []
+
+
+def _normalize_text_field(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _normalize_confidence(value: object) -> float | None:

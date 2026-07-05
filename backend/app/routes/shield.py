@@ -40,11 +40,11 @@ _ALLOWED_AUDIO_TYPES = {
 
 class ShieldEkycUploadResponse(BaseModel):
     ekyc_image_ref: str
-    ekyc_document_ref: str | None = None
+    ekyc_document_ref: str
     selfie_filename: str
-    document_filename: str | None = None
+    document_filename: str
     selfie_size_bytes: int = Field(ge=0)
-    document_size_bytes: int | None = Field(default=None, ge=0)
+    document_size_bytes: int = Field(ge=0)
 
 
 class ShieldAudioUploadResponse(BaseModel):
@@ -55,7 +55,7 @@ class ShieldAudioUploadResponse(BaseModel):
 
 class ShieldLiveCheckUploadResponse(BaseModel):
     ekyc_image_ref: str
-    ekyc_document_ref: str | None = None
+    ekyc_document_ref: str
     stt_audio_ref: str
     challenge_video_ref: str
     challenge_frame_refs: list[str] = Field(default_factory=list)
@@ -78,14 +78,10 @@ def challenge(request: ShieldChallengeRequest) -> ShieldAnalyzeResponse:
 @router.post("/challenge/upload-ekyc", response_model=ShieldEkycUploadResponse)
 async def upload_ekyc_challenge(
     selfie: UploadFile = File(...),
-    document: UploadFile | None = File(default=None),
+    document: UploadFile = File(...),
 ) -> ShieldEkycUploadResponse:
     selfie_ref, selfie_name, selfie_size = await _save_ekyc_upload(selfie, "selfie")
-    document_ref = None
-    document_name = None
-    document_size = None
-    if document is not None and document.filename:
-        document_ref, document_name, document_size = await _save_ekyc_upload(document, "document")
+    document_ref, document_name, document_size = await _save_ekyc_upload(document, "document")
 
     return ShieldEkycUploadResponse(
         ekyc_image_ref=selfie_ref,
@@ -108,8 +104,8 @@ _ALLOWED_VIDEO_TYPES = {
 @router.post("/challenge/upload-live-check", response_model=ShieldLiveCheckUploadResponse)
 async def upload_live_check(
     challenge_video: UploadFile = File(...),
+    document: UploadFile = File(...),
     challenge_audio: UploadFile | None = File(default=None),
-    document: UploadFile | None = File(default=None),
     frame_0: UploadFile | None = File(default=None),
     frame_1: UploadFile | None = File(default=None),
     frame_2: UploadFile | None = File(default=None),
@@ -119,9 +115,7 @@ async def upload_live_check(
     """Upload a live camera challenge clip plus sampled JPEG frames for eKYC + SmartVision."""
     video_ref, video_name, video_size = await _save_video_upload(challenge_video, "live-check")
 
-    document_ref = None
-    if document is not None and document.filename:
-        document_ref, _, _ = await _save_ekyc_upload(document, "document")
+    document_ref, _, _ = await _save_ekyc_upload(document, "document")
 
     uploaded_frames: list[tuple[str, str]] = []
     for index, frame_upload in enumerate([frame_0, frame_1, frame_2, frame_3, frame_4]):

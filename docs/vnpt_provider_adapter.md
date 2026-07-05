@@ -75,8 +75,10 @@ The server stores video under `uploads/shield/`, extracts an audio-only WEBM (or
 
 ### Legacy fallback
 
-- `POST /api/shield/challenge/upload-ekyc` — selfie (+ optional CCCD)
+- `POST /api/shield/challenge/upload-ekyc` — selfie + **required** CCCD portrait
 - `POST /api/shield/challenge/upload-audio` — challenge voice clip (WAV/MP3/WEBM)
+
+Live check uploads require a CCCD portrait for VNPT `/ai/v1/face/compare` (no skip-to-MATCH path).
 
 ## Smoke tests
 

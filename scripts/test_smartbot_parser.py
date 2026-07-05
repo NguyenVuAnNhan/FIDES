@@ -138,6 +138,31 @@ class SmartbotParserTests(unittest.TestCase):
         self.assertIsNone(result.llm_scam_type)
         self.assertEqual(result.parse_source, "json")
 
+    def test_parse_intervention_fields(self) -> None:
+        response = {
+            "object": {
+                "sb": {
+                    "card_data": [
+                        {
+                            "text": (
+                                '{"safe": false, "scam_type": "suspected_scam", '
+                                '"detected_patterns": ["fake_authority"], "confidence": 0.95, '
+                                '"risk_level": "high", '
+                                '"intervention_message": "Giao dich co dau hieu lua dao.", '
+                                '"recommended_action": "trigger_circuit_breaker"}'
+                            ),
+                            "type": "text",
+                        }
+                    ],
+                    "intent_name": "fake_authority",
+                }
+            }
+        }
+        result = parse_smartbot_response(response, "cong an dieu tra")
+        self.assertEqual(result.intervention_message, "Giao dich co dau hieu lua dao.")
+        self.assertEqual(result.recommended_action, "trigger_circuit_breaker")
+        self.assertEqual(result.risk_level, "high")
+
 
 if __name__ == "__main__":
     unittest.main()

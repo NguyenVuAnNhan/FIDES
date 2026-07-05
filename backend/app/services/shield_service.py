@@ -32,6 +32,50 @@ OUTER_BREAKER_THRESHOLD = 45
 INVASIVE_FAIL_THRESHOLD = 25
 TRANSACTION_HOLD_HOURS = 24
 
+SMARTBOT_RECOMMENDED_ACTION_MAP = {
+    "trigger_circuit_breaker": "withhold_24h_notify_trusted_authority",
+    "withhold_24h_notify_trusted_authority": "withhold_24h_notify_trusted_authority",
+    "require_camera_voice_check": "require_camera_voice_check",
+    "allow_after_challenge": "allow_after_challenge",
+    "allow_with_notice": "allow_with_notice",
+}
+
+
+def apply_smartbot_response_overlay(
+    request: ShieldAnalyzeRequest,
+    response: ShieldAnalyzeResponse,
+) -> ShieldAnalyzeResponse:
+    """Prefer Smartbot intervention copy and recommended action after Path B challenge."""
+    message = (request.smartbot_intervention_message or "").strip()
+    bot_action = (request.smartbot_recommended_action or "").strip().lower()
+    bot_risk = (request.smartbot_risk_level or "").strip().lower()
+    scam_detected = bool(request.llm_scam_type or request.detected_patterns)
+
+    updates: dict[str, object] = {}
+    if message:
+        updates["intervention_message"] = message
+
+    mapped_action = SMARTBOT_RECOMMENDED_ACTION_MAP.get(bot_action)
+    if mapped_action == "withhold_24h_notify_trusted_authority":
+        if scam_detected or (response.stage_two_score or 0) >= INVASIVE_FAIL_THRESHOLD:
+            updates["action"] = mapped_action
+            updates["trusted_authority_notification"] = True
+            updates["trusted_authority_message"] = _build_trusted_authority_message(request.recipient_name)
+            updates["transaction_hold_hours"] = TRANSACTION_HOLD_HOURS
+            updates["circuit_breaker_stage"] = "withhold_and_notify"
+            updates["risk_level"] = "critical"
+    elif mapped_action:
+        updates["action"] = mapped_action
+
+    if bot_risk == "high":
+        updates["risk_level"] = "critical"
+    elif bot_risk in {"low", "elevated", "critical"}:
+        updates["risk_level"] = bot_risk
+
+    if not updates:
+        return response
+    return response.model_copy(update=updates)
+
 
 def is_transfer_monitoring_path(request: ShieldAnalyzeRequest) -> bool:
     """Path B: no call-listening consent; monitor during transfer with in-app checks."""

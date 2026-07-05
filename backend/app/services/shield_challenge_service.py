@@ -6,7 +6,12 @@ from typing import Any
 
 from backend.app.config import get_settings
 from backend.app.models import Explanation, ShieldAnalyzeResponse, ShieldChallengeRequest
-from backend.app.services.shield_service import analyze_shield_risk, detected_patterns_for_challenge, match_transcript_pattern
+from backend.app.services.shield_service import (
+    analyze_shield_risk,
+    apply_smartbot_response_overlay,
+    detected_patterns_for_challenge,
+    match_transcript_pattern,
+)
 from backend.app.services.smartbot.parser import parse_smartbot_response
 from backend.app.services.smartvision.parser import (
     SmartvisionFaceEmotion,
@@ -31,6 +36,7 @@ def run_transfer_monitoring_challenge(challenge: ShieldChallengeRequest) -> Shie
     )
     challenged_request = challenge.transaction.model_copy(update=provider_fields)
     response = analyze_shield_risk(challenged_request)
+    response = apply_smartbot_response_overlay(challenged_request, response)
 
     return response.model_copy(
         update={
@@ -63,6 +69,16 @@ def _run_challenge_apis(
         smartbot_fields.get("llm_scam_type") if isinstance(smartbot_fields.get("llm_scam_type"), str) else None,
         smartvision_fields.get("face_emotion_score"),
         smartvision_fields.get("face_emotion_labels"),
+        stt_confidence=(
+            float(smartvoice_fields["stt_confidence"])
+            if isinstance(smartvoice_fields.get("stt_confidence"), (int, float))
+            else None
+        ),
+        llm_confidence=(
+            float(smartbot_fields["llm_confidence"])
+            if isinstance(smartbot_fields.get("llm_confidence"), (int, float))
+            else None
+        ),
     )
 
     fields = {
@@ -194,17 +210,91 @@ def _truthy_provider_bool(value: object) -> bool:
     return False
 
 
-def _derive_injection_risk(face_is_live: bool, mask_detected: bool, face_match_score: float) -> float:
+LIVE_LIVENESS_MSG_HINTS = ("người thật", "nguoi that", "real person", "live face", "live")
+SPOOF_LIVENESS_MSG_HINTS = ("giả", "gia", "fake", "spoof", "không phải", "khong phai")
+
+
+def _parse_liveness_passed(liveness_object: dict[str, Any], liveness_failed: bool) -> bool:
+    if liveness_failed:
+        return False
+    if _truthy_provider_bool(liveness_object.get("liveness")):
+        return True
+    message = str(liveness_object.get("liveness_msg") or "").strip().lower()
+    if message:
+        if any(hint in message for hint in SPOOF_LIVENESS_MSG_HINTS):
+            return False
+        if any(hint in message for hint in LIVE_LIVENESS_MSG_HINTS):
+            return True
+    return False
+
+
+def _compare_skipped(compare_response: dict[str, Any]) -> bool:
+    compare_object = _object(compare_response)
+    compare_msg = str(compare_object.get("msg") or "").upper()
+    if compare_msg == "SKIPPED_NO_DOCUMENT":
+        return True
+    message = str(compare_response.get("message") or "").lower()
+    return "no document" in message or "cccd" in message and "required" in message
+
+
+def _injection_risk_from_liveness(
+    liveness_object: dict[str, Any],
+    *,
+    liveness_failed: bool,
+    face_is_live: bool,
+    mask_detected: bool,
+    face_match_score: float | None,
+    compare_failed: bool,
+    compare_skipped: bool,
+) -> float:
+    if liveness_failed:
+        return 0.77
+
     risk = 0.04
+    if _truthy_provider_bool(liveness_object.get("fake_liveness")):
+        risk = max(risk, 0.88)
+    if _truthy_provider_bool(liveness_object.get("face_swapping")):
+        risk = max(risk, 0.82)
     if not face_is_live:
-        risk += 0.55
+        risk = max(risk, 0.72)
     if mask_detected:
-        risk += 0.18
-    if face_match_score < 0.5:
-        risk += 0.18
-    elif face_match_score < 0.75:
-        risk += 0.08
+        risk = max(risk, 0.45)
+    if not compare_skipped and not compare_failed and face_match_score is not None:
+        if face_match_score < 0.5:
+            risk = max(risk, 0.55)
+        elif face_match_score < 0.75:
+            risk = max(risk, 0.28)
     return round(min(risk, 0.95), 2)
+
+
+def _ekyc_missing_document_response(
+    image_ref: str,
+) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
+    message = "CCCD document image is required for VNPT face compare."
+    failed = {
+        "message": message,
+        "object": {"msg": "MISSING_DOCUMENT", "result": "NOMATCH", "prob": 0.0},
+        "status": "error",
+        "provider_mode": "real",
+    }
+    detail = f"VNPT eKYC API skipped for {image_ref}. {message}"
+    fields = {
+        "ekyc_verification_status": "failed",
+        "ekyc_liveness_passed": False,
+        "ekyc_liveness_score": None,
+        "ekyc_mask_detected": False,
+        "ekyc_face_match_score": 0.0,
+        "ekyc_injection_risk_score": 0.77,
+    }
+    return (
+        fields,
+        Explanation(label="VNPT eKYC API", detail=detail, weight=0),
+        {
+            "face_liveness": failed,
+            "face_mask": failed,
+            "face_compare": failed,
+        },
+    )
 
 
 def _ekyc_unconfigured_response(image_ref: str) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
@@ -298,6 +388,9 @@ def _smartbot_unconfigured_response(
             "detected_patterns": [],
             "llm_scam_type": None,
             "llm_confidence": None,
+            "smartbot_intervention_message": None,
+            "smartbot_recommended_action": None,
+            "smartbot_risk_level": None,
         },
         Explanation(label="VNPT Smartbot API", detail=detail, weight=0),
         failed,
@@ -308,6 +401,8 @@ def _ekyc_api(
     challenge: ShieldChallengeRequest,
     vnpt_client: VnptClient,
 ) -> tuple[dict[str, object], Explanation, dict[str, dict[str, Any]]]:
+    if not str(challenge.ekyc_document_ref or "").strip():
+        return _ekyc_missing_document_response(challenge.ekyc_image_ref)
     if not vnpt_client.ekyc_enabled:
         return _ekyc_unconfigured_response(challenge.ekyc_image_ref)
 
@@ -328,34 +423,51 @@ def _ekyc_api(
     liveness_failed = _vnpt_call_failed(liveness_response)
     mask_failed = _vnpt_call_failed(mask_response)
     compare_failed = _vnpt_call_failed(compare_response)
+    compare_skipped = _compare_skipped(compare_response)
 
-    face_is_live = False if liveness_failed else _truthy_provider_bool(liveness_object.get("liveness"))
+    face_is_live = _parse_liveness_passed(liveness_object, liveness_failed)
     mask_detected = False if mask_failed else _truthy_provider_bool(mask_object.get("masked"))
-    face_match_score = 0.0 if compare_failed else _provider_score(compare_object.get("prob"), default=0.5)
+    face_match_score: float | None = None
+    if not compare_skipped and not compare_failed:
+        face_match_score = _provider_score(compare_object.get("prob"), default=0.5)
     face_match_result = str(compare_object.get("result", "")).upper()
     verification_status = "failed"
-    if liveness_failed or mask_failed or compare_failed:
+    if liveness_failed or mask_failed or compare_failed or compare_skipped:
         verification_status = "failed"
-    elif not face_is_live or mask_detected or face_match_result == "NOMATCH" or face_match_score < 0.5:
+    elif not face_is_live or mask_detected or face_match_result == "NOMATCH":
         verification_status = "failed"
-    elif face_match_score < 0.75:
+    elif face_match_score is not None and face_match_score < 0.5:
+        verification_status = "failed"
+    elif face_match_score is not None and face_match_score < 0.75:
         verification_status = "review"
     else:
         verification_status = "passed"
 
-    injection_risk = _derive_injection_risk(face_is_live, mask_detected, face_match_score)
+    injection_risk = _injection_risk_from_liveness(
+        liveness_object,
+        liveness_failed=liveness_failed,
+        face_is_live=face_is_live,
+        mask_detected=mask_detected,
+        face_match_score=face_match_score,
+        compare_failed=compare_failed,
+        compare_skipped=compare_skipped,
+    )
     provider_notes = []
     if liveness_failed:
         provider_notes.append(f"liveness: {_vnpt_error_detail(liveness_response)}")
     if mask_failed:
         provider_notes.append(f"mask: {_vnpt_error_detail(mask_response)}")
-    if compare_failed:
+    if compare_skipped:
+        provider_notes.append("compare: CCCD document image is required")
+    elif compare_failed:
         provider_notes.append(f"compare: {_vnpt_error_detail(compare_response)}")
     note_suffix = f" Provider notes: {' | '.join(provider_notes)}." if provider_notes else ""
     detail = (
         f"{provider_label} {source_detail} for {challenge.ekyc_image_ref}. "
         f"Status={verification_status}, liveness={liveness_object.get('liveness_msg')}, "
-        f"compare={compare_object.get('msg')}.{note_suffix}"
+        f"fake_liveness={liveness_object.get('fake_liveness')}, "
+        f"face_swapping={liveness_object.get('face_swapping')}, "
+        f"compare={compare_object.get('msg')}, prob={face_match_score}.{note_suffix}"
     )
 
     fields = {
@@ -506,6 +618,9 @@ def _smartbot_api(
             "detected_patterns": classification.detected_patterns,
             "llm_scam_type": classification.llm_scam_type,
             "llm_confidence": classification.llm_confidence,
+            "smartbot_intervention_message": classification.intervention_message,
+            "smartbot_recommended_action": classification.recommended_action,
+            "smartbot_risk_level": classification.risk_level,
         },
         Explanation(label=provider_label, detail=detail, weight=0),
         response,
@@ -594,12 +709,20 @@ def _coercion_api(
     llm_scam_type: str | None = None,
     face_emotion_score: object = None,
     face_emotion_labels: object = None,
+    stt_confidence: float | None = None,
+    llm_confidence: float | None = None,
 ) -> tuple[dict[str, object], Explanation, dict[str, object]]:
     settings = get_settings()
     voice_result = analyze_voice_stress(stt_audio_ref, settings)
 
     stt_failed = not _stt_passed(stt_transcript)
-    scripted_score, scripted_labels = _scripted_behavior(stt_transcript, stt_failed, llm_scam_type)
+    scripted_score, scripted_labels = _scripted_behavior(
+        stt_transcript,
+        stt_failed,
+        llm_scam_type,
+        stt_confidence=stt_confidence,
+        llm_confidence=llm_confidence,
+    )
     face_score = float(face_emotion_score) if isinstance(face_emotion_score, (int, float)) else 0.0
     face_labels = (
         [str(item) for item in face_emotion_labels if str(item).strip()]
@@ -618,7 +741,12 @@ def _coercion_api(
         + scripted_weight * scripted_score,
         3,
     )
-    coercion_confidence = round(0.82 if voice_result.model_used else 0.68, 3)
+    coercion_confidence = _coercion_confidence(
+        voice_result,
+        stt_confidence=stt_confidence,
+        llm_confidence=llm_confidence,
+        stt_transcript=stt_transcript,
+    )
 
     face_detail = (
         f"face={face_score:.2f}"
@@ -673,15 +801,52 @@ def _coercion_api(
     )
 
 
+def _coercion_confidence(
+    voice_result: object,
+    *,
+    stt_confidence: float | None,
+    llm_confidence: float | None,
+    stt_transcript: str,
+) -> float:
+    parts: list[float] = []
+    model_used = bool(getattr(voice_result, "model_used", False))
+    parts.append(0.82 if model_used else 0.68)
+    if stt_confidence is not None and stt_confidence > 0:
+        parts.append(_bounded_float(stt_confidence, 0.5))
+    if llm_confidence is not None and llm_confidence > 0:
+        parts.append(_bounded_float(llm_confidence, 0.5))
+    prosody = getattr(voice_result, "prosody", None)
+    if prosody is not None:
+        prosody_score = getattr(prosody, "prosody_stress_score", None)
+        if isinstance(prosody_score, (int, float)) and prosody_score > 0:
+            parts.append(_bounded_float(prosody_score, 0.5))
+    if not stt_transcript.strip():
+        parts.append(0.35)
+    return round(sum(parts) / len(parts), 3)
+
+
 def _scripted_behavior(
     stt_transcript: str,
     stt_failed: bool,
     llm_scam_type: str | None = None,
+    *,
+    stt_confidence: float | None = None,
+    llm_confidence: float | None = None,
 ) -> tuple[float, list[str]]:
+    transcript = stt_transcript.strip()
+    keyword_match = match_transcript_pattern(transcript.lower()) if transcript else None
+
+    if llm_scam_type and keyword_match:
+        score = min(0.85, 0.62 + _bounded_float(llm_confidence or 0.75, 0.75) * 0.25)
+        return round(score, 3), ["repeats_caller_phrasing", "monotone_reading"]
     if llm_scam_type:
-        return 0.81, ["monotone_reading", "repeats_caller_phrasing"]
-    if stt_failed:
-        return 0.81, ["monotone_reading", "repeats_caller_phrasing"]
-    if match_transcript_pattern(stt_transcript.lower()):
-        return 0.74, ["repeats_caller_phrasing"]
+        return 0.62, ["repeats_caller_phrasing"]
+    if keyword_match:
+        return 0.68, ["repeats_caller_phrasing"]
+    if stt_failed or not transcript:
+        return 0.15, ["insufficient_speech"]
+    if stt_confidence is not None and stt_confidence < 0.45:
+        return 0.22, ["low_stt_confidence"]
+    if len(transcript) < 12:
+        return 0.28, ["short_response"]
     return 0.12, ["free_response"]

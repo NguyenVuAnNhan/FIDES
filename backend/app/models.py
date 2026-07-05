@@ -69,6 +69,9 @@ class ShieldAnalyzeRequest(BaseModel):
     coercion_score: float | None = Field(default=None, ge=0, le=1)
     coercion_confidence: float | None = Field(default=None, ge=0, le=1)
     transcript: str = ""
+    smartbot_intervention_message: str | None = None
+    smartbot_recommended_action: str | None = None
+    smartbot_risk_level: str | None = None
 
 
 class ShieldAnalyzeResponse(BaseModel):
@@ -98,7 +101,7 @@ class ShieldAnalyzeResponse(BaseModel):
 class ShieldChallengeRequest(BaseModel):
     transaction: ShieldAnalyzeRequest
     ekyc_image_ref: str
-    ekyc_document_ref: str | None = None
+    ekyc_document_ref: str
     stt_audio_ref: str
     challenge_video_ref: str | None = None
     challenge_frame_refs: list[str] = Field(default_factory=list)
