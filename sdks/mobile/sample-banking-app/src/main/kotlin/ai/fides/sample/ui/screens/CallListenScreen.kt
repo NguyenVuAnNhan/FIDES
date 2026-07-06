@@ -319,11 +319,13 @@ private fun riskLabel(level: String): String =
         else -> "An toàn"
     }
 
-private fun patternLabel(pattern: String): String =
-    when (pattern) {
-        "fake_authority" -> "Giả danh cơ quan"
-        "otp_theft" -> "Lấy cắp OTP"
-        "investment" -> "Dụ đầu tư"
-        "remote_support" -> "Điều khiển từ xa"
-        else -> pattern
+private fun patternLabel(pattern: String): String {
+    val code = pattern.lowercase()
+    return when {
+        Regex("otp|password|mat.?khau|ma.?xac.?thuc|pin").containsMatchIn(code) -> "Lấy cắp OTP/mật khẩu"
+        Regex("remote|screen|man.?hinh|dieu.?khien|teamviewer|anydesk|ultraview").containsMatchIn(code) -> "Điều khiển màn hình từ xa"
+        Regex("invest|loi.?nhuan|dau.?tu").containsMatchIn(code) -> "Dụ đầu tư lợi nhuận cao"
+        Regex("authority|cong.?an|police|vien.?kiem.?sat|co.?quan|toa.?an").containsMatchIn(code) -> "Giả danh cơ quan chức năng"
+        else -> pattern.replace('_', ' ')
     }
+}

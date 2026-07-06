@@ -31,6 +31,26 @@ RISK_LEVEL_LABELS = {
     "low": "An toàn",
 }
 
+# Map free-form Smartbot pattern/intent codes to our canonical scam_type via keyword match,
+# so the displayed label stays consistent with what Smartbot actually detected.
+_PATTERN_KEYWORDS: list[tuple[tuple[str, ...], str]] = [
+    (("otp", "password", "mat_khau", "mat khau", "ma_xac_thuc", "ma xac thuc", "pin"), "otp_theft"),
+    (("remote", "screen", "man_hinh", "man hinh", "dieu_khien", "dieu khien",
+      "teamviewer", "anydesk", "ultraview"), "remote_support"),
+    (("invest", "loi_nhuan", "loi nhuan", "dau_tu", "dau tu"), "investment"),
+    (("authority", "cong_an", "cong an", "police", "vien_kiem_sat", "vien kiem sat",
+      "co_quan", "co quan", "toa_an", "toa an"), "fake_authority"),
+]
+
+
+def _scam_type_from_patterns(patterns: list[str]) -> str | None:
+    for pattern in patterns:
+        normalized = str(pattern).strip().lower()
+        for keywords, scam_type in _PATTERN_KEYWORDS:
+            if any(keyword in normalized for keyword in keywords):
+                return scam_type
+    return None
+
 
 def analyze_call_audio(
     audio_ref: str,
@@ -80,6 +100,12 @@ def analyze_call_audio(
     scam_type = smartbot_fields.get("llm_scam_type")
     scam_type = str(scam_type) if scam_type else None
     detected_patterns = list(smartbot_fields.get("detected_patterns") or [])
+
+    # Keep the headline scam_type consistent with the concrete patterns Smartbot returned.
+    # (e.g. Smartbot flags `otp_or_password_request` but resolves scam_type to a generic value.)
+    pattern_scam_type = _scam_type_from_patterns(detected_patterns)
+    if pattern_scam_type and pattern_scam_type != scam_type:
+        scam_type = pattern_scam_type
     raw_llm_conf = smartbot_fields.get("llm_confidence")
     confidence = float(raw_llm_conf) if isinstance(raw_llm_conf, (int, float)) else None
 
