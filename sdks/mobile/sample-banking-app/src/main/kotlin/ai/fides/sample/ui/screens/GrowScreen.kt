@@ -1,6 +1,7 @@
 package ai.fides.sample.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -235,6 +240,7 @@ private fun GrowResultPanel(response: GrowProcessResponse) {
 
     if (analysis.explanations.isNotEmpty()) {
         Spacer(modifier = Modifier.height(12.dp))
+        var showTechnical by remember { mutableStateOf(false) }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -242,14 +248,60 @@ private fun GrowResultPanel(response: GrowProcessResponse) {
                 .background(Color.White)
                 .padding(16.dp),
         ) {
-            Text("Giải thích", fontWeight = FontWeight.SemiBold)
+            Text("Grow đã làm gì với hóa đơn này", fontWeight = FontWeight.SemiBold)
             analysis.explanations.take(4).forEach { explanation ->
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(explanation.label, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodySmall)
-                Text(explanation.detail, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
-                HorizontalDivider(modifier = Modifier.padding(top = 8.dp), color = Color(0xFFF3F4F6))
+                val friendly = friendlyExplanation(explanation, response)
+                Spacer(modifier = Modifier.height(10.dp))
+                Row {
+                    Text("•  ", color = FidesTeal, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                    Text(friendly, color = Color.DarkGray, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(color = Color(0xFFF3F4F6))
+            Text(
+                if (showTechnical) "Ẩn chi tiết kỹ thuật ▲" else "Chi tiết kỹ thuật ▾",
+                color = FidesTeal,
+                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showTechnical = !showTechnical }
+                    .padding(vertical = 10.dp),
+            )
+            if (showTechnical) {
+                analysis.explanations.forEach { explanation ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(explanation.label, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.bodySmall)
+                    Text(explanation.detail, color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    HorizontalDivider(modifier = Modifier.padding(top = 8.dp), color = Color(0xFFF3F4F6))
+                }
             }
         }
+    }
+}
+
+private fun friendlyExplanation(
+    explanation: ai.fides.sdk.GrowExplanation,
+    response: GrowProcessResponse,
+): String {
+    val label = explanation.label.lowercase(Locale.getDefault())
+    return when {
+        label.contains("minimal input") || label.contains("captured") ->
+            "Bạn chỉ cần gửi 1 ảnh hóa đơn — không phải nhập tay số liệu nào."
+        label.contains("smartreader") || label.contains("extraction") || label.contains("ocr") -> {
+            val conf = response.ocrConfidence?.let { " (độ chính xác ${(it * 100).toInt()}%)" } ?: ""
+            "Grow tự đọc tên người bán, mã và số tiền trên hóa đơn$conf."
+        }
+        label.contains("ledger") || label.contains("normalized") -> {
+            val amount = response.invoiceTotal.takeIf { it > 0 }?.let { formatVnd(it) }
+            if (amount != null) "Số tiền $amount được ghi nhận là doanh thu bán hàng."
+            else "Số tiền trên hóa đơn được ghi nhận là doanh thu bán hàng."
+        }
+        label.contains("trust graph") || label.contains("neo4j") || label.contains("graph") ->
+            "Grow đối chiếu mạng lưới khách hàng quen để đánh giá độ tin cậy — càng nhiều khách quay lại, điểm càng cao."
+        else -> explanation.detail
     }
 }
 

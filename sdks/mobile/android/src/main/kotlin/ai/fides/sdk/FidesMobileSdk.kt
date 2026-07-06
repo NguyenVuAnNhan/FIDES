@@ -166,6 +166,32 @@ class FidesMobileSdk(
         }
     }
 
+    /**
+     * Path A: upload a captured call-audio clip and classify it for scam signals
+     * (SmartVoice STT + Smartbot NLP on the backend).
+     */
+    fun callListen(
+        audioBytes: ByteArray,
+        filename: String = "call-audio.wav",
+        contentType: String = "audio/wav",
+        completion: (FidesSdkResult<CallListenResult>) -> Unit,
+    ) {
+        transport.postMultipart(
+            baseUrl = config.baseUrl,
+            path = "/api/shield/call-listen",
+            parts = listOf(
+                MultipartPart(
+                    fieldName = "call_audio",
+                    filename = filename,
+                    contentType = contentType,
+                    bytes = audioBytes,
+                ),
+            ),
+        ) { result ->
+            completion(result.mapJson(CallListenJson::parseResult))
+        }
+    }
+
     fun analyzeGrow(
         payload: Map<String, Any?>,
         completion: (FidesSdkResult<String>) -> Unit,
@@ -202,7 +228,7 @@ class FidesMobileSdk(
 
     fun processGrowInvoice(
         inputSource: String,
-        businessId: String = "biz_demo",
+        businessId: String = "biz_an_nhien_coffee",
         completion: (FidesSdkResult<GrowProcessResponse>) -> Unit,
     ) {
         transport.postJson(
@@ -221,7 +247,7 @@ class FidesMobileSdk(
         imageBytes: ByteArray,
         filename: String,
         contentType: String = "image/jpeg",
-        businessId: String = "biz_demo",
+        businessId: String = "biz_an_nhien_coffee",
         completion: (FidesSdkResult<GrowProcessResponse>) -> Unit,
     ) {
         uploadGrowReceipt(imageBytes, filename, contentType) { uploadResult ->

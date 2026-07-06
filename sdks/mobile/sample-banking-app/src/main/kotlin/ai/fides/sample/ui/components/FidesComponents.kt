@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PieChart
@@ -44,6 +45,7 @@ fun FidesBottomNav(active: AppTab, onNavigate: (AppTab) -> Unit) {
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             NavItem("Trang chủ", Icons.Default.Home, active == AppTab.HOME) { onNavigate(AppTab.HOME) }
+            NavItem("Cuộc gọi", Icons.Default.Call, active == AppTab.CALL) { onNavigate(AppTab.CALL) }
             NavItem("Thống kê", Icons.Default.PieChart, active == AppTab.STATS) { onNavigate(AppTab.STATS) }
             NavItem("Khoản vay", Icons.Default.CreditCard, active == AppTab.LOAN) { onNavigate(AppTab.LOAN) }
         }

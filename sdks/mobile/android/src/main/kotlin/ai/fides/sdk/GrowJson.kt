@@ -42,7 +42,7 @@ object GrowJson {
 
     fun buildProcessInvoicePayload(
         inputSource: String,
-        businessId: String = "biz_demo",
+        businessId: String = "biz_an_nhien_coffee",
         businessName: String = "",
         customerName: String = "",
         invoiceId: String = "",

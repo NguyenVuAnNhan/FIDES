@@ -1,16 +1,18 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from backend.app.models import (
+    CallListenResponse,
     ShieldAnalyzeRequest,
     ShieldAnalyzeResponse,
     ShieldChallengeRequest,
     ShieldSessionHeartbeatRequest,
     ShieldSessionHeartbeatResponse,
 )
+from backend.app.services.call_listen_service import analyze_call_audio
 from backend.app.services.ekyc.paths import ALLOWED_EKYC_EXTENSIONS, ensure_ekyc_upload_dir
 from backend.app.services.shield.paths import ALLOWED_VIDEO_EXTENSIONS, ensure_shield_upload_dir
 from backend.app.services.shield.video import resolve_stt_audio_ref
@@ -162,6 +164,17 @@ async def upload_live_check(
         primary_selfie_filename=primary_name,
         frame_count=len(frame_refs),
     )
+
+
+@router.post("/call-listen", response_model=CallListenResponse)
+async def call_listen(
+    call_audio: UploadFile = File(...),
+    client_session: str = Form(default="call-listen-demo"),
+    transcript: str | None = Form(default=None),
+) -> CallListenResponse:
+    """Path A: analyze a call audio clip for scam signals via SmartVoice STT + Smartbot NLP."""
+    audio_ref, _, _ = await _save_audio_upload(call_audio, "call-listen")
+    return analyze_call_audio(audio_ref, client_session, transcript)
 
 
 @router.post("/challenge/upload-audio", response_model=ShieldAudioUploadResponse)

@@ -51,9 +51,15 @@ class ShieldTransferActivity : ComponentActivity() {
         if (uri != null) loadGrowReceipt(uri)
     }
 
+    private val callAudioPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) loadCallAudio(uri)
+    }
+
     private var growReceiptBytes: ByteArray? = null
     private var growReceiptContentType: String = "image/jpeg"
     private var growRequestGeneration = 0
+
+    private var callRequestGeneration = 0
 
     private var pendingAction: (() -> Unit)? = null
 
@@ -66,7 +72,9 @@ class ShieldTransferActivity : ComponentActivity() {
             FidesTheme {
                 FidesApp(
                     state = uiState,
-                    onNavigate = { tab -> uiState = uiState.copy(tab = tab, overlay = AppOverlay.NONE) },
+                    onNavigate = { tab ->
+                        uiState = uiState.copy(tab = tab, overlay = AppOverlay.NONE, errorMessage = null, loading = false)
+                    },
                     onCheckTransaction = { openTransfer() },
                     onConfirmTransfer = { confirmTransfer(it) },
                     onWarningBack = { resetShieldFlow() },
@@ -81,6 +89,9 @@ class ShieldTransferActivity : ComponentActivity() {
                     onPickCccd = { cccdPicker.launch("image/*") },
                     onStartLiveCheck = { startLiveCheck() },
                     onVerify = { verifyIdentity() },
+                    onPickCallAudio = { callAudioPicker.launch("audio/*") },
+                    onGuardianDecision = { approved -> onGuardianDecision(approved) },
+                    onResetCall = { resetCall() },
                     previewViewFactory = { previewView },
                 )
             }
@@ -342,6 +353,83 @@ class ShieldTransferActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun loadCallAudio(uri: Uri) {
+        try {
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            if (bytes == null || bytes.isEmpty()) {
+                uiState = uiState.copy(errorMessage = "File audio trống.")
+                return
+            }
+            val name = uri.lastPathSegment?.substringAfterLast('/') ?: "call-audio.wav"
+            val contentType = contentResolver.getType(uri) ?: guessAudioContentType(name)
+            uiState = uiState.copy(
+                callFilename = name,
+                callResult = null,
+                guardianDecision = GuardianDecision.PENDING,
+                errorMessage = null,
+            )
+            analyzeCallAudio(name, contentType, bytes)
+        } catch (error: Throwable) {
+            uiState = uiState.copy(errorMessage = error.message)
+        }
+    }
+
+    private fun analyzeCallAudio(filename: String, contentType: String, bytes: ByteArray) {
+        val generation = callRequestGeneration + 1
+        callRequestGeneration = generation
+        uiState = uiState.copy(
+            loading = true,
+            errorMessage = null,
+            callStatusMessage = "Đang chạy SmartVoice STT + SmartBot phân loại...",
+        )
+        app.sdk.callListen(bytes, filename = filename, contentType = contentType) { result ->
+            runOnUiThread {
+                if (generation != callRequestGeneration) return@runOnUiThread
+                when (result) {
+                    is FidesSdkResult.Failure -> {
+                        uiState = uiState.copy(loading = false, errorMessage = formatApiError(result.message), callStatusMessage = "Phân tích thất bại.")
+                    }
+                    is FidesSdkResult.Success -> {
+                        val res = result.value
+                        uiState = uiState.copy(
+                            loading = false,
+                            callResult = res,
+                            guardianDecision = GuardianDecision.PENDING,
+                            callStatusMessage = if (res.isScam) "Phát hiện dấu hiệu lừa đảo." else "Đã phân tích xong.",
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun guessAudioContentType(filename: String): String =
+        when (filename.substringAfterLast('.', "").lowercase()) {
+            "mp3" -> "audio/mpeg"
+            "m4a" -> "audio/mp4"
+            "aac" -> "audio/aac"
+            "ogg" -> "audio/ogg"
+            "webm" -> "audio/webm"
+            else -> "audio/wav"
+        }
+
+    private fun onGuardianDecision(approved: Boolean) {
+        uiState = uiState.copy(
+            guardianDecision = if (approved) GuardianDecision.APPROVED else GuardianDecision.REJECTED,
+        )
+    }
+
+    private fun resetCall() {
+        callRequestGeneration += 1
+        uiState = uiState.copy(
+            callFilename = null,
+            callResult = null,
+            guardianDecision = GuardianDecision.PENDING,
+            callStatusMessage = "",
+            errorMessage = null,
+        )
     }
 
     private fun loadCccd(uri: Uri) {
