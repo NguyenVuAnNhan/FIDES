@@ -43,11 +43,10 @@ ON MATCH SET
 MERGE (b)-[:SOLD {recorded_at: $now}]->(i)
 MERGE (c)-[:BOUGHT]->(i)
 WITH b, c, i
-OPTIONAL MATCH (b)-[existing:REPEAT_WITH]->(c)
-WITH b, c, i, existing,
-     coalesce(existing.tx_count, 0) + 1 AS next_tx_count
+MATCH (b)-[:SOLD]->(inv:Invoice)<-[:BOUGHT]-(c)
+WITH b, c, i, count(DISTINCT inv) AS tx_count
 MERGE (b)-[r:REPEAT_WITH]->(c)
-SET r.tx_count = next_tx_count,
+SET r.tx_count = tx_count,
     r.last_amount = $invoice_total,
     r.last_date = $issue_date
 """

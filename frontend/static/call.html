@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FIDES Call</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/styles.css?v=fides-ui-3" />
+  </head>
+  <body data-page="call">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">F</div>
+        <div class="brand-copy">
+          <p class="brand-name">FIDES Shield</p>
+          <p class="brand-tagline">Call monitoring</p>
+        </div>
+      </div>
+      <nav aria-label="Primary">
+        <a href="/shield" data-nav="shield">Shield</a>
+        <a href="/call" data-nav="call">Call</a>
+        <a href="/grow" data-nav="grow">Grow</a>
+      </nav>
+    </header>
+
+    <main class="workspace workspace-single">
+      <section class="panel panel-shield">
+        <div class="section-heading">
+          <p class="eyebrow">Defense</p>
+          <h2>Path A — call monitoring</h2>
+          <p class="stage-muted wide">
+            Tải lên đoạn ghi âm cuộc gọi nghi ngờ. FIDES dùng VNPT SmartVoice (STT) + SmartBot (NLP)
+            để phát hiện dấu hiệu lừa đảo, cảnh báo và kích hoạt xác nhận từ người giám hộ.
+          </p>
+        </div>
+
+        <ol class="wizard-steps" aria-label="Call flow">
+          <li class="wizard-step is-active" data-step="1">Nghe (STT)</li>
+          <li class="wizard-step" data-step="2">Phân loại (NLP)</li>
+          <li class="wizard-step" data-step="3">Cảnh báo giám hộ</li>
+        </ol>
+
+        <form id="call-form" class="grow-wizard" onsubmit="return false;">
+          <div class="wizard-panel is-active">
+            <h3 class="wizard-panel-title">Tải lên ghi âm cuộc gọi</h3>
+            <p class="wizard-panel-lead">
+              FIDES chạy <strong>SmartVoice</strong> để chuyển giọng nói thành văn bản, rồi
+              <strong>SmartBot</strong> phân loại kịch bản lừa đảo. Nếu có nguy cơ, hệ thống gửi cảnh báo
+              cho <strong>người giám hộ</strong> để xác nhận.
+            </p>
+            <div class="wizard-grid">
+              <label class="wide">
+                File ghi âm cuộc gọi (WAV / MP3 / M4A / OGG)
+                <input id="call-audio" type="file" accept="audio/*" />
+              </label>
+              <p class="wide stage-muted" id="call-upload-label">Chưa chọn file audio.</p>
+              <div class="wide wizard-inline-actions">
+                <button type="button" class="wizard-next" id="call-analyze">Phân tích cuộc gọi</button>
+              </div>
+            </div>
+          </div>
+
+          <p class="wizard-status" id="call-status" aria-live="polite"></p>
+          <div class="result empty" id="call-result">Chưa có kết quả — chọn file audio rồi bấm Phân tích.</div>
+          <div id="call-guardian"></div>
+        </form>
+      </section>
+    </main>
+
+    <script src="/static/shared.js?v=fides-ui-2"></script>
+    <script src="/static/call.js?v=call-4"></script>
+  </body>
+</html>

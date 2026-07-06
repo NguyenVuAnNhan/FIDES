@@ -140,6 +140,25 @@ class ShieldChallengeRequest(BaseModel):
     client_session: str = "shield-demo-session"
 
 
+class CallListenResponse(BaseModel):
+    """Path A: scam-call audio classification result (SmartVoice STT + Smartbot NLP)."""
+
+    stt_transcript: str = ""
+    stt_confidence: float | None = Field(default=None, ge=0, le=1)
+    is_scam: bool = False
+    scam_type: str | None = None
+    scam_type_label: str = "Không phát hiện dấu hiệu lừa đảo"
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    detected_patterns: list[str] = Field(default_factory=list)
+    risk_level: str = "low"
+    recommended_action: str = "no_action"
+    intervention_message: str = ""
+    guardian_alert: bool = False
+    guardian_message: str = ""
+    provider_mode: str = "real"
+    explanations: list[Explanation] = Field(default_factory=list)
+
+
 class InvoiceItem(BaseModel):
     description: str
     amount: int = Field(ge=0)

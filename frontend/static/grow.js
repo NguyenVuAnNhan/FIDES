@@ -190,7 +190,7 @@ function renderWizardResults(response) {
         <div class="metric-row">
           <span class="pill ${analysis.credit_band}">${formatValue(analysis.credit_band)}</span>
           <span class="pill">${formatValue(analysis.loan_readiness)}</span>
-          <span class="pill">Est. ${formatMoney(analysis.monthly_revenue_estimate)}/mo</span>
+          <span class="pill">Est. ${formatMoney(analysis.monthly_revenue_estimate)}/mo (demo · invoice×4)</span>
         </div>
         <p class="grow-summary">${escapeHtml(analysis.recommended_action)}</p>
       </div>

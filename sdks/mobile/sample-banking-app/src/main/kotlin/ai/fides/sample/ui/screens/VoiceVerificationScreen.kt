@@ -55,7 +55,7 @@ fun VoiceVerificationScreen(
     onVerify: () -> Unit,
     previewViewFactory: () -> PreviewView,
 ) {
-    val phrase = "Chuyển ${formatVnd(transaction.amount)} cho ${transaction.recipientName}"
+    val phrase = "VD: “Tôi chuyển ${formatVnd(transaction.amount)} cho ${transaction.recipientName} để thanh toán tiền hàng.”"
 
     Column(
         modifier = Modifier
@@ -86,12 +86,12 @@ fun VoiceVerificationScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            "Vui lòng xác nhận bằng cách nói rõ trong ~10 giây:",
+            "Hãy nêu rõ lý do chuyển tiền trong ~10 giây:",
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        Text("“$phrase”", color = FidesTeal, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Text(phrase, color = FidesTeal, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         if (liveCheckStatus.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(liveCheckStatus, color = Color.Gray, style = MaterialTheme.typography.bodySmall)

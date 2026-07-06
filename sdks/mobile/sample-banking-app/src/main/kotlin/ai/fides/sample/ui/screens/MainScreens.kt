@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -63,23 +64,39 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color.White)
             .verticalScroll(rememberScrollState())
+            .statusBarsPadding()
             .padding(horizontal = 20.dp),
     ) {
         Spacer(modifier = Modifier.height(12.dp))
         Text("Xin chào,", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
         Text("Jay Nguyễn!", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("FIDES – Bảo vệ tài chính của bạn.", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
 
+        Spacer(modifier = Modifier.height(24.dp))
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             ShieldIllustration()
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            "FIDES",
+            color = FidesTeal,
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+        Text(
+            "Bảo vệ tài chính của bạn",
+            color = Color.Gray,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
 
+        Spacer(modifier = Modifier.height(28.dp))
         FidesPrimaryButton(text = "Kiểm tra giao dịch", onClick = onCheckTransaction)
         Spacer(modifier = Modifier.height(20.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             HorizontalDivider(modifier = Modifier.weight(1f))
-            Text("  KẾT QUẢ  ", fontWeight = FontWeight.Bold, color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+            Text("  GIAO DỊCH GẦN ĐÂY (DEMO)  ", fontWeight = FontWeight.Bold, color = Color.Gray, style = MaterialTheme.typography.labelSmall)
             HorizontalDivider(modifier = Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -136,7 +153,7 @@ fun StatisticsScreen() {
             .padding(20.dp),
     ) {
         Text("Thống kê", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Bao gồm các giao dịch gần đây và chi tiết", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        Text("Số liệu minh hoạ (demo) — chưa nối dữ liệu thật", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(16.dp))
         Box(
             modifier = Modifier
@@ -285,6 +302,12 @@ fun LoanScreen(
                 color = FidesTeal,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Text(
+                "Lãi suất minh hoạ ${"%.1f".format(LOAN_INTEREST_RATE * 100)}%/tháng (demo)",
+                color = Color.Gray,
+                style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.align(Alignment.CenterHorizontally),
             )
             Spacer(modifier = Modifier.height(16.dp))

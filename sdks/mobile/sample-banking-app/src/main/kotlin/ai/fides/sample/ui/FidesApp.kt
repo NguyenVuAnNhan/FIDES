@@ -14,6 +14,7 @@ import ai.fides.sample.AppOverlay
 import ai.fides.sample.AppTab
 import ai.fides.sample.ShieldUiState
 import ai.fides.sample.ui.components.FidesBottomNav
+import ai.fides.sample.ui.screens.CallListenScreen
 import ai.fides.sample.ui.screens.GrowScreen
 import ai.fides.sample.ui.screens.HomeScreen
 import ai.fides.sample.ui.screens.LoanScreen
@@ -39,6 +40,9 @@ fun FidesApp(
     onPickCccd: () -> Unit,
     onStartLiveCheck: () -> Unit,
     onVerify: () -> Unit,
+    onPickCallAudio: () -> Unit,
+    onGuardianDecision: (Boolean) -> Unit,
+    onResetCall: () -> Unit,
     previewViewFactory: () -> PreviewView,
 ) {
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
@@ -46,6 +50,19 @@ fun FidesApp(
             when (state.tab) {
                 AppTab.HOME -> if (state.overlay == AppOverlay.NONE || state.overlay == AppOverlay.WARNING) {
                     HomeScreen(onCheckTransaction = onCheckTransaction)
+                }
+                AppTab.CALL -> if (state.overlay == AppOverlay.NONE) {
+                    CallListenScreen(
+                        filename = state.callFilename,
+                        statusMessage = state.callStatusMessage,
+                        loading = state.loading,
+                        errorMessage = state.errorMessage,
+                        result = state.callResult,
+                        guardianDecision = state.guardianDecision,
+                        onPickAudio = onPickCallAudio,
+                        onGuardianDecision = onGuardianDecision,
+                        onReset = onResetCall,
+                    )
                 }
                 AppTab.STATS -> StatisticsScreen()
                 AppTab.LOAN -> if (state.overlay == AppOverlay.NONE) {

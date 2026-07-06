@@ -42,6 +42,11 @@ def shield_page() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "shield.html")
 
 
+@app.get("/call", include_in_schema=False)
+def call_page() -> FileResponse:
+    return FileResponse(FRONTEND_DIR / "call.html")
+
+
 @app.get("/grow", include_in_schema=False)
 def grow_page() -> FileResponse:
     return FileResponse(FRONTEND_DIR / "grow.html")
